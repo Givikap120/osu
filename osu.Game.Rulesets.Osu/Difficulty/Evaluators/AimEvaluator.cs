@@ -52,16 +52,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
             double doubletapHitWindow = (osuLastObj.HitWindowGreat + osuLastLastObj.HitWindowGreat) / 2 - osuLastObj.StrainTime;
-            
+
             // Extra time to aim when doubletapping
-            double doubletapTime = 0;
+            double doubletapTime;
 
             if (doubletapHitWindow > 0)
             {
                 // Always equal or bigger than doubletapTime from `else`
                 doubletapTime = osuLastObj.StrainTime * overlapnessCurr * antiOverlapnessLast / 2;
             }
-            else 
+            else
             {
                 doubletapTime = osuLastObj.HitWindowGreat * overlapnessCurr * antiOverlapnessLast / 2;
 
@@ -73,9 +73,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 doubletapTime *= 1 - CosSigmoid(difference, min);
             }
 
-
-            osuCurrObj.AdjustedStrainTime = osuCurrObj.StrainTime;
-            if (nerfDoubletap) osuCurrObj.AdjustedStrainTime += doubletapTime;
+            osuCurrObj.AdjustedStrainTime = osuCurrObj.StrainTime + doubletapTime;
 
             // Calculate the velocity to the current hitobject, which starts with a base distance / time assuming the last object is a hitcircle.
             double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.AdjustedStrainTime;
