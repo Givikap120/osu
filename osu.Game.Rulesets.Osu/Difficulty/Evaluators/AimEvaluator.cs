@@ -15,6 +15,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private const double slider_multiplier = 1.35;
         private const double velocity_change_multiplier = 0.75;
 
+        private static double CosSigmoid(double value, double range = 1)
+        {
+            return (1 - Math.Cos(value * Math.PI / range)) / 2;
         }
 
         /// <summary>
