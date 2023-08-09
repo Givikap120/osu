@@ -15,7 +15,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private const double slider_multiplier = 1.35;
         private const double velocity_change_multiplier = 0.75;
 
-        private static double CosSigmoid(double value, double range = 1)
+        private static double cosSigmoid(double value, double range = 1)
         {
             return (1 - Math.Cos(value * Math.PI / range)) / 2;
         }
@@ -29,7 +29,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>and slider difficulty.</description></item>
         /// </list>
         /// </summary>
-        
         public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliders)
         {
             if (current.BaseObject is Spinner || current.Index <= 1 || current.Previous(0).BaseObject is Spinner)
@@ -43,11 +42,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Calculate how much things are overlapping. Low overlapping circles are very hard in being doubletappable
             double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
-            overlapnessCurr = CosSigmoid(overlapnessCurr);
+            overlapnessCurr = cosSigmoid(overlapnessCurr);
             overlapnessCurr *= overlapnessCurr;
 
             double antiOverlapnessLast = 1 - Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
-            antiOverlapnessLast = CosSigmoid(antiOverlapnessLast);
+            antiOverlapnessLast = cosSigmoid(antiOverlapnessLast);
             antiOverlapnessLast *= antiOverlapnessLast;
 
             // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
@@ -70,7 +69,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double min = Math.Min(osuCurrObj.DeltaTime, osuLastObj.DeltaTime);
                 difference = Math.Clamp(difference, -min, min);
 
-                doubletapTime *= 1 - CosSigmoid(difference, min);
+                doubletapTime *= 1 - cosSigmoid(difference, min);
             }
 
             osuCurrObj.AdjustedStrainTime = osuCurrObj.StrainTime + doubletapTime;
