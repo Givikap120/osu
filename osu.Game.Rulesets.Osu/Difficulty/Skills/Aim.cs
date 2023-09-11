@@ -37,5 +37,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             return currentStrain;
         }
+
+        public override double DifficultyValue()
+        {
+            double baseDifficulty = base.DifficultyValue();
+
+            return baseDifficulty;
+        }
     }
 }

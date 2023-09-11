@@ -33,14 +33,45 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             workingBeatmap = beatmap;
         }
+        private double getBaseBonus(double adjustedRadius) // x = adjustedRadius
+        {
+            double expBase = 5; // every `range` x bonus get smaller in expBase times
+            double range = 5;
+            double baseValue = 2500; // base bonus value for x = shift
+            double shift = 10; // bonus = 3000 for x = 10 (around CS = 10)
 
+            return Math.Pow(expBase, (shift - adjustedRadius) / range) * baseValue;
+        }
+
+        private double getObjectCountMultiplier(int objectCount)
+        {
+            const double limit = 1;
+            const double param = 0; // on which object count multiplier will be 0.5
+
+            return limit - param / (objectCount + param);
+        }
+
+        private double getHighCSBonus(double objectRadius, int objectCount, double usedPlayfield)
+        {
+            double baseBonus = getBaseBonus(objectRadius / usedPlayfield);
+            double objectsCountMultiplier = getObjectCountMultiplier(objectCount);
+
+            return baseBonus * objectsCountMultiplier;
+        }
         protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
         {
             if (beatmap.HitObjects.Count == 0)
                 return new OsuDifficultyAttributes { Mods = mods };
 
-            double aimRating = Math.Sqrt(skills[0].DifficultyValue()) * difficulty_multiplier;
-            double aimRatingNoSliders = Math.Sqrt(skills[1].DifficultyValue()) * difficulty_multiplier;
+            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
+            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
+
+            double objectRadius = 54.4 - 4.48 * beatmap.Difficulty.CircleSize;
+            double highCSBonus = getHighCSBonus(objectRadius, hitCirclesCount + sliderCount, 1.0);
+
+            double aimRating = Math.Sqrt(skills[0].DifficultyValue() + highCSBonus) * difficulty_multiplier;
+            double aimRatingNoSliders = Math.Sqrt(skills[1].DifficultyValue() + highCSBonus) * difficulty_multiplier;
             double speedRating = Math.Sqrt(skills[2].DifficultyValue()) * difficulty_multiplier;
             double speedNotes = ((Speed)skills[2]).RelevantNoteCount();
             double flashlightRating = Math.Sqrt(skills[3].DifficultyValue()) * difficulty_multiplier;
@@ -81,10 +112,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
             double drainRate = beatmap.Difficulty.DrainRate;
             int maxCombo = beatmap.GetMaxCombo();
-
-            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
-            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
-            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
