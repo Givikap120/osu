@@ -28,10 +28,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>and slider difficulty.</description></item>
         /// </list>
         /// </summary>
-        public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double currentRhythm)
+        public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double currentRhythm, params double[] snapflowInfo)
         {
-            if (current.Index <= 2 || 
-                current.BaseObject is Spinner || 
+            if (current.Index <= 2 ||
+                current.BaseObject is Spinner ||
                 current.Previous(0).BaseObject is Spinner ||
                 current.Previous(1).BaseObject is Spinner ||
                 current.Previous(2).BaseObject is Spinner)
@@ -39,10 +39,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
-            var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
-            var osuLastObj2 = (OsuDifficultyHitObject)current.Previous(2);
+            //var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
+            //var osuLastObj2 = (OsuDifficultyHitObject)current.Previous(2);
 
-            double aimStrain = 0;
+            double aimStrain;
 
             //////////////////////// CIRCLE SIZE /////////////////////////
             double linearDifficulty = 32.0 / osuCurrObj.Radius;
@@ -84,8 +84,22 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             snapDifficulty += linearDifficulty * Math.Max(0, Math.Min(Math.Abs(currVelocity - prevVelocity) - Math.Min(currVelocity, prevVelocity), Math.Min(currVelocity, prevVelocity))) * rhythmRatio;
 
             // Apply balancing parameters.
-            flowDifficulty = flowDifficulty * 1.25;
-            snapDifficulty = snapDifficulty * 0.9;
+            flowDifficulty *= 1.25;
+            snapDifficulty *= 0.9;
+
+            if (snapflowInfo.Length == 2)
+            {
+                if (snapDifficulty <= flowDifficulty)
+                {
+                    snapflowInfo[0] = snapDifficulty;
+                    snapflowInfo[1] = snapDifficulty * Math.Pow(snapDifficulty / flowDifficulty, 2);
+                }
+                else
+                {
+                    snapflowInfo[0] = flowDifficulty * Math.Pow(flowDifficulty / snapDifficulty, 2);
+                    snapflowInfo[1] = flowDifficulty;
+                }
+            }
 
             // Used in an LP sum to buff ambiguous snap flow scenarios.
             double p = 4.0;
