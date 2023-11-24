@@ -10,9 +10,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class SpeedEvaluator
     {
-        private const double single_spacing_threshold = 125;
+        private const double single_spacing_threshold = 150;
         private const double min_speed_bonus = 75; // ~200BPM
         private const double speed_balancing_factor = 40;
+        private const double reaction_time = 150;
 
         /// <summary>
         /// Evaluates the difficulty of tapping the current object, based on:
@@ -32,7 +33,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var osuPrevObj = current.Index > 0 ? (OsuDifficultyHitObject)current.Previous(0) : null;
             var osuNextObj = (OsuDifficultyHitObject?)current.Next(0);
 
+            double arBuff = (1.0 + 0.10 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
+
             double strainTime = osuCurrObj.StrainTime;
+            double readingTime = osuCurrObj.StrainTime;
+            if (osuPrevObj != null)
+            {
+                strainTime = (osuCurrObj.StrainTime + osuPrevObj.StrainTime) / 2;
+                readingTime = Math.Min(Math.Max(speed_balancing_factor, osuPrevObj.MovementTime + osuCurrObj.StrainTime) / 2, 
+                                       osuCurrObj.ApproachRateTime - reaction_time);
+            }
+
             double doubletapness = 1;
 
             // Nerf doubletappable doubles.
@@ -46,20 +57,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 doubletapness = Math.Pow(speedRatio, 1 - windowRatio);
             }
 
-            // Cap deltatime to the OD 300 hitwindow.
-            // 0.93 is derived from making sure 260bpm OD8 streams aren't nerfed harshly, whilst 0.92 limits the effect of the cap.
-            strainTime /= Math.Clamp((strainTime / osuCurrObj.HitWindowGreat) / 0.93, 0.92, 1);
-
-            // derive speedBonus for calculation
-            double speedBonus = 1.0;
-
-            if (strainTime < min_speed_bonus)
-                speedBonus = 1 + 0.75 * Math.Pow((min_speed_bonus - strainTime) / speed_balancing_factor, 2);
-
-            double travelDistance = osuPrevObj?.TravelDistance ?? 0;
-            double distance = Math.Min(single_spacing_threshold, travelDistance + osuCurrObj.MinimumJumpDistance);
-
-            return (speedBonus + speedBonus * Math.Pow(distance / single_spacing_threshold, 3.5)) * doubletapness / strainTime;
+            return arBuff * doubletapness * (1 / (readingTime - 20));
         }
     }
 }
