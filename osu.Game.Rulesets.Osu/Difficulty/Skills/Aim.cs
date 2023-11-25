@@ -8,6 +8,7 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Framework.Utils;
+using osu.Game.Beatmaps;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -34,7 +35,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         protected double CurrentSnapSectionPeak;
         protected double CurrentFlowSectionPeak;
 
-        private double skillMultiplier => 32;//38.75;
+        private double skillMultiplier => 34;//38.75;
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 
@@ -60,12 +61,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentSnapStrain *= strainDecay(current.DeltaTime);
             currentFlowStrain *= strainDecay(current.DeltaTime);
 
-            double currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
-            double[] snapflowInfo = new double[2];
+            // currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
+            (double snap, double flow) objectDifficulties = AimEvaluator.EvaluateRawDifficultiesOf(current);
 
-            currentTotalStrain += AimEvaluator.EvaluateDifficultyOf(current, withSliders, strainDecayBase, currentRhythm, snapflowInfo) * skillMultiplier;
-            currentSnapStrain += snapflowInfo[0];
-            currentFlowStrain += snapflowInfo[1];
+            currentTotalStrain += AimEvaluator.EvaluateTotalStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
+            currentSnapStrain += AimEvaluator.EvaluateSnapStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
+            currentFlowStrain += AimEvaluator.EvaluateFlowStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
 
             snapStrain = currentSnapStrain;
             flowStrain = currentFlowStrain;
@@ -119,83 +120,78 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         public IEnumerable<double> GetCurrentSnapStrainPeaks() => SnapStrainPeaks.Append(CurrentSnapSectionPeak);
         public IEnumerable<double> GetCurrentFlowStrainPeaks() => FlowStrainPeaks.Append(CurrentFlowSectionPeak);
 
-        protected double GetMixedAimRatio()
+        private List<List<double>> transpose(List<List<double>> list)
         {
-            double snapDifficulty = 0;
-            double weight = 1;
+            int rowCount = list[0].Count;
+            int colCount = list.Count;
 
-            var snapPeaks = GetCurrentSnapStrainPeaks().Where(p => p > 0);
-            foreach (double strain in snapPeaks.OrderByDescending(d => d))
+            List<List<double>> transposedList = new List<List<double>>();
+
+            for (int i = 0; i < rowCount; i++)
             {
-                snapDifficulty += strain * weight;
-                weight *= DecayWeight;
+                List<double> newRow = new List<double>();
+
+                for (int j = 0; j < colCount; j++)
+                {
+                    newRow.Add(list[j][i]);
+                }
+
+                transposedList.Add(newRow);
             }
 
-            double flowDifficulty = 0;
-            weight = 1;
-
-            var flowPeaks = GetCurrentFlowStrainPeaks().Where(p => p > 0);
-            foreach (double strain in flowPeaks.OrderByDescending(d => d))
-            {
-                flowDifficulty += strain * weight;
-                weight *= DecayWeight;
-            }
-
-            double ratio;
-
-            if (snapDifficulty >= flowDifficulty)
-            {
-                ratio = Math.Pow(flowDifficulty / snapDifficulty, 2);
-            }
-            else
-            {
-                ratio = Math.Pow(snapDifficulty / flowDifficulty, 2.5);
-            }
-
-            return ratio;
+            return transposedList;
         }
-        public override double DifficultyValue()
+
+        private double calculateDifficultyFromStrains(IEnumerable<double> strains, bool nerfDiffspikes, double decayWeight)
         {
-            double difficulty = 0;
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
 
-            // Sections with 0 strain are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
-            // These sections will not contribute to the difficulty.
-            var peaks = GetCurrentStrainPeaks().Where(p => p > 0);
-
-            List<double> strains = peaks.OrderByDescending(d => d).ToList();
-
-            // We are reducing the highest strains first to account for extreme difficulty spikes
-            for (int i = 0; i < Math.Min(strains.Count, ReducedSectionCount); i++)
+            if (nerfDiffspikes)
             {
-                double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
-                strains[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
+                // We are reducing the highest strains first to account for extreme difficulty spikes
+                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
+                {
+                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
+                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
+                }
+
+                strains = strains.OrderByDescending(x => x).ToList();
             }
 
-            int index = 0;
+            //int index = 0;
+            double weight = 1;
+            double difficulty = 0;
 
             // Difficulty is the weighted sum of the highest strains from every section.
             // We're sorting from highest to lowest strain.
-            foreach (double strain in strains.OrderByDescending(d => d))
+            foreach (double strain in strainsList)
             {
-                // Below uses harmonic sum scaling which makes the resulting summation logarithmic rather than geometric.
-                // Good for properly weighting difficulty across full map instead of using object count for LengthBonus.
-                // 1.44 and 7.5 are arbitrary constants that worked well.
-                // double weight = 1.44 * ((1 + (7.5 / (1 + index))) / (index + 1 + (7.5 / (1 + index))));
-                // double weight = 1.42 * ((1 + (7.5 / (1 + index))) / (Math.Pow(index, Math.Max(0.85, 1.0 - 0.15 * Math.Pow(index / 1500.0, 1))) + 1 + (7.5 / (1 + index))));
-                double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
+                //double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
 
                 difficulty += strain * weight;
-                index += 1;
+
+                weight *= DecayWeight;
+                //index += 1;
             }
 
-            difficulty *= DifficultyMultiplier;
-
-            const double degree = 4;
-
-            double lesserDifficulty = difficulty * GetMixedAimRatio();
-            double adjustedDifficulty = Math.Pow(Math.Pow(difficulty, degree) + Math.Pow(lesserDifficulty, degree), 1.0 / degree);
-
-            return adjustedDifficulty;
+            double decayAdjustMultiplier = (1 - decayWeight) / (1 - DecayWeight);
+            return difficulty * decayAdjustMultiplier;
         }
+        public override double DifficultyValue()
+        {
+            const double mixed_aim_part = 0.2;
+            const double snap_difficulty_multiplier = 1.2, snap_decay = 0.94;
+            const double flow_difficulty_multiplier = 1, flow_decay = 0.9;
+
+            double totalDifficulty = calculateDifficultyFromStrains(GetCurrentStrainPeaks(), true, DecayWeight);
+            double snapDifficulty = calculateDifficultyFromStrains(GetCurrentSnapStrainPeaks(), true, snap_decay) * snap_difficulty_multiplier;
+            double flowDifficulty = calculateDifficultyFromStrains(GetCurrentFlowStrainPeaks(), true, flow_decay) * flow_difficulty_multiplier;
+
+            double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
+            Console.WriteLine($"Snap dificulty - {snapDifficulty}, Flow difficulty - {flowDifficulty}, Total difficulty - {totalDifficulty}, Result - {difficulty}");
+
+            return difficulty * DifficultyMultiplier;
+        }
+
     }
 }

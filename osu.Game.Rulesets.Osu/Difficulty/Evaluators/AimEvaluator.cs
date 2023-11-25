@@ -8,6 +8,7 @@ using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
 using osuTK;
+using osu.Game.Beatmaps;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
@@ -19,6 +20,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private const double velocity_change_multiplier = 0.75;
         private const double reaction_time = 150;
 
+        private static bool isInvalid(DifficultyHitObject current) => current.Index <= 2 ||
+                current.BaseObject is Spinner ||
+                current.Previous(0).BaseObject is Spinner ||
+                current.Previous(1).BaseObject is Spinner ||
+                current.Previous(2).BaseObject is Spinner;
+
         /// <summary>
         /// Evaluates the difficulty of aiming the current object, based on:
         /// <list type="bullet">
@@ -28,21 +35,22 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>and slider difficulty.</description></item>
         /// </list>
         /// </summary>
-        public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double currentRhythm, params double[] snapflowInfo)
+        public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double currentRhythm)
         {
-            if (current.Index <= 2 ||
-                current.BaseObject is Spinner ||
-                current.Previous(0).BaseObject is Spinner ||
-                current.Previous(1).BaseObject is Spinner ||
-                current.Previous(2).BaseObject is Spinner)
+            if (isInvalid(current))
                 return 0;
+
+            (double snap, double flow) difficulties = EvaluateRawDifficultiesOf(current);
+            return EvaluateTotalStrainOf(current, withSliderTravelDistance, strainDecayBase, difficulties);
+        }
+
+        public static (double snap, double flow) EvaluateRawDifficultiesOf(DifficultyHitObject current)
+        {
+            if (isInvalid(current))
+                return (0, 0);
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
-            //var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
-            //var osuLastObj2 = (OsuDifficultyHitObject)current.Previous(2);
-
-            double aimStrain;
 
             //////////////////////// CIRCLE SIZE /////////////////////////
             double linearDifficulty = 32.0 / osuCurrObj.Radius;
@@ -87,31 +95,71 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             flowDifficulty *= 1.25;
             snapDifficulty *= 0.9;
 
-            if (snapflowInfo.Length == 2)
-            {
-                if (snapDifficulty <= flowDifficulty)
-                {
-                    snapflowInfo[0] = snapDifficulty;
-                    snapflowInfo[1] = snapDifficulty * Math.Pow(snapDifficulty / flowDifficulty, 2);
-                }
-                else
-                {
-                    snapflowInfo[0] = flowDifficulty * Math.Pow(flowDifficulty / snapDifficulty, 2);
-                    snapflowInfo[1] = flowDifficulty;
-                }
-            }
+            return (snapDifficulty, flowDifficulty);
+        }
+
+        public static double EvaluateTotalStrainOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, (double snap, double flow) difficulty)
+        {
+            if (current.Index <= 2 ||
+                current.BaseObject is Spinner ||
+                current.Previous(0).BaseObject is Spinner ||
+                current.Previous(1).BaseObject is Spinner ||
+                current.Previous(2).BaseObject is Spinner)
+                return 0;
 
             // Used in an LP sum to buff ambiguous snap flow scenarios.
             double p = 4.0;
-            double minStrain = Math.Min(snapDifficulty, flowDifficulty);
+            double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
-            aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(snapDifficulty - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(flowDifficulty - minStrain)), p), 1.0 / p);
+            double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
 
-            // aimStrain = minStrain;
+            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, aimStrain);
+        }
+        public static double EvaluateSnapStrainOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, (double snap, double flow) difficulty)
+        {
+            if (isInvalid(current))
+                return 0;
+
+            if (difficulty.flow < difficulty.snap)
+                difficulty.snap = difficulty.flow * Math.Pow(difficulty.flow / difficulty.snap, 1.0);
+
+            // Used in an LP sum to buff ambiguous snap flow scenarios.
+            double p = 4.0;
+            double minStrain = Math.Min(difficulty.snap, difficulty.flow);
+
+            double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
+
+            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, aimStrain);
+        }
+
+        public static double EvaluateFlowStrainOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, (double snap, double flow) difficulty)
+        {
+            if (isInvalid(current))
+                return 0;
+
+            if (difficulty.snap < difficulty.flow)
+                difficulty.flow = difficulty.snap * Math.Pow(difficulty.snap / difficulty.flow, 1.0);
+
+            // Used in an LP sum to buff ambiguous snap flow scenarios.
+            double p = 4.0;
+            double minStrain = Math.Min(difficulty.snap, difficulty.flow);
+
+            double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
+
+            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, aimStrain);
+        }
+
+        private static double applyRemainingBonusesTo(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double aimStrain)
+        {
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
+
+            double linearDifficulty = 32.0 / osuCurrObj.Radius;
+            double currVelocity = osuCurrObj.Movement.Length / osuCurrObj.StrainTime;
 
             // Buff cases where the holding of a slider makes the subsequent jump harder, even with leniency abuse.
-            aimStrain = Math.Max(aimStrain, (aimStrain - linearDifficulty * 2.4 * osuCurrObj.Radius / Math.Min(osuCurrObj.MovementTime, osuLastObj0.MovementTime)) * (osuCurrObj.StrainTime / osuCurrObj.MovementTime));   
-        
+            aimStrain = Math.Max(aimStrain, (aimStrain - linearDifficulty * 2.4 * osuCurrObj.Radius / Math.Min(osuCurrObj.MovementTime, osuLastObj0.MovementTime)) * (osuCurrObj.StrainTime / osuCurrObj.MovementTime));
+
             // Apply small CS buff.
             aimStrain *= Math.Sqrt(linearDifficulty);
 
@@ -123,7 +171,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             if (osuCurrObj.SliderSubObjects.Count != 0 && withSliderTravelDistance)
                 sustainedSliderStrain = calculateSustainedSliderStrain(osuCurrObj, strainDecayBase, withSliderTravelDistance);
-            
+
             // Apply slider strain with constant adjustment
             aimStrain += 1.5 * sustainedSliderStrain;
 
@@ -160,7 +208,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 historyVector += subObject.Movement;
                 historyTime += subObject.StrainTime;
                 historyDistance += subObject.Movement.Length;
-                
+
                 if (historyVector.Length > sliderRadius * 2.0)
                 {
                     noteStrain += linearDifficulty * historyDistance / historyTime;
