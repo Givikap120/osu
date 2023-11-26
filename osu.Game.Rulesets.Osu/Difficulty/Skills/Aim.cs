@@ -35,18 +35,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         protected double CurrentSnapSectionPeak;
         protected double CurrentFlowSectionPeak;
 
-        private double skillMultiplier => 34;//38.75;
+        private double skillMultiplier => 31.6;//38.75;
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 
-        private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
+        private double strainDecay(double ms, double decayBase) => Math.Pow(decayBase, ms / 1000);
 
-        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentTotalStrain * strainDecay(time - current.Previous(0).StartTime);
-        protected double CalculateInitialStrain(ref double currentStrain, double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime);
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentTotalStrain * strainDecay(time - current.Previous(0).StartTime, strainDecayBase);
+        protected double CalculateInitialStrain(ref double currentStrain, double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime, strainDecayBase);
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
-            currentTotalStrain *= strainDecay(current.DeltaTime);
+            double adjustedStrainDecay = AimEvaluator.AdjustStrainDecay(current, strainDecayBase);
+            currentTotalStrain *= strainDecay(current.DeltaTime, adjustedStrainDecay);
 
             double currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
 
@@ -55,22 +56,27 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             return currentTotalStrain;
         }
 
-        protected double StrainValueAt(DifficultyHitObject current, out double snapStrain, out double flowStrain)
+        protected (double total, double snap, double flow) CombinedStrainValueAt(DifficultyHitObject current)
         {
-            currentTotalStrain *= strainDecay(current.DeltaTime);
-            currentSnapStrain *= strainDecay(current.DeltaTime);
-            currentFlowStrain *= strainDecay(current.DeltaTime);
+            const double min_snap_threshold = 0, min_flow_threshold = 0.34;
+
+            double adjustedStrainDecay = AimEvaluator.AdjustStrainDecay(current, strainDecayBase);
+            currentTotalStrain *= strainDecay(current.DeltaTime, adjustedStrainDecay);
+            currentSnapStrain *= strainDecay(current.DeltaTime, adjustedStrainDecay);
+            currentFlowStrain *= strainDecay(current.DeltaTime, adjustedStrainDecay);
 
             // currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
             (double snap, double flow) objectDifficulties = AimEvaluator.EvaluateRawDifficultiesOf(current);
 
             currentTotalStrain += AimEvaluator.EvaluateTotalStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
-            currentSnapStrain += AimEvaluator.EvaluateSnapStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
-            currentFlowStrain += AimEvaluator.EvaluateFlowStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
 
-            snapStrain = currentSnapStrain;
-            flowStrain = currentFlowStrain;
-            return currentTotalStrain;
+            double snapStrain = AimEvaluator.EvaluateSnapStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
+            double flowStrain = AimEvaluator.EvaluateFlowStrainOf(current, withSliders, strainDecayBase, objectDifficulties) * skillMultiplier;
+
+            currentSnapStrain += Math.Max(snapStrain, flowStrain * min_snap_threshold);
+            currentFlowStrain += Math.Max(flowStrain, snapStrain * min_flow_threshold);
+
+            return (currentTotalStrain, currentSnapStrain, currentFlowStrain);
         }
 
         protected void StartNewSnapSectionFrom(double time, DifficultyHitObject current)
@@ -110,39 +116,52 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 CurrentSectionEnd += SectionLength;
             }
 
-            double totalStrain = StrainValueAt(current, out double snapStrain, out double flowStrain);
+            var strains = CombinedStrainValueAt(current);
 
-            CurrentSectionPeak = Math.Max(totalStrain, CurrentSectionPeak);
-            CurrentSnapSectionPeak = Math.Max(snapStrain, CurrentSnapSectionPeak);
-            CurrentFlowSectionPeak = Math.Max(flowStrain, CurrentFlowSectionPeak);
+            CurrentSectionPeak = Math.Max(strains.total, CurrentSectionPeak);
+            CurrentSnapSectionPeak = Math.Max(strains.snap, CurrentSnapSectionPeak);
+            CurrentFlowSectionPeak = Math.Max(strains.flow, CurrentFlowSectionPeak);
         }
 
         public IEnumerable<double> GetCurrentSnapStrainPeaks() => SnapStrainPeaks.Append(CurrentSnapSectionPeak);
         public IEnumerable<double> GetCurrentFlowStrainPeaks() => FlowStrainPeaks.Append(CurrentFlowSectionPeak);
 
-        private List<List<double>> transpose(List<List<double>> list)
+        private double logarithmicSummation(IEnumerable<double> strains, bool nerfDiffspikes)
         {
-            int rowCount = list[0].Count;
-            int colCount = list.Count;
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
 
-            List<List<double>> transposedList = new List<List<double>>();
-
-            for (int i = 0; i < rowCount; i++)
+            if (nerfDiffspikes)
             {
-                List<double> newRow = new List<double>();
-
-                for (int j = 0; j < colCount; j++)
+                // We are reducing the highest strains first to account for extreme difficulty spikes
+                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
                 {
-                    newRow.Add(list[j][i]);
+                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
+                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
                 }
 
-                transposedList.Add(newRow);
+                strains = strains.OrderByDescending(x => x).ToList();
             }
 
-            return transposedList;
+            int index = 0;
+            //double weight = 1;
+            double difficulty = 0;
+
+            // Difficulty is the weighted sum of the highest strains from every section.
+            // We're sorting from highest to lowest strain.
+            foreach (double strain in strainsList)
+            {
+                double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
+
+                difficulty += strain * weight;
+
+                //weight *= DecayWeight;
+                index += 1;
+            }
+
+            return difficulty;
         }
 
-        private double calculateDifficultyFromStrains(IEnumerable<double> strains, bool nerfDiffspikes, double decayWeight)
+        private double geometricSummation(IEnumerable<double> strains, bool nerfDiffspikes)
         {
             List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
 
@@ -166,32 +185,27 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             // We're sorting from highest to lowest strain.
             foreach (double strain in strainsList)
             {
-                //double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
-
                 difficulty += strain * weight;
-
                 weight *= DecayWeight;
-                //index += 1;
             }
 
-            double decayAdjustMultiplier = (1 - decayWeight) / (1 - DecayWeight);
-            return difficulty * decayAdjustMultiplier;
+            return difficulty;
         }
+
+        private const double mixed_aim_part = 0.22;
         public override double DifficultyValue()
         {
-            const double mixed_aim_part = 0.2;
-            const double snap_difficulty_multiplier = 1.2, snap_decay = 0.94;
-            const double flow_difficulty_multiplier = 1, flow_decay = 0.9;
-
-            double totalDifficulty = calculateDifficultyFromStrains(GetCurrentStrainPeaks(), true, DecayWeight);
-            double snapDifficulty = calculateDifficultyFromStrains(GetCurrentSnapStrainPeaks(), true, snap_decay) * snap_difficulty_multiplier;
-            double flowDifficulty = calculateDifficultyFromStrains(GetCurrentFlowStrainPeaks(), true, flow_decay) * flow_difficulty_multiplier;
+            double totalDifficulty = logarithmicSummation(GetCurrentStrainPeaks(), true);
+            double snapDifficulty = logarithmicSummation(GetCurrentSnapStrainPeaks(), true);
+            double flowDifficulty = logarithmicSummation(GetCurrentFlowStrainPeaks(), true);
 
             double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
-            Console.WriteLine($"Snap dificulty - {snapDifficulty}, Flow difficulty - {flowDifficulty}, Total difficulty - {totalDifficulty}, Result - {difficulty}");
+
+            double debugFix = 34 / skillMultiplier - 1;
+            Console.WriteLine($"Snap dificulty - {snapDifficulty:0}, Flow difficulty - {flowDifficulty:0}, Total difficulty - {totalDifficulty:0}, " +
+                $"Result - {difficulty:0} (+{100 * (difficulty / totalDifficulty - debugFix - 1):0.00}%)");
 
             return difficulty * DifficultyMultiplier;
         }
-
     }
 }
