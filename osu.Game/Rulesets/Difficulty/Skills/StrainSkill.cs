@@ -101,6 +101,7 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         {
             return GeometricSummation(GetCurrentStrainPeaks());
         }
+
         protected double LogarithmicSummation(IEnumerable<double> strains)
         {
             List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();

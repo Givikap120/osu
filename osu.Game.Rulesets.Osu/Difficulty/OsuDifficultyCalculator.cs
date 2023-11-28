@@ -31,6 +31,25 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
         }
 
+        private double calculateLengthBonus(int totalHits) => 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) + (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
+
+        private double calculateStarPerformance(Skill skill, double basePerformance, int objectCount)
+        {
+            // get legacy length bonus
+            double lengthBonus = calculateLengthBonus(objectCount);
+
+            // get legacy difficulty rating
+            double abstractRating = Math.Sqrt(skill.AbstractDifficultyValue()) * difficulty_multiplier;
+
+            // calculate pp
+            double abstractPerformance = Math.Pow(5 * Math.Max(1, abstractRating / 0.0675) - 4, 3) / 100000;
+
+            // get multiplier of difference between new and old
+            double visualAimMultiplier = basePerformance / (lengthBonus * abstractPerformance);
+
+            // return adjusted old-style rating with more accurate representation of new difficulty
+            return abstractPerformance * visualAimMultiplier;
+        }
         protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
         {
             if (beatmap.HitObjects.Count == 0)
@@ -59,6 +78,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double baseAimPerformance = Math.Pow(5 * Math.Max(1, aimRating / 0.0675) - 4, 3) / 100000;
             double baseSpeedPerformance = Math.Pow(5 * Math.Max(1, speedRating / 0.0675) - 4, 3) / 100000;
+
+
+            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
+            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
+
+            double starAimPerformance = calculateStarPerformance(skills[0], baseAimPerformance, hitCirclesCount + sliderCount);
+            double starSpeedPerformance = calculateStarPerformance(skills[2], baseSpeedPerformance, hitCirclesCount + sliderCount);
+
             double baseFlashlightPerformance = 0.0;
 
             if (mods.Any(h => h is OsuModFlashlight))
@@ -66,8 +94,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double basePerformance =
                 Math.Pow(
-                    Math.Pow(baseAimPerformance, 1.1) +
-                    Math.Pow(baseSpeedPerformance, 1.1) +
+                    Math.Pow(starAimPerformance, 1.1) +
+                    Math.Pow(starSpeedPerformance, 1.1) +
                     Math.Pow(baseFlashlightPerformance, 1.1), 1.0 / 1.1
                 );
 
@@ -78,10 +106,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
             double drainRate = beatmap.Difficulty.DrainRate;
             int maxCombo = beatmap.GetMaxCombo();
-
-            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
-            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
-            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);

@@ -142,5 +142,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             return difficulty * DifficultyMultiplier;
         }
+
+        public override double AbstractDifficultyValue()
+        {
+            // use LogarithmicSummation or GeometricSummation
+            double totalDifficulty = GeometricSummation(GetCurrentStrainPeaks(), true);
+            double snapDifficulty = GeometricSummation(GetCurrentSnapStrainPeaks(), true);
+            double flowDifficulty = GeometricSummation(GetCurrentFlowStrainPeaks(), true);
+
+            double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
+
+            return difficulty * DifficultyMultiplier;
+        }
     }
 }

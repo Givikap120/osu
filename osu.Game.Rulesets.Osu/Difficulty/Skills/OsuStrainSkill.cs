@@ -110,5 +110,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double difficulty = LogarithmicSummation(GetCurrentStrainPeaks(), false);
             return difficulty * DifficultyMultiplier;
         }
+
+        public override double AbstractDifficultyValue()
+        {
+            double difficulty = GeometricSummation(GetCurrentStrainPeaks(), false);
+            return difficulty * DifficultyMultiplier;
+        }
     }
 }

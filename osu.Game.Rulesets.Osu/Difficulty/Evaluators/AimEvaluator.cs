@@ -119,10 +119,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             const double bpm_point = 130; // in strainTime ms
 
-            // Reduce strain time by 20ms to account for stopping time, +10 additional if wide angles
-            double snapStopTime = 20 + 10 * calculateAngleSpline(osuCurrObj.Angle ?? 0, false);
-            double adjustedStrainTime = Math.Max(osuCurrObj.StrainTime - snapStopTime, 5);
-
             // agility bonus
             double normalisedDistance = osuCurrObj.Movement.Length / osuCurrObj.Radius;
 
@@ -147,8 +143,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             lowSpacingBonus += 2; // apply arbitrary xexxar buff cuz otherwise it's ruins all balance
 
+            double adjustedSnapDistance = osuCurrObj.Movement.Length + osuCurrObj.Radius * lowSpacingBonus;
+
+            // Reduce strain time by 20ms to account for stopping time, +10 additional if wide angles
+            double snapStopTime = 20 + 10 * calculateAngleSpline(osuCurrObj.Angle ?? 0, false);
+            double adjustedStrainTime = Math.Max(osuCurrObj.StrainTime - snapStopTime, 5);
+
             // snap difficulty
-            double snapDifficulty = linearDifficulty * (osuCurrObj.Movement.Length / adjustedStrainTime + (osuCurrObj.Radius * lowSpacingBonus) / adjustedStrainTime);
+            double snapDifficulty = linearDifficulty * (adjustedSnapDistance / adjustedStrainTime);
+
+            double adjustedSnapRatio = 1;
+            if (osuCurrObj.Movement.Length > 0) // just in case
+            {
+                adjustedSnapRatio = (adjustedSnapDistance / adjustedStrainTime) / (osuCurrObj.Movement.Length / osuCurrObj.StrainTime);
+                adjustedSnapRatio = Math.Max(adjustedSnapRatio, 1); // it can't nerf something
+            }
 
             // Arbitrary buff for high bpm snap because its hard.
             snapDifficulty *= Math.Sqrt(Math.Max(1, 100 / osuCurrObj.StrainTime));
@@ -169,7 +178,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double lastAngle = osuLastObj0.Angle.Value;
 
                 // We reward wide angles on snap.
-                snapAngleBuff = linearDifficulty * calculateAngleSpline(currAngle, false) * Math.Min(minVelocity, (osuCurrObj.Movement + osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
+                snapAngleBuff = adjustedSnapRatio * linearDifficulty * calculateAngleSpline(currAngle, false) * Math.Min(minVelocity, (osuCurrObj.Movement + osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
                 // nerf repeated wide angles
                 snapAngleBuff *= Math.Pow(calculateAngleSpline(lastAngle, true), 2);
@@ -201,7 +210,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Apply balancing parameters.
             flowDifficulty *= 1.25;
-            snapDifficulty *= 0.88;
+            snapDifficulty *= 0.86;
 
             return (snapDifficulty, flowDifficulty);
         }
