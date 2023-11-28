@@ -74,12 +74,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
 
-            double normalisedDistance = osuCurrObj.Movement.Length * 0.15 / osuCurrObj.Radius;
+            double normalisedDistance = osuCurrObj.Movement.Length * 0.2 / osuCurrObj.Radius;
             normalisedDistance *= getAngleMultiplier(current);
 
             // random values that work, you can check desmos
             //double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.1, normalisedDistance) + 10, 5.7) + 1.46;
-            double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.6, normalisedDistance) + 5.6, 5.4) + 1.46;
+            double targetDistance = normalisedDistance - Math.Log(Math.Pow(3.1, normalisedDistance) + 7.7, 5.4) + 1.57;
             //double targetDistance = normalisedDistance;
 
             //Console.WriteLine($"Object {current}, distance {normalisedDistance:0.000}, target {targetDistance:0.000}");
