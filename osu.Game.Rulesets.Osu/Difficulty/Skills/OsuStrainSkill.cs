@@ -41,39 +41,74 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         public override double DifficultyValue()
         {
-            double difficulty = 0;
+            double difficulty = LogarithmicSummation(GetCurrentStrainPeaks(), false);
+            return difficulty * DifficultyMultiplier;
+        }
 
-            // Sections with 0 strain are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
-            // These sections will not contribute to the difficulty.
-            var peaks = GetCurrentStrainPeaks().Where(p => p > 0);
+        protected double LogarithmicSummation(IEnumerable<double> strains, bool nerfDiffspikes)
+        {
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
 
-            List<double> strains = peaks.OrderByDescending(d => d).ToList();
+            if (nerfDiffspikes)
+            {
+                // We are reducing the highest strains first to account for extreme difficulty spikes
+                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
+                {
+                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
+                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
+                }
 
-            // We are reducing the highest strains first to account for extreme difficulty spikes
-            //for (int i = 0; i < Math.Min(strains.Count, ReducedSectionCount); i++)
-            //{
-            //    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
-            //    strains[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
-            //}
+                strains = strains.OrderByDescending(x => x).ToList();
+            }
 
             int index = 0;
             //double weight = 1;
+            double difficulty = 0;
 
             // Difficulty is the weighted sum of the highest strains from every section.
             // We're sorting from highest to lowest strain.
-            foreach (double strain in strains.OrderByDescending(d => d))
+            foreach (double strain in strainsList)
             {
-                // Below uses harmonic sum scaling which makes the resulting summation logarithmic rather than geometric.
-                // Good for properly weighting difficulty across full map instead of using object count for LengthBonus.
-                // 1.44 and 7.5 are arbitrary constants that worked well.
                 double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
 
                 difficulty += strain * weight;
+
                 //weight *= DecayWeight;
                 index += 1;
             }
 
-            return difficulty * DifficultyMultiplier;
+            return difficulty;
+        }
+
+        protected double GeometricSummation(IEnumerable<double> strains, bool nerfDiffspikes)
+        {
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
+
+            if (nerfDiffspikes)
+            {
+                // We are reducing the highest strains first to account for extreme difficulty spikes
+                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
+                {
+                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
+                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
+                }
+
+                strains = strains.OrderByDescending(x => x).ToList();
+            }
+
+            //int index = 0;
+            double weight = 1;
+            double difficulty = 0;
+
+            // Difficulty is the weighted sum of the highest strains from every section.
+            // We're sorting from highest to lowest strain.
+            foreach (double strain in strainsList)
+            {
+                difficulty += strain * weight;
+                weight *= DecayWeight;
+            }
+
+            return difficulty;
         }
     }
 }

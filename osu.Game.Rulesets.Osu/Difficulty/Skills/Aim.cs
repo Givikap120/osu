@@ -126,78 +126,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         public IEnumerable<double> GetCurrentSnapStrainPeaks() => SnapStrainPeaks.Append(CurrentSnapSectionPeak);
         public IEnumerable<double> GetCurrentFlowStrainPeaks() => FlowStrainPeaks.Append(CurrentFlowSectionPeak);
 
-        private double logarithmicSummation(IEnumerable<double> strains, bool nerfDiffspikes)
-        {
-            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
-
-            if (nerfDiffspikes)
-            {
-                // We are reducing the highest strains first to account for extreme difficulty spikes
-                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
-                {
-                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
-                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
-                }
-
-                strains = strains.OrderByDescending(x => x).ToList();
-            }
-
-            int index = 0;
-            //double weight = 1;
-            double difficulty = 0;
-
-            // Difficulty is the weighted sum of the highest strains from every section.
-            // We're sorting from highest to lowest strain.
-            foreach (double strain in strainsList)
-            {
-                double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
-
-                difficulty += strain * weight;
-
-                //weight *= DecayWeight;
-                index += 1;
-            }
-
-            return difficulty;
-        }
-
-        private double geometricSummation(IEnumerable<double> strains, bool nerfDiffspikes)
-        {
-            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
-
-            if (nerfDiffspikes)
-            {
-                // We are reducing the highest strains first to account for extreme difficulty spikes
-                for (int i = 0; i < Math.Min(strainsList.Count, ReducedSectionCount); i++)
-                {
-                    double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / ReducedSectionCount, 0, 1)));
-                    strainsList[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
-                }
-
-                strains = strains.OrderByDescending(x => x).ToList();
-            }
-
-            //int index = 0;
-            double weight = 1;
-            double difficulty = 0;
-
-            // Difficulty is the weighted sum of the highest strains from every section.
-            // We're sorting from highest to lowest strain.
-            foreach (double strain in strainsList)
-            {
-                difficulty += strain * weight;
-                weight *= DecayWeight;
-            }
-
-            return difficulty;
-        }
-
         private const double mixed_aim_part = 0.22;
         public override double DifficultyValue()
         {
-            double totalDifficulty = logarithmicSummation(GetCurrentStrainPeaks(), true);
-            double snapDifficulty = logarithmicSummation(GetCurrentSnapStrainPeaks(), true);
-            double flowDifficulty = logarithmicSummation(GetCurrentFlowStrainPeaks(), true);
+            double totalDifficulty = LogarithmicSummation(GetCurrentStrainPeaks(), true);
+            double snapDifficulty = LogarithmicSummation(GetCurrentSnapStrainPeaks(), true);
+            double flowDifficulty = LogarithmicSummation(GetCurrentFlowStrainPeaks(), true);
 
             double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
 

@@ -79,7 +79,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // random values that work, you can check desmos
             //double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.1, normalisedDistance) + 10, 5.7) + 1.46;
-            double targetDistance = normalisedDistance;
+            double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.6, normalisedDistance) + 5.6, 5.4) + 1.46;
+            //double targetDistance = normalisedDistance;
 
             //Console.WriteLine($"Object {current}, distance {normalisedDistance:0.000}, target {targetDistance:0.000}");
 
@@ -110,19 +111,44 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Snap Stuff
             // in circle radius
-            const double min_jump = 4;
-            const double exp_base = 1.22;
+            const double min_jump = 5;
+            const double exp_base = 1.9;
+
+            const double high_bpm_power = 2.2;
+            const double low_bpm_power = 1;
+
+            const double bpm_point = 130; // in strainTime ms
 
             // Reduce strain time by 20ms to account for stopping time, +10 additional if wide angles
             double snapStopTime = 20 + 10 * calculateAngleSpline(osuCurrObj.Angle ?? 0, false);
             double adjustedStrainTime = Math.Max(osuCurrObj.StrainTime - snapStopTime, 5);
 
             // agility bonus
-            double lowSpacingBonus = Math.Pow(exp_base, -(osuCurrObj.Movement.Length / osuCurrObj.Radius));
-            lowSpacingBonus *= 100 / osuCurrObj.StrainTime;
+            double normalisedDistance = osuCurrObj.Movement.Length / osuCurrObj.Radius;
+
+            // start from min jump bonus
+            double lowSpacingBonusMultiplier = min_jump;
+
+            // different scaling for fast and slow jumps to not overnerf low bpm or high bpm
+            if (osuCurrObj.StrainTime < bpm_point)
+                lowSpacingBonusMultiplier *= Math.Pow(bpm_point / osuCurrObj.StrainTime, high_bpm_power);
+            else
+                lowSpacingBonusMultiplier *= Math.Pow(bpm_point / osuCurrObj.StrainTime, low_bpm_power);
+
+            // extremum point to prevent situations where increasing difficulty leads to pp decrease
+            double extremumPoint = -Math.Log(1 / (lowSpacingBonusMultiplier * Math.Log(exp_base))) / Math.Log(exp_base);
+
+            // low spacing high bpm bonus
+            double lowSpacingBonus;
+            if(normalisedDistance < extremumPoint)
+                lowSpacingBonus = Math.Pow(exp_base, -extremumPoint) * lowSpacingBonusMultiplier - normalisedDistance + extremumPoint;
+            else
+                lowSpacingBonus = Math.Pow(exp_base, -normalisedDistance) * lowSpacingBonusMultiplier;
+
+            lowSpacingBonus += 2; // apply arbitrary xexxar buff cuz otherwise it's ruins all balance
 
             // snap difficulty
-            double snapDifficulty = linearDifficulty * (osuCurrObj.Movement.Length / adjustedStrainTime + (osuCurrObj.Radius * min_jump * lowSpacingBonus) / adjustedStrainTime);
+            double snapDifficulty = linearDifficulty * (osuCurrObj.Movement.Length / adjustedStrainTime + (osuCurrObj.Radius * lowSpacingBonus) / adjustedStrainTime);
 
             // Arbitrary buff for high bpm snap because its hard.
             snapDifficulty *= Math.Sqrt(Math.Max(1, 100 / osuCurrObj.StrainTime));
@@ -145,6 +171,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 // We reward wide angles on snap.
                 snapAngleBuff = linearDifficulty * calculateAngleSpline(currAngle, false) * Math.Min(minVelocity, (osuCurrObj.Movement + osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
+                // nerf repeated wide angles
+                snapAngleBuff *= Math.Pow(calculateAngleSpline(lastAngle, true), 2);
+
                 double spline = calculateAngleSpline(Math.PI / 4 + Math.Min(Math.PI / 2, Math.Abs(lastAngle - currAngle)), false);
                 spline *= 1 - Math.Clamp(osuLastObj1.StrainTime - osuLastObj0.StrainTime, 0, osuLastObj0.StrainTime) / osuLastObj0.StrainTime;
                 spline *= 1 - Math.Clamp(osuLastObj0.StrainTime - osuCurrObj.StrainTime, 0, osuCurrObj.StrainTime) / osuCurrObj.StrainTime;
@@ -152,8 +181,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double movementThing = (osuCurrObj.Movement + osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime);
                 double velocityThing = Math.Min(minVelocity, movementThing);
 
-
                 double acutnessBonus = linearDifficulty * spline * velocityThing;
+
                 double angleChangeBonus = linearDifficulty * calculateAngleSpline(currAngle, true) * Math.Min(minVelocity, (osuCurrObj.Movement - osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
                 // We reward for angle changes or the acuteness of the angle, whichever is higher. Possibly a case out there to reward both.
@@ -172,7 +201,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Apply balancing parameters.
             flowDifficulty *= 1.25;
-            snapDifficulty *= 0.97;
+            snapDifficulty *= 0.88;
 
             return (snapDifficulty, flowDifficulty);
         }

@@ -99,16 +99,42 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// </summary>
         public override double DifficultyValue()
         {
-            double difficulty = 0;
-            double weight = 1;
+            return GeometricSummation(GetCurrentStrainPeaks());
+        }
+        protected double LogarithmicSummation(IEnumerable<double> strains)
+        {
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
 
-            // Sections with 0 strain are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
-            // These sections will not contribute to the difficulty.
-            var peaks = GetCurrentStrainPeaks().Where(p => p > 0);
+            int index = 0;
+            //double weight = 1;
+            double difficulty = 0;
 
             // Difficulty is the weighted sum of the highest strains from every section.
             // We're sorting from highest to lowest strain.
-            foreach (double strain in peaks.OrderByDescending(d => d))
+            foreach (double strain in strainsList)
+            {
+                double weight = (1.0 + (20.0 / (1 + index))) / (Math.Pow(index, 0.9) + 1.0 + (20.0 / (1.0 + index)));
+
+                difficulty += strain * weight;
+
+                //weight *= DecayWeight;
+                index += 1;
+            }
+
+            return difficulty;
+        }
+
+        protected double GeometricSummation(IEnumerable<double> strains)
+        {
+            List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
+
+            //int index = 0;
+            double weight = 1;
+            double difficulty = 0;
+
+            // Difficulty is the weighted sum of the highest strains from every section.
+            // We're sorting from highest to lowest strain.
+            foreach (double strain in strainsList)
             {
                 difficulty += strain * weight;
                 weight *= DecayWeight;
