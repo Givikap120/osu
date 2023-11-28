@@ -35,7 +35,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         protected double CurrentSnapSectionPeak;
         protected double CurrentFlowSectionPeak;
 
-        private double skillMultiplier => 31.6;//38.75;
+        private double skillMultiplier => 31;//38.75;
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 
@@ -129,6 +129,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private const double mixed_aim_part = 0.22;
         public override double DifficultyValue()
         {
+            // use LogarithmicSummation or GeometricSummation
             double totalDifficulty = LogarithmicSummation(GetCurrentStrainPeaks(), true);
             double snapDifficulty = LogarithmicSummation(GetCurrentSnapStrainPeaks(), true);
             double flowDifficulty = LogarithmicSummation(GetCurrentFlowStrainPeaks(), true);

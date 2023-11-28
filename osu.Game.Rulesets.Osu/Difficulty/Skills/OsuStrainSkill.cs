@@ -39,12 +39,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         {
         }
 
-        public override double DifficultyValue()
-        {
-            double difficulty = LogarithmicSummation(GetCurrentStrainPeaks(), false);
-            return difficulty * DifficultyMultiplier;
-        }
-
         protected double LogarithmicSummation(IEnumerable<double> strains, bool nerfDiffspikes)
         {
             List<double> strainsList = strains.Where(x => x > 0).OrderByDescending(x => x).ToList();
@@ -109,6 +103,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             }
 
             return difficulty;
+        }
+
+        public override double DifficultyValue()
+        {
+            double difficulty = LogarithmicSummation(GetCurrentStrainPeaks(), false);
+            return difficulty * DifficultyMultiplier;
         }
     }
 }
