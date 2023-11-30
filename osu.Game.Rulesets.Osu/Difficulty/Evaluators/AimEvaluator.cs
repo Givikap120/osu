@@ -74,17 +74,31 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
 
-            double normalisedDistance = osuCurrObj.Movement.Length * 0.2 / osuCurrObj.Radius;
+            // distance in circles
+            double normalisedDistance = 0.5 * osuCurrObj.Movement.Length / osuCurrObj.Radius;
             normalisedDistance *= getAngleMultiplier(current);
 
             // random values that work, you can check desmos
-            //double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.1, normalisedDistance) + 10, 5.7) + 1.46;
-            double targetDistance = normalisedDistance - Math.Log(Math.Pow(2, normalisedDistance) + 2.45, 6) + 0.92;
-            //double targetDistance = normalisedDistance;
+            // double targetDistance = normalisedDistance - Math.Log(Math.Pow(2, normalisedDistance) + 2.45, 6) + 0.92; // old variant
 
-            //Console.WriteLine($"Object {current}, distance {normalisedDistance:0.000}, target {targetDistance:0.000}");
+            const double basic_k = 0.45, point_addment = 3, high_bpm_point = 111; //111 = 270bpm
+            double targetDistance;
+
+            if (osuCurrObj.StrainTime > high_bpm_point)
+            {
+                targetDistance = basic_k * normalisedDistance + point_addment * Math.Pow(high_bpm_point / osuCurrObj.StrainTime, 0.5);
+            }
+            else
+            {
+                targetDistance = basic_k * normalisedDistance + point_addment * Math.Pow(high_bpm_point / osuCurrObj.StrainTime, 0.75);
+            }
+
+            //targetDistance *= 0;
+            //targetDistance += normalisedDistance;
 
             if (targetDistance >= normalisedDistance) return strainDecayBase;
+
+            // Console.WriteLine($"Object {current.BaseObject.StartTime}, distance {normalisedDistance:0.0}, target {targetDistance:0.0}");
 
             double velocity = normalisedDistance / osuCurrObj.StrainTime;
             double adjustedStrainTime = targetDistance / velocity;
@@ -114,10 +128,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             const double min_jump = 5;
             const double exp_base = 1.9;
 
-            const double high_bpm_power = 2.2;
-            const double low_bpm_power = 1;
+            const double high_bpm_power = 2.4;
+            const double low_bpm_power = 1.2;
 
-            const double bpm_point = 130; // in strainTime ms
+            const double bpm_point = 120; // in strainTime ms
 
             // agility bonus
             double normalisedDistance = osuCurrObj.Movement.Length / osuCurrObj.Radius;
@@ -160,7 +174,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             }
 
             // Arbitrary buff for high bpm snap because its hard.
-            snapDifficulty *= Math.Sqrt(Math.Max(1, 100 / osuCurrObj.StrainTime));
+            snapDifficulty *= Math.Pow(Math.Max(1, 100 / osuCurrObj.StrainTime), 0.4);
 
             // Begin angle and weird rewards.
             double currVelocity = osuCurrObj.Movement.Length / osuCurrObj.StrainTime;
@@ -278,7 +292,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             aimStrain = Math.Max(aimStrain, (aimStrain - linearDifficulty * 2.4 * osuCurrObj.Radius / Math.Min(osuCurrObj.MovementTime, osuLastObj0.MovementTime)) * (osuCurrObj.StrainTime / osuCurrObj.MovementTime));
 
             // Apply small CS buff.
-            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 5) / 25; // cs7 have 1.04x multiplier
+            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4) / 25; // cs7 have 1.04x multiplier
             aimStrain *= smallCSBonus;
 
             // Arbitrary cap to bonuses because balancing is hard.
@@ -293,8 +307,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Apply slider strain with constant adjustment
             aimStrain += 1.5 * sustainedSliderStrain;
 
-            // AR buff for aim.
-            double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
+            // high AR buff
+            double arBuff = 1.0;
+
+            // follow lines make high AR easier, so apply nerf if object isn't new combo
+            double adjustedApproachTime = osuCurrObj.ApproachRateTime + Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
+
+            // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.4) on this
+            if (adjustedApproachTime < 150)
+                arBuff += 0.5;
+
+            // bonus for AR starts from AR10.3, balancing bonus based on high SR cuz we don't have density calculation
+            else if (adjustedApproachTime < 400)
+            {
+                arBuff += 0.25 * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100));
+            }
+
+            //double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
 
             return aimStrain * arBuff;
         }

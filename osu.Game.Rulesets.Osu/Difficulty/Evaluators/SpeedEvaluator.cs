@@ -33,7 +33,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var osuPrevObj = current.Index > 0 ? (OsuDifficultyHitObject)current.Previous(0) : null;
             var osuNextObj = (OsuDifficultyHitObject?)current.Next(0);
 
-            double arBuff = (1.0 + 0.10 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
+            // high AR buff
+            double arBuff = 1.0;
+
+            // follow lines make high AR easier, so apply nerf if object isn't new combo
+            double adjustedApproachTime = osuCurrObj.ApproachRateTime + Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
+
+            // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.5) on this
+            if (adjustedApproachTime < 150)
+                arBuff += 0.4;
+
+            // bonus for AR starts from AR10.3, balancing bonus based on high SR cuz we don't have density calculation
+            if (adjustedApproachTime < 400)
+            {
+                arBuff += 0.2 * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100));
+            }
+
+            //double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
 
             double strainTime = osuCurrObj.StrainTime;
             double readingTime = osuCurrObj.StrainTime;

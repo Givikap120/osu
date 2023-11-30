@@ -61,6 +61,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double ApproachRateTime { get; private set; }
 
         /// <summary>
+        /// Retrieves the followline time for the object.
+        /// </summary>
+        public double FollowLineTime { get; private set; }
+
+        /// <summary>
         /// Retrieves the radius of the this <see cref="OsuDifficultyHitObject"/>.
         /// </summary>
         public double Radius { get; private set; }
@@ -85,6 +90,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Radius = BaseObject.Radius;
 
             ApproachRateTime = BaseObject.TimePreempt / clockRate;
+            FollowLineTime = 800 / clockRate; // 800ms is follow line appear time
+            FollowLineTime *= ((OsuHitObject)hitObject).NewCombo ? 0 : 1; // no follow lines when NC
 
             MovementTime = StrainTime;
 
