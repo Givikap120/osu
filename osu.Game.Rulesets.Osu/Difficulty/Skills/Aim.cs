@@ -35,7 +35,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         protected double CurrentSnapSectionPeak;
         protected double CurrentFlowSectionPeak;
 
-        private double skillMultiplier => 31;//38.75;
+        private double skillMultiplier => 29;//38.75;
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 
@@ -136,9 +136,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
 
-            double debugFix = 34 / skillMultiplier - 1;
+            double debugFix = 31.1 / skillMultiplier - 1;
+            double debugPerc = difficulty / totalDifficulty - debugFix - 1;
+            string sign = debugPerc > 0 ? "+" : "";
             Console.WriteLine($"Snap dificulty - {snapDifficulty:0}, Flow difficulty - {flowDifficulty:0}, Total difficulty - {totalDifficulty:0}, " +
-                $"Result - {difficulty:0} (+{100 * (difficulty / totalDifficulty - debugFix - 1):0.00}%)");
+                $"Result - {difficulty:0} ({sign}{100 * debugPerc:0.00}%)");
 
             return difficulty * DifficultyMultiplier;
         }

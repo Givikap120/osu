@@ -79,7 +79,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // random values that work, you can check desmos
             //double targetDistance = normalisedDistance - Math.Log(Math.Pow(2.1, normalisedDistance) + 10, 5.7) + 1.46;
-            double targetDistance = normalisedDistance - Math.Log(Math.Pow(3.1, normalisedDistance) + 7.7, 5.4) + 1.57;
+            double targetDistance = normalisedDistance - Math.Log(Math.Pow(2, normalisedDistance) + 2.45, 6) + 0.92;
             //double targetDistance = normalisedDistance;
 
             //Console.WriteLine($"Object {current}, distance {normalisedDistance:0.000}, target {targetDistance:0.000}");
@@ -278,7 +278,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             aimStrain = Math.Max(aimStrain, (aimStrain - linearDifficulty * 2.4 * osuCurrObj.Radius / Math.Min(osuCurrObj.MovementTime, osuLastObj0.MovementTime)) * (osuCurrObj.StrainTime / osuCurrObj.MovementTime));
 
             // Apply small CS buff.
-            aimStrain *= Math.Sqrt(linearDifficulty);
+            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 5) / 25; // cs7 have 1.04x multiplier
+            aimStrain *= smallCSBonus;
 
             // Arbitrary cap to bonuses because balancing is hard.
             aimStrain = Math.Min(aimStrain, linearDifficulty * currVelocity * 3.25);
