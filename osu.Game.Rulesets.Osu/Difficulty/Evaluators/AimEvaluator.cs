@@ -209,7 +209,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 snapDifficulty += snapAngleBuff + snapVelocityBuff;
 
             // Apply balancing parameters.
-            flowDifficulty *= 1.25;
+            flowDifficulty *= 1.28;
             snapDifficulty *= 0.86;
 
             return (snapDifficulty, flowDifficulty);
