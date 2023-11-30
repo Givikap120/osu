@@ -128,10 +128,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             const double min_jump = 5;
             const double exp_base = 1.9;
 
-            const double high_bpm_power = 2.4;
-            const double low_bpm_power = 1.2;
+            const double high_bpm_power = 2.8;
+            const double low_bpm_power = 1.4;
 
-            const double bpm_point = 120; // in strainTime ms
+            const double bpm_point = 110; // in strainTime ms
 
             // agility bonus
             double normalisedDistance = osuCurrObj.Movement.Length / osuCurrObj.Radius;
@@ -223,7 +223,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 snapDifficulty += snapAngleBuff + snapVelocityBuff;
 
             // Apply balancing parameters.
-            flowDifficulty *= 1.28;
+            flowDifficulty *= 1.34;
             snapDifficulty *= 0.86;
 
             return (snapDifficulty, flowDifficulty);

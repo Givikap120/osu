@@ -13,23 +13,12 @@ namespace osu.Game.Rulesets.Difficulty.Skills
     /// Used to processes strain values of <see cref="DifficultyHitObject"/>s, keep track of strain levels caused by the processed objects
     /// and to calculate a final difficulty value representing the difficulty of hitting all the processed objects.
     /// </summary>
-    public abstract class StrainSkill : Skill
+    public abstract class StrainSkill : GraphSkill
     {
         /// <summary>
         /// The weight by which each strain value decays.
         /// </summary>
         protected virtual double DecayWeight => 0.9;
-
-        /// <summary>
-        /// The length of each strain section.
-        /// </summary>
-        protected virtual int SectionLength => 400;
-
-        protected double CurrentSectionPeak; // We also keep track of the peak strain level in the current section.
-
-        protected double CurrentSectionEnd;
-
-        protected readonly List<double> StrainPeaks = new List<double>();
 
         protected StrainSkill(Mod[] mods)
             : base(mods)
@@ -61,14 +50,6 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         }
 
         /// <summary>
-        /// Saves the current peak strain level to the list of strain peaks, which will be used to calculate an overall difficulty.
-        /// </summary>
-        protected void SaveCurrentPeak()
-        {
-            StrainPeaks.Add(CurrentSectionPeak);
-        }
-
-        /// <summary>
         /// Sets the initial strain level for a new section.
         /// </summary>
         /// <param name="time">The beginning of the new section in milliseconds.</param>
@@ -89,17 +70,11 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         protected abstract double CalculateInitialStrain(double time, DifficultyHitObject current);
 
         /// <summary>
-        /// Returns a live enumerable of the peak strains for each <see cref="SectionLength"/> section of the beatmap,
-        /// including the peak of the current section.
-        /// </summary>
-        public IEnumerable<double> GetCurrentStrainPeaks() => StrainPeaks.Append(CurrentSectionPeak);
-
-        /// <summary>
         /// Returns the calculated difficulty value representing all <see cref="DifficultyHitObject"/>s that have been processed up to this point.
         /// </summary>
         public override double DifficultyValue()
         {
-            return GeometricSummation(GetCurrentStrainPeaks());
+            return GeometricSummation(GetSectionPeaks());
         }
 
         protected double LogarithmicSummation(IEnumerable<double> strains)
