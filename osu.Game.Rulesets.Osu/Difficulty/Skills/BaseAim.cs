@@ -136,6 +136,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             return difficulties.Count < 2 * bin_count ? difficultyValueExact() : difficultyValueBinned();
         }
         protected double StrainDecay(double ms) => Math.Pow(StrainDecayBase, ms / 1000);
+        protected double StrainDecay(double ms, double decayBase) => Math.Pow(decayBase, ms / 1000);
         protected abstract double StrainValueAt(DifficultyHitObject current);
 
     }

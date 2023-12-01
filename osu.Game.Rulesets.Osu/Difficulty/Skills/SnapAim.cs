@@ -15,7 +15,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         }
         protected override double StrainValueAt(DifficultyHitObject current)
         {
-            PriorStrain *= StrainDecay(current.DeltaTime);
+            // cross-screen buff
+            double adjustedStrainDecay = AimEvaluator.AdjustStrainDecay(current, StrainDecayBase);
+            PriorStrain *= StrainDecay(current.DeltaTime, adjustedStrainDecay);
+
             (double snap, double flow) objectDifficulties = AimEvaluator.EvaluateRawDifficultiesOf(current);
             double currentObjectDifficulty = AimEvaluator.EvaluateSnapStrainOf(current, WithSliders, StrainDecayBase, objectDifficulties) * CURRENT_STRAIN_MULTIPLIER;
             double totalDifficulty = PriorStrain * PRIOR_STRAIN_MULTIPLIER + currentObjectDifficulty;

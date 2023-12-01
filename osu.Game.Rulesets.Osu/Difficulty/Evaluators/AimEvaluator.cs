@@ -81,16 +81,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // random values that work, you can check desmos
             // double targetDistance = normalisedDistance - Math.Log(Math.Pow(2, normalisedDistance) + 2.45, 6) + 0.92; // old variant
 
-            const double basic_k = 0.45, point_addment = 3, high_bpm_point = 111; //111 = 270bpm
+            const double basic_k = 0.5, target_bpm_point = 111; //111 = 270bpm
+            double adjustedK = basic_k * Math.Pow(target_bpm_point / osuCurrObj.StrainTime, 0.3);
+            double pointAddment = 6 * (1 - adjustedK); // min point is 5.5 circles for target_bpm_point
+
             double targetDistance;
 
-            if (osuCurrObj.StrainTime > high_bpm_point)
+            if (osuCurrObj.StrainTime > target_bpm_point)
             {
-                targetDistance = basic_k * normalisedDistance + point_addment * Math.Pow(high_bpm_point / osuCurrObj.StrainTime, 0.5);
+                targetDistance = adjustedK * normalisedDistance + pointAddment * Math.Pow(target_bpm_point / osuCurrObj.StrainTime, 0.5);
             }
             else
             {
-                targetDistance = basic_k * normalisedDistance + point_addment * Math.Pow(high_bpm_point / osuCurrObj.StrainTime, 0.75);
+                targetDistance = adjustedK * normalisedDistance + pointAddment * Math.Pow(target_bpm_point / osuCurrObj.StrainTime, 0.75);
             }
 
             //targetDistance *= 0;
@@ -238,13 +241,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 current.Previous(2).BaseObject is Spinner)
                 return 0;
 
-            // Used in an LP sum to buff ambiguous snap flow scenarios.
-            //double p = 4.0;
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
-            //double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            double arBuff = getHighARBonus(osuCurrObj);
+            // WARNING: VERY QUESTIONABLE LENGTH BONUS FOR HIGH AR
+            arBuff *= 1 - Math.Pow(3, -(osuCurrObj.Index + 240) / 120);
+            arBuff = Math.Max(1, arBuff);
 
-            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
+            return arBuff * applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
         }
         public static double EvaluateSnapStrainOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, (double snap, double flow) difficulty)
         {
@@ -254,13 +259,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (difficulty.flow < difficulty.snap)
                 difficulty.snap = difficulty.flow * Math.Pow(difficulty.flow / difficulty.snap, 1.0);
 
-            // Used in an LP sum to buff ambiguous snap flow scenarios.
-            // double p = 4.0;
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
-            //double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            double arBuff = getHighARBonus(osuCurrObj);
+            // WARNING: VERY QUESTIONABLE LENGTH BONUS FOR HIGH AR
+            arBuff *= 1 - Math.Pow(3, -(osuCurrObj.Index + 200) / 100);
+            arBuff = Math.Max(1, arBuff);
 
-            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
+            return arBuff * applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
         }
 
         public static double EvaluateFlowStrainOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, (double snap, double flow) difficulty)
@@ -271,13 +278,35 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (difficulty.snap < difficulty.flow)
                 difficulty.flow = difficulty.snap * Math.Pow(difficulty.snap / difficulty.flow, 2.0);
 
-            // Used in an LP sum to buff ambiguous snap flow scenarios.
-            //double p = 4.0;
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
-            //double aimStrain = Math.Pow(Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.snap - minStrain)), p) + Math.Pow(Math.Max(0, minStrain - Math.Abs(difficulty.flow - minStrain)), p), 1.0 / p);
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            double arBuff = getHighARBonus(osuCurrObj);
+            // WARNING: VERY QUESTIONABLE LENGTH BONUS FOR HIGH AR
+            arBuff *= 1 - Math.Pow(3, -(osuCurrObj.Index + 400) / 200);
+            arBuff = Math.Max(1, arBuff);
 
-            return applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
+            return arBuff * applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
+        }
+
+        private static double getHighARBonus(OsuDifficultyHitObject osuCurrObj)
+        {
+            double arBuff = 1.0;
+
+            // follow lines make high AR easier, so apply nerf if object isn't new combo
+            double adjustedApproachTime = osuCurrObj.ApproachRateTime + Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
+
+            // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.4) on this
+            if (adjustedApproachTime < 150)
+                arBuff += 0.54;
+
+            // bonus for AR starts from AR10.3, balancing bonus based on high SR cuz we don't have density calculation
+            else if (adjustedApproachTime < 400)
+            {
+                arBuff += 0.27 * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100));
+            }
+
+            return arBuff;
         }
 
         private static double applyRemainingBonusesTo(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double aimStrain)
@@ -292,7 +321,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             aimStrain = Math.Max(aimStrain, (aimStrain - linearDifficulty * 2.4 * osuCurrObj.Radius / Math.Min(osuCurrObj.MovementTime, osuLastObj0.MovementTime)) * (osuCurrObj.StrainTime / osuCurrObj.MovementTime));
 
             // Apply small CS buff.
-            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4) / 25; // cs7 have 1.04x multiplier
+            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4.5) / 25; // cs7 have 1.04x multiplier
             aimStrain *= smallCSBonus;
 
             // Arbitrary cap to bonuses because balancing is hard.
@@ -307,25 +336,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Apply slider strain with constant adjustment
             aimStrain += 1.5 * sustainedSliderStrain;
 
-            // high AR buff
-            double arBuff = 1.0;
-
-            // follow lines make high AR easier, so apply nerf if object isn't new combo
-            double adjustedApproachTime = osuCurrObj.ApproachRateTime + Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
-
-            // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.4) on this
-            if (adjustedApproachTime < 150)
-                arBuff += 0.5;
-
-            // bonus for AR starts from AR10.3, balancing bonus based on high SR cuz we don't have density calculation
-            else if (adjustedApproachTime < 400)
-            {
-                arBuff += 0.25 * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100));
-            }
-
-            //double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
-
-            return aimStrain * arBuff;
+            return aimStrain;
         }
 
         private static double calculateSustainedSliderStrain(OsuDifficultyHitObject osuCurrObj, double strainDecayBase, bool withSliderTravelDistance)
