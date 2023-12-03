@@ -92,6 +92,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 1e-4);
             return skill;
         }
+
+        private bool newSection = true;
+        private double lastObject = 0;
+        private double lastObjectTime = 0;
         public override void Process(DifficultyHitObject current)
         {
             double currObjectStrain = StrainValueAt(current);
@@ -105,11 +109,22 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             while (current.StartTime > CurrentSectionEnd)
             {
                 SaveCurrentPeak();
-                CurrentSectionPeak = 0;
+                CurrentSectionPeak = lastObject * Math.Clamp((1 - (CurrentSectionEnd - lastObjectTime) / 1000), 0, 1);
                 CurrentSectionEnd += SectionLength;
             }
 
-            CurrentSectionPeak = Math.Max(currObjectStrain, CurrentSectionPeak);
+            if (newSection)
+            {
+                CurrentSectionPeak = currObjectStrain;
+                newSection = false;
+            }
+            else
+            {
+                CurrentSectionPeak = Math.Max(currObjectStrain, CurrentSectionPeak);
+            }
+
+            lastObject = currObjectStrain;
+            lastObjectTime = current.StartTime;
         }
         private double fcProbability(double skill)
         {

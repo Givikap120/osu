@@ -18,7 +18,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.08;
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.1;
 
         private double accuracy;
         private int scoreMaxCombo;
@@ -97,6 +97,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
+            if (deviation == null) return 0;
+
             double aimValue = Math.Pow(5.0 * Math.Max(1.0, attributes.AimDifficulty / 0.0675) - 4.0, 3.0) / 100000.0;
 
             //double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
@@ -146,6 +148,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
+            //aimValue *= 1 / (1 + Math.Pow((double)deviation / 30, 4)); // Scale the aim value with deviation.
 
             return aimValue;
         }
@@ -179,15 +182,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
-
-            double hitWindow300 = 80 - 6 * attributes.OverallDifficulty;
-
-            // Scale the speed value with speed deviation.
-            if (deviation != null)
-                speedValue *= 1.0 / (1.0 + Math.Pow((double)deviation / (10.0 + Math.Pow(hitWindow300, .75)), 4.0));
+            speedValue *= 1 / (1 + Math.Pow(speedDeviation / 20, 4)); // Scale the speed value with speed deviation.
 
             return speedValue;
         }
+
+        private double softMin(double value, double min = 0, double degree = Math.E) => Math.Log(Math.Pow(degree, value) + Math.Pow(degree, min), degree);
 
         private double computeAccuracyValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
@@ -196,20 +196,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModRelax) || deviation == null)
                 return 0.0;
 
-            double liveLengthBonus = Math.Min(1.15, Math.Pow(hitCircleCount / 1000.0, 0.3)); // Should eventually be removed.
-            double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
-
-            // Some fancy stuff to ensure SS values stay the same.
-            double scaling = Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(hitCircleCount, threshold))) / 6;
-
-            // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * (double)deviation);
+            double accuracyValue = 100 * Math.Pow(7.5 / (double)deviation, 2);
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
                 accuracyValue *= 1.14;
             else if (score.Mods.Any(m => m is OsuModHidden))
-                accuracyValue *= 1.08;
+            {
+                accuracyValue *= 1.08; // remove static HD acc bonus
+                if (attributes.ApproachRate < 10.5) accuracyValue *= 1 + 0.16 * Math.Max(0, 10.5 - softMin(attributes.ApproachRate, 5, 2)); // Buff low AR accuracy, objective IMO
+            }
+            else
+            {
+                // buff low AR accuracy too
+                if (attributes.ApproachRate < 10) accuracyValue *= 1 + 0.08 * Math.Max(0, 10.0 - softMin(attributes.ApproachRate, 0, 1.3));
+            }
 
             if (score.Mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02;

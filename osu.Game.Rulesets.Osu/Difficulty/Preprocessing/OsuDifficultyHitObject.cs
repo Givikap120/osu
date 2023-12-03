@@ -76,6 +76,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, HitObject? lastLastObject, double clockRate, List<DifficultyHitObject> objects, int index)
             : base(hitObject, lastObject, clockRate, objects, index)
         {
+            OsuHitObject osuHitObject = (OsuHitObject)hitObject;
             this.lastLastObject = lastLastObject as OsuHitObject;
             this.lastObject = (OsuHitObject)lastObject;
 
@@ -91,7 +92,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             ApproachRateTime = BaseObject.TimePreempt / clockRate;
             FollowLineTime = 800 / clockRate; // 800ms is follow line appear time
-            FollowLineTime *= ((OsuHitObject)hitObject).NewCombo ? 0 : 1; // no follow lines when NC
+            FollowLineTime *= osuHitObject.NewCombo ? 0 : 1; // no follow lines when NC
 
             MovementTime = StrainTime;
 

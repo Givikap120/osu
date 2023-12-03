@@ -76,8 +76,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 flashlightRating *= 0.7;
             }
 
-            double baseAimPerformance = Math.Pow(5 * Math.Max(1, aimRating / 0.0675) - 4, 3) / 100000;
-            double baseSpeedPerformance = Math.Pow(5 * Math.Max(1, speedRating / 0.0675) - 4, 3) / 100000;
+            double baseAimPerformance = Math.Pow(5 * Math.Max(1, aimRating / difficulty_multiplier) - 4, 3) / 100000;
+            double baseSpeedPerformance = Math.Pow(5 * Math.Max(1, speedRating / difficulty_multiplier) - 4, 3) / 100000;
 
 
             int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);

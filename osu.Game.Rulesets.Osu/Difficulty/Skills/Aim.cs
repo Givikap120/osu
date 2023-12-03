@@ -43,7 +43,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         public override IEnumerable<double> GetSectionPeaks() => totalAim.GetSectionPeaks();
 
-        private double skillMultiplier => 1.32;
+        private double skillMultiplier => 1.364;
         public override double DifficultyValue()
         {
             double totalDifficulty = totalAim.DifficultyValue();

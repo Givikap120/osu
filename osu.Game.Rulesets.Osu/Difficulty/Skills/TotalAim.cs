@@ -19,7 +19,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double adjustedStrainDecay = AimEvaluator.AdjustStrainDecay(current, StrainDecayBase);
             PriorStrain *= StrainDecay(current.DeltaTime, adjustedStrainDecay);
 
-            (double snap, double flow) objectDifficulties = AimEvaluator.EvaluateRawDifficultiesOf(current);
+            (double snap, double flow) objectDifficulties = AimEvaluator.EvaluateRawDifficultiesOf(current, StrainDecayBase);
             double currentObjectDifficulty = AimEvaluator.EvaluateTotalStrainOf(current, WithSliders, StrainDecayBase, objectDifficulties) * CURRENT_STRAIN_MULTIPLIER;
             double totalDifficulty = PriorStrain * PRIOR_STRAIN_MULTIPLIER + currentObjectDifficulty;
             PriorStrain += currentObjectDifficulty;
