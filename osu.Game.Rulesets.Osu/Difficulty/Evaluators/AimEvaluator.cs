@@ -205,6 +205,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             double snapVelocityBuff = linearDifficulty * Math.Max(0, Math.Min(Math.Abs(currVelocity - prevVelocity) - Math.Min(currVelocity, prevVelocity), minVelocity)) * rhythmRatio;
 
+            //Console.WriteLine($"Object {current.BaseObject.StartTime}, angle buff +{100 * snapAngleBuff / snapDifficulty:0.0}%, velocity buff +{100 * snapVelocityBuff / snapDifficulty:0.0}%");
+            
             if (currVelocity > prevVelocity)
                 snapDifficulty += Math.Max(snapAngleBuff, snapVelocityBuff) + Math.Min(snapAngleBuff, snapVelocityBuff) * minVelocity / maxVelocity;
             else
@@ -271,7 +273,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
-            double arBuff = getHighARBonus(osuCurrObj);
+            double arBuff = getHighARBonus(osuCurrObj, false);
             // WARNING: VERY QUESTIONABLE LENGTH BONUS FOR HIGH AR
             arBuff *= 1 - Math.Pow(2.7, -(osuCurrObj.Index + 240) / 240); // 2 times more cuz usually flow is streams
             arBuff = Math.Max(1, arBuff);
@@ -279,14 +281,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             return arBuff * applyRemainingBonusesTo(current, withSliderTravelDistance, strainDecayBase, minStrain);
         }
 
-        private static double getHighARBonus(OsuDifficultyHitObject osuCurrObj)
+        private static double getHighARBonus(OsuDifficultyHitObject osuCurrObj, bool applyFollowLineAdjust = true)
         {
             const double max_bonus = 0.3;
 
             double arBuff = 1.0;
 
             // follow lines make high AR easier, so apply nerf if object isn't new combo
-            double adjustedApproachTime = osuCurrObj.ApproachRateTime + Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
+            double adjustedApproachTime = osuCurrObj.ApproachRateTime;
+            if (applyFollowLineAdjust) adjustedApproachTime += Math.Max(0, (osuCurrObj.FollowLineTime - 200) / 25);
 
             // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.4) on this
             if (adjustedApproachTime < 150)
@@ -369,7 +372,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // random values that work, you can check desmos
             // double targetDistance = normalisedDistance - Math.Log(Math.Pow(2, normalisedDistance) + 2.45, 6) + 0.92; // old variant
 
-            const double basic_k = 0.7, target_bpm_point = 120; //120 = 250bpm
+            const double basic_k = 0.5, target_bpm_point = 120; //120 = 250bpm
             double adjustedK = basic_k * Math.Pow(target_bpm_point / osuCurrObj.StrainTime, 0.5);
             double pointAddment = 6 * (1 - adjustedK); // min point is 5.5 circles for target_bpm_point
 
@@ -456,7 +459,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (reversed)
                 return 1 - Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 3.0, 5 * Math.PI / 6.0) - Math.PI / 3), 2.0);
 
-            return Math.Pow(Math.Sin((Math.Clamp(angle, Math.PI / 3.0, 3 * Math.PI / 4.0) - Math.PI / 3) * 1.2), 0.5);
+            return Math.Pow(Math.Sin((Math.Clamp(angle, Math.PI / 3.0, 3 * Math.PI / 4.0) - Math.PI / 3) * 1.2), 2.0);
 
         }
     }
