@@ -148,7 +148,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
-            //aimValue *= 1 / (1 + Math.Pow((double)deviation / 30, 4)); // Scale the aim value with deviation.
+            aimValue *= 1 / (1 + Math.Pow((double)deviation / 30, 4)); // Scale the aim value with deviation.
 
             return aimValue;
         }
@@ -203,7 +203,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 accuracyValue *= 1.14;
             else if (score.Mods.Any(m => m is OsuModHidden))
             {
-                accuracyValue *= 1.08; // remove static HD acc bonus
+                // accuracyValue *= 1.08; // remove static HD acc bonus
                 if (attributes.ApproachRate < 10.5) accuracyValue *= 1 + 0.16 * Math.Max(0, 10.5 - softMin(attributes.ApproachRate, 5, 2)); // Buff low AR accuracy, objective IMO
             }
             else

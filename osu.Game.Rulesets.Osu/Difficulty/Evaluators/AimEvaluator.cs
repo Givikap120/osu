@@ -281,6 +281,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         private static double getHighARBonus(OsuDifficultyHitObject osuCurrObj)
         {
+            const double max_bonus = 0.3;
+
             double arBuff = 1.0;
 
             // follow lines make high AR easier, so apply nerf if object isn't new combo
@@ -288,12 +290,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // we are assuming that 150ms is a complete memory and the bonus will be maximal (1.4) on this
             if (adjustedApproachTime < 150)
-                arBuff += 0.3;
+                arBuff += max_bonus;
 
             // bonus for AR starts from AR10.3, balancing bonus based on high SR cuz we don't have density calculation
             else if (adjustedApproachTime < 400)
             {
-                arBuff += 0.15 * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100));
+                arBuff += max_bonus * (1 + Math.Cos(Math.PI * 0.4 * (adjustedApproachTime - 150) / 100)) / 2;
             }
 
             return arBuff;
