@@ -83,6 +83,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double HitWindowGreat { get; private set; }
 
+        public Vector2 Movement { get; private set; }
+
         private readonly OsuHitObject? lastLastObject;
         private readonly OsuHitObject lastObject;
 
@@ -164,6 +166,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             LazyJumpDistance = (BaseObject.StackedPosition * scalingFactor - lastCursorPosition * scalingFactor).Length;
             MinimumJumpTime = StrainTime;
             MinimumJumpDistance = LazyJumpDistance;
+
+            Movement = scalingFactor * (BaseObject.StackedPosition - lastCursorPosition);
 
             if (lastObject is Slider lastSlider)
             {

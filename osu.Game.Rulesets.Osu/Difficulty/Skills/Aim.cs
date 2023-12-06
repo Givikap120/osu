@@ -5,37 +5,118 @@ using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
+using osu.Game.Rulesets.Difficulty.Skills;
+using System.Collections.Generic;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
     /// <summary>
     /// Represents the skill required to correctly aim at every object in the map with a uniform CircleSize and normalized distances.
     /// </summary>
-    public class Aim : OsuStrainSkill
+    public class Aim : GraphSkill
     {
         public Aim(Mod[] mods, bool withSliders)
             : base(mods)
         {
-            this.withSliders = withSliders;
+            totalAim = new TotalAim(mods, withSliders);
+            snapAim = new SnapAim(mods, withSliders);
+            flowAim = new FlowAim(mods, withSliders);
         }
 
-        private readonly bool withSliders;
+        private TotalAim totalAim;
+        private SnapAim snapAim;
+        private FlowAim flowAim;
 
-        private double currentStrain;
-
-        private double skillMultiplier => 23.55;
-        private double strainDecayBase => 0.15;
-
-        private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
-
-        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime);
-
-        protected override double StrainValueAt(DifficultyHitObject current)
+        public override void Process(DifficultyHitObject current)
         {
-            currentStrain *= strainDecay(current.DeltaTime);
-            currentStrain += AimEvaluator.EvaluateDifficultyOf(current, withSliders) * skillMultiplier;
+            totalAim.Process(current);
+            snapAim.Process(current);
+            flowAim.Process(current);
+        }
+        public override IEnumerable<double> GetSectionPeaks() => totalAim.GetSectionPeaks();
 
-            return currentStrain;
+        private const double mixed_aim_part = 0.22;
+        public override double DifficultyValue()
+        {
+            double totalDifficulty = totalAim.DifficultyValue();
+            double snapDifficulty = snapAim.DifficultyValue();
+            double flowDifficulty = flowAim.DifficultyValue();
+
+            double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
+
+            return difficulty;
         }
     }
+
+    public class TotalAim : BaseAim
+    {
+        public TotalAim(Mod[] mods, bool WithSliders)
+            : base(mods, WithSliders)
+        {
+        }
+        protected override double StrainValueAt(DifficultyHitObject current)
+        {
+            CurrentStrain *= StrainDecay(current.DeltaTime);
+
+            (double snap, double flow) difficulties = AimEvaluator.EvaluateRawDifficultiesOf(current, WithSliders, StrainDecayBase);
+            CurrentStrain += AimEvaluator.EvaluateTotalStrainOf(current, WithSliders, StrainDecayBase, difficulties);
+
+            return CurrentStrain * SkillMultiplier;
+        }
+    }
+
+    public class SnapAim : BaseAim
+    {
+        public SnapAim(Mod[] mods, bool WithSliders)
+            : base(mods, WithSliders)
+        {
+        }
+        protected override double StrainValueAt(DifficultyHitObject current)
+        {
+            CurrentStrain *= StrainDecay(current.DeltaTime);
+
+            (double snap, double flow) difficulties = AimEvaluator.EvaluateRawDifficultiesOf(current, WithSliders, StrainDecayBase);
+            CurrentStrain += AimEvaluator.EvaluateSnapStrainOf(current, WithSliders, StrainDecayBase, difficulties);
+
+            return CurrentStrain * SkillMultiplier;
+        }
+    }
+
+    public class FlowAim : BaseAim
+    {
+        public FlowAim(Mod[] mods, bool WithSliders)
+            : base(mods, WithSliders)
+        {
+        }
+        protected override double StrainValueAt(DifficultyHitObject current)
+        {
+            CurrentStrain *= StrainDecay(current.DeltaTime);
+
+            (double snap, double flow) difficulties = AimEvaluator.EvaluateRawDifficultiesOf(current, WithSliders, StrainDecayBase);
+            CurrentStrain += AimEvaluator.EvaluateFlowStrainOf(current, WithSliders, StrainDecayBase, difficulties);
+
+            return CurrentStrain * SkillMultiplier;
+        }
+    }
+
+    public abstract class BaseAim : OsuStrainSkill
+    {
+        public BaseAim(Mod[] mods, bool withSliders)
+            : base(mods)
+        {
+            WithSliders = withSliders;
+        }
+
+        protected readonly bool WithSliders;
+
+        protected double CurrentStrain;
+        protected double StrainDecayBase => 0.15;
+
+        protected double SkillMultiplier => 23.55;
+
+        protected double StrainDecay(double ms) => Math.Pow(StrainDecayBase, ms / 1000);
+
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => CurrentStrain * StrainDecay(time - current.Previous(0).StartTime);
+    }
+
 }
