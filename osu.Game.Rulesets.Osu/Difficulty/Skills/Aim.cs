@@ -35,14 +35,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         }
         public override IEnumerable<double> GetSectionPeaks() => totalAim.GetSectionPeaks();
 
-        private const double mixed_aim_part = 0.22;
+        private const double mixed_aim_part = 0.2;
+        private const double poly_power = 1.5;
         public override double DifficultyValue()
         {
             double totalDifficulty = totalAim.DifficultyValue();
             double snapDifficulty = snapAim.DifficultyValue();
             double flowDifficulty = flowAim.DifficultyValue();
 
-            double difficulty = totalDifficulty * (1 - mixed_aim_part) + (snapDifficulty + flowDifficulty) * mixed_aim_part;
+            double polySum = Math.Pow(Math.Pow(snapDifficulty, poly_power) + Math.Pow(flowDifficulty, poly_power), 1 / poly_power);
+            double difficulty = totalDifficulty * (1 - mixed_aim_part) + polySum * mixed_aim_part;
+
+            double debugPerc = difficulty / totalDifficulty - 1;
+            string sign = debugPerc > 0 ? "+" : "";
+            Console.WriteLine($"Snap dificulty - {snapDifficulty:0}, Flow difficulty - {flowDifficulty:0}, Total difficulty - {totalDifficulty:0}, " +
+                $"Result - {difficulty:0} ({sign}{100 * debugPerc:0.00}%)");
 
             return difficulty;
         }
@@ -112,7 +119,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         protected double CurrentStrain;
         protected double StrainDecayBase => 0.15;
 
-        protected double SkillMultiplier => 23.55;
+        protected double SkillMultiplier => 26.8;
+        //protected double SkillMultiplier => 23.7;
 
         protected double StrainDecay(double ms) => Math.Pow(StrainDecayBase, ms / 1000);
 
