@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     {
         private const double wide_angle_multiplier = 1.5;
         private const double acute_angle_multiplier = 1.95;
-        private const double slider_multiplier = 1.6;
+        private const double slider_multiplier = 1.4;
         private const double velocity_change_multiplier = 0.75;
 
         private static bool isInvalid(DifficultyHitObject current) => current.Index <= 2 ||
@@ -369,6 +369,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 return 0;
 
             if (difficulty.flow < difficulty.snap)
+                // make snap difficulty always lower than flow
                 difficulty.snap = difficulty.flow * Math.Pow(difficulty.flow / difficulty.snap, 1.0);
 
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
@@ -388,7 +389,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 return 0;
 
             if (difficulty.snap < difficulty.flow)
+            {
+                // make flow difficulty always lower than snap
                 difficulty.flow = difficulty.snap * Math.Pow(difficulty.snap / difficulty.flow, 2.0);
+
+                // but it can't be lower than snap / 5
+                difficulty.flow = Math.Max(difficulty.flow, difficulty.snap / 5);
+            }
 
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
