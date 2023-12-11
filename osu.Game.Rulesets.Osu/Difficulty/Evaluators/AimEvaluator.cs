@@ -11,7 +11,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class AimEvaluator
     {
-        private const double wide_angle_multiplier = 1.5;
+        private const double wide_angle_multiplier = 1.2;
         private const double acute_angle_multiplier = 1.95;
         private const double slider_multiplier = 1.4;
         private const double velocity_change_multiplier = 0.75;
@@ -530,7 +530,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         {
             angle = Math.Abs(angle);
             if (reversed)
-                return 1 - Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 3.0, 5 * Math.PI / 6.0) - Math.PI / 3), 2.0);
+            {
+                //return 1 - Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 3.0, 5 * Math.PI / 6.0) - Math.PI / 3), 2.0);
+                if (angle == Math.PI) return 0;
+                return (Math.PI - angle) / Math.Sqrt(2 * (1 - Math.Cos(Math.PI - angle))) - 1;
+
+            }
 
             return Math.Pow(Math.Sin((Math.Clamp(angle, Math.PI / 3.0, 3 * Math.PI / 4.0) - Math.PI / 3) * 1.2), 2.0);
 
