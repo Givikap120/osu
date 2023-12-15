@@ -14,7 +14,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private const double wide_angle_multiplier = 1.2;
         private const double acute_angle_multiplier = 1.9;
         private const double slider_multiplier = 1.42;
-        private const double velocity_change_multiplier = 0.7;
+        private const double snap_velocity_change_multiplier = 0.7;
+        private const double flow_velocity_change_multiplier = 1.7;
+
 
         private static bool isInvalid(DifficultyHitObject current) => current.Index <= 2 ||
                 current.BaseObject is Spinner ||
@@ -137,10 +139,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 flowDifficulty *= 1 + Math.Max(angleChangeBonus, acutnessBonus);
             }
 
+            double flowVelocityChangeBonus = 0;
+
             // minimum velocity change is 10%
-            double clampedVelocityChange = Math.Max(0, Math.Abs(currVelocity - prevVelocity) - minVelocity * 0.1) / 0.8;
-            // 1.5 is a multiplier for velocity change in flow
-            flowDifficulty += 1.5 * clampedVelocityChange * rhythmRatio;
+            double clampedVelocityChange = Math.Abs(currVelocity - prevVelocity) - minVelocity * 0.1;
+            if (clampedVelocityChange > 0 && currVelocity > 0)
+                flowVelocityChangeBonus = clampedVelocityChange / currVelocity;
+
+            flowDifficulty *= 1 + flow_velocity_change_multiplier * flowVelocityChangeBonus * rhythmRatio;
 
             // Apply balancing parameters.
             snapDifficulty *= GlobalSnapMultiplier;
@@ -151,6 +157,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         private static double getVelocity(OsuDifficultyHitObject osuCurrObj, bool withSliderTravelDistance)
         {
+            if (osuCurrObj == null || osuCurrObj.Index < 1) return 0;
+
             var osuLastObj0 = (OsuDifficultyHitObject)osuCurrObj.Previous(0);
 
             double velocity = osuCurrObj.LazyJumpDistance / osuCurrObj.StrainTime;
@@ -168,6 +176,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         public static (double wide, double acute) GetSnapAngleBonus(DifficultyHitObject current, bool withSliderTravelDistance)
         {
+            if (current == null || current.Index < 2) return (0, 0);
+
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
             var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
@@ -245,7 +255,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 velocityChangeBonus *= Math.Pow(Math.Min(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime), 2);
             }
 
-            return velocityChangeBonus * velocity_change_multiplier;
+            return velocityChangeBonus * snap_velocity_change_multiplier;
         }
 
         private static double calcWideAngleBonus(double angle) => Math.Pow(Math.Sin(3.0 / 4 * (Math.Min(5.0 / 6 * Math.PI, Math.Max(Math.PI / 6, angle)) - Math.PI / 6)), 2);
