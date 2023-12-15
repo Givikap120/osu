@@ -310,7 +310,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             if (difficulty.flow < difficulty.snap)
                 // make snap difficulty always lower than flow
-                difficulty.snap = difficulty.flow * Math.Pow(difficulty.flow / difficulty.snap, 1.0);
+                difficulty.snap = difficulty.flow * Math.Pow(difficulty.flow / difficulty.snap, 2.0);
 
             double minStrain = Math.Min(difficulty.snap, difficulty.flow);
 
