@@ -125,17 +125,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 if (currVelocity > 0)
                     velocityThing = Math.Min(minVelocity, (osuCurrObj.Movement + osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)) / currVelocity;
 
-                double angleChangeBonus = 1 + flowSplineBonus * velocityThing;
+                double angleChangeBonus = flowSplineBonus * velocityThing;
 
                 double acutnessBonus = 0;
                 if (currVelocity > 0)
                     acutnessBonus = calcFlowAcuteBonus(currAngle) * Math.Min(minVelocity, (osuCurrObj.Movement - osuLastObj0.Movement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)) / currVelocity;
 
                 acutnessBonus *= 1 - getOverlapness(osuCurrObj, osuLastObj0) * getOverlapness(osuCurrObj, osuLastObj1) * getOverlapness(osuLastObj0, osuLastObj1);
-                acutnessBonus += 1;
 
                 // We reward for angle changes or the acuteness of the angle, whichever is higher. Possibly a case out there to reward both.
-                flowDifficulty *= Math.Max(angleChangeBonus, acutnessBonus);
+                flowDifficulty *= 1 + Math.Max(angleChangeBonus, acutnessBonus);
             }
 
             // minimum velocity change is 10%
