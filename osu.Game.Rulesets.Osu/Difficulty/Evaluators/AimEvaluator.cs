@@ -26,19 +26,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>and slider difficulty.</description></item>
         /// </list>
         /// </summary>
-        public static (double, double) EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase, double currentRhythm)
+        public static (double, double) EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance, double strainDecayBase)
         {
             if (current.Index <= 2 ||
                 current.BaseObject is Spinner ||
                 current.Previous(0).BaseObject is Spinner ||
-                current.Previous(1).BaseObject is Spinner ||
-                current.Previous(2).BaseObject is Spinner)
+                current.Previous(1).BaseObject is Spinner)
                 return (0, 0);
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
-            var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
-            var osuLastObj2 = (OsuDifficultyHitObject)current.Previous(2);
+            var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1); // this is unused rn but can potentially be used for better angle bonus
 
             // Circle size normalization multiplier, probably should be moved somewhere in the OsuDifficultyHitObject
             double linearDifficulty = 32.0 / osuCurrObj.Radius;
@@ -46,16 +44,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var currMovement = osuCurrObj.Movement;
             var prevMovement = osuLastObj0.Movement;
             var currTime = osuCurrObj.MovementTime;
-            var prevTime = osuLastObj0.MovementTime;
 
             if (!withSliderTravelDistance)
             {
                 currMovement = osuCurrObj.SliderlessMovement;
                 prevMovement = osuLastObj0.SliderlessMovement;
                 currTime = osuCurrObj.StrainTime;
-                prevTime = osuLastObj0.StrainTime;
             }
-
 
             // Flow Stuff
             double flowDifficulty = linearDifficulty * currMovement.Length / currTime;
@@ -131,7 +126,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // AR buff for aim.
             double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
 
-            return (arBuff * flowDifficulty, arBuff * snapDifficulty);
+            return (arBuff * snapDifficulty, arBuff * flowDifficulty);
         }
 
         private static double calculateSustainedSliderStrain(OsuDifficultyHitObject osuCurrObj, double strainDecayBase, bool withSliderTravelDistance)

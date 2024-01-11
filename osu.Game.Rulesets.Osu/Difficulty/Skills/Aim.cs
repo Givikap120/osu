@@ -30,9 +30,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 
-        private readonly List<double> flowStrains = new List<double>();
-        private readonly List<double> snapStrains = new List<double>();
-
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
         protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => realStrain * strainDecay(time - current.Previous(0).StartTime);
@@ -42,12 +39,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentFlowStrain *= strainDecay(current.DeltaTime);
             currentSnapStrain *= strainDecay(current.DeltaTime);
 
-            double currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
+            (double snap, double flow) aimResult = AimEvaluator.EvaluateDifficultyOf(current, withSliders, strainDecayBase);
 
-            (double, double) aimResult = AimEvaluator.EvaluateDifficultyOf(current, withSliders, strainDecayBase, currentRhythm);
-
-            double flowStrain = aimResult.Item1 * skillMultiplier;
-            double snapStrain = aimResult.Item2 * skillMultiplier;
+            double flowStrain = aimResult.flow * skillMultiplier;
+            double snapStrain = aimResult.snap * skillMultiplier;
 
             if (flowStrain < snapStrain)
                 currentFlowStrain += flowStrain;
