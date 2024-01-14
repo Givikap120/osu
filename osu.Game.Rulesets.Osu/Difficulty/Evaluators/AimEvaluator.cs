@@ -67,10 +67,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Snap Stuff
             // Reduce strain time by 25ms to account for stopping time.
-            double snapDifficulty = Math.Max(linearDifficulty * ((osuCurrObj.Radius * 2 + currMovement.Length) / (osuCurrObj.StrainTime - 20)),
+            double snapDifficulty = Math.Max(linearDifficulty * (2 * osuCurrObj.Radius / Math.Max(10, osuCurrObj.StrainTime - 40) + currMovement.Length / (osuCurrObj.StrainTime - 25)),
                                              linearDifficulty * currMovement.Length / currTime);
 
-            double snapBuff = Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / (Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 20);
+            double snapBuff = Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / (Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 25);
 
             // Begin angle and weird rewards.
             double currVelocity = currMovement.Length / osuCurrObj.StrainTime;
@@ -97,15 +97,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // double flowVelChange = linearDifficulty * Math.Abs(prevVelocity - currVelocity) * rhythmRatio;
             double snapVelChange = linearDifficulty * Math.Max(0, Math.Min(Math.Abs(prevVelocity - currVelocity) - Math.Min(currVelocity, prevVelocity), Math.Max(osuCurrObj.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime), Math.Min(currVelocity, prevVelocity))));
 
-            snapDifficulty += snapVelChange + snapAngle;
+            snapDifficulty += snapBuff * snapVelChange + snapAngle;
             flowDifficulty += flowVelChange + flowAngle;
-
-            // Arbitrary buff for high bpm snap because its hard.
-            snapDifficulty *= Math.Pow(Math.Max(1, 100 / osuCurrObj.StrainTime), 0.75);
 
             // Apply balancing parameters.
             flowDifficulty = flowDifficulty * 1.4125;
-            snapDifficulty = snapDifficulty * 0.8625; 
+            snapDifficulty = snapDifficulty * 0.7875; 
         
             // Apply small CS buff.
             snapDifficulty *= Math.Sqrt(linearDifficulty);
@@ -177,7 +174,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             }
 
             if (historyTime > 0 && withSliderTravelDistance)
-                currentStrain += Math.Max(0, linearDifficulty * Math.Max(0, historyDistance - 2 * osuCurrObj.Radius) / historyTime);
+                currentStrain += Math.Max(0, linearDifficulty * Math.Max(0, historyVector.Length - 2 * osuCurrObj.Radius) / historyTime);
 
             return Math.Max(currentStrain, peakStrain);
         }
