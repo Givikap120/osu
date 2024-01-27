@@ -102,7 +102,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Apply balancing parameters.
             flowDifficulty = flowDifficulty * 1.4125;
-            snapDifficulty = snapDifficulty * 0.7875; 
+            snapDifficulty = snapDifficulty * 0.79; 
         
             // Apply small CS buff.
             snapDifficulty *= Math.Sqrt(linearDifficulty);
@@ -117,10 +117,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             flowDifficulty += 2.0 * sustainedSliderStrain;
             snapDifficulty += 2.0 * sustainedSliderStrain;
 
-            // AR buff for aim.
-            double arBuff = (1.0 + 0.05 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
-
-            return (arBuff * flowDifficulty, arBuff * snapDifficulty);
+            return (flowDifficulty, snapDifficulty);
         }
 
         private static double calculateSustainedSliderStrain(OsuDifficultyHitObject osuCurrObj, double strainDecayBase, bool withSliderTravelDistance)

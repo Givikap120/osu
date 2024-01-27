@@ -105,12 +105,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimValue *= getComboScalingFactor(attributes);
 
             double approachRateFactor = 0.0;
-            if (attributes.ApproachRate < 9.0)
-                approachRateFactor = 0.075 * (9.0 - attributes.ApproachRate);
+            if (attributes.ApproachRate > 10.33)
+                approachRateFactor = 0.15 * (attributes.ApproachRate - 10.33);
+            else if (attributes.ApproachRate < 9.0)
+                approachRateFactor = 0.05 * (9.0 - attributes.ApproachRate);
 
             if (score.Mods.Any(h => h is OsuModRelax))
                 approachRateFactor = 0.0;
-
             aimValue *= 1.0 + approachRateFactor;
 
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -151,6 +152,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             speedValue *= getComboScalingFactor(attributes);
 
+            double approachRateFactor = 0.0;
+            if (attributes.ApproachRate > 10.33)
+                approachRateFactor = 0.24 * (attributes.ApproachRate - 10.33);
+
+            speedValue *= 1.0 + approachRateFactor;
+
             if (score.Mods.Any(m => m is OsuModBlinds))
             {
                 // Increasing the speed value by object count for Blinds isn't ideal, so the minimum buff is given.
@@ -168,7 +175,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the speed value with speed deviation.
             if (deviation != null)
-                speedValue *= 1.0 / (1.0 + Math.Pow((double)deviation / (10.0 + Math.Pow(hitWindow300, .75)), 4.0));
+                speedValue *= 1.0 / (1.0 + Math.Pow((double)speedDeviation / (12.0 + Math.Pow(hitWindow300, .75)), 4.0));
 
             return speedValue;
         }

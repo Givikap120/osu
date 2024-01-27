@@ -33,15 +33,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var osuPrevObj = current.Index > 0 ? (OsuDifficultyHitObject)current.Previous(0) : null;
             var osuNextObj = (OsuDifficultyHitObject?)current.Next(0);
 
-            double arBuff = (1.0 + 0.10 * Math.Max(0.0, 400.0 - osuCurrObj.ApproachRateTime) / 100.0);
-
             double strainTime = osuCurrObj.StrainTime;
             double readingTime = osuCurrObj.StrainTime;
             if (osuPrevObj != null)
             {
                 strainTime = (osuCurrObj.StrainTime + osuPrevObj.StrainTime) / 2;
-                readingTime = Math.Min(Math.Max(speed_balancing_factor, osuPrevObj.MovementTime + osuCurrObj.StrainTime) / 2, 
-                                       osuCurrObj.ApproachRateTime - reaction_time);
             }
 
             double doubletapness = 1;
@@ -57,7 +53,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 doubletapness = Math.Pow(speedRatio, 1 - windowRatio);
             }
 
-            return arBuff * doubletapness * (1 / (readingTime - 20));
+            return doubletapness * (1 / (readingTime - 20));
         }
     }
 }
