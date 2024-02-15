@@ -17,7 +17,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.14;
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.12727;
 
         private double accuracy;
         private int scoreMaxCombo;
@@ -187,14 +187,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModRelax) || deviation == null)
                 return 0.0;
 
-            double liveLengthBonus = Math.Min(1.15, Math.Pow(hitCircleCount / 1000.0, 0.3)); // Should eventually be removed.
-            double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
-
             // Some fancy stuff to ensure SS values stay the same.
-            double scaling = Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(hitCircleCount, threshold))) / 6;
+            double scaling = Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1.0 / (1.0 + 1.0 / hitCircleCount)) / 6;
 
             // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * (double)deviation);
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * Math.Exp(-scaling * (double)deviation);
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -204,6 +201,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (score.Mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02;
+
+            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
+
+            accuracyValue *= lengthBonus;
 
             return accuracyValue;
         }
@@ -280,21 +282,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (greatCountCircles > 0)
             {
                 // The probability that a player hits a circle is unknown, but we can estimate it to be
-                // the number of greats on circles divided by the number of circles, and then add one
-                // to the number of circles as a bias correction.
-                double greatProbabilityCircle = greatCountCircles / (circleCount - missCountCircles - mehCountCircles + 1.0);
+                // the number of greats on circles divided by the number of greats + 15 as a guess.
+                double greatProbabilityCircle = (double)greatCountCircles / (greatCountCircles + 15);
 
                 // Compute the deviation assuming 300s and 100s are normally distributed, and 50s are uniformly distributed.
                 // Begin with the normal distribution first.
                 double deviationOnCircles = hitWindow300 / (Math.Sqrt(2) * SpecialFunctions.ErfInv(greatProbabilityCircle));
-                deviationOnCircles *= Math.Sqrt(1 - Math.Sqrt(2 / Math.PI) * hitWindow100 * Math.Exp(-0.5 * Math.Pow(hitWindow100 / deviationOnCircles, 2))
-                    / (deviationOnCircles * SpecialFunctions.Erf(hitWindow100 / (Math.Sqrt(2) * deviationOnCircles))));
 
-                // Then compute the variance for 50s.
-                double mehVariance = (hitWindow50 * hitWindow50 + hitWindow100 * hitWindow50 + hitWindow100 * hitWindow100) / 3;
+                // Then compute the variance for 50s and 100s.
+                double mehVariance = hitWindow50 * hitWindow50;
+                double okVariance = hitWindow100 * hitWindow100;
 
-                // Find the total deviation.
-                deviationOnCircles = Math.Sqrt(((greatCountCircles + okCountCircles) * Math.Pow(deviationOnCircles, 2) + mehCountCircles * mehVariance) / (greatCountCircles + okCountCircles + mehCountCircles));
+                // Calculate deviation with 100s
+                deviationOnCircles = Math.Sqrt((greatCountCircles * Math.Pow(deviationOnCircles, 2) + okCountCircles * okVariance) / (greatCountCircles + okCountCircles));
+                // Calculate deviation with 50s
+                deviationOnCircles = Math.Sqrt(((greatCountCircles + okCountCircles) * Math.Pow(deviationOnCircles, 2) + (mehCountCircles + missCountCircles) * mehVariance) / (greatCountCircles + okCountCircles + missCountCircles + mehCountCircles));
+
+                // Multiply by a constant to adjust based off the +15 from earlier.
+                deviationOnCircles *= 0.8;
 
                 return deviationOnCircles;
             }
