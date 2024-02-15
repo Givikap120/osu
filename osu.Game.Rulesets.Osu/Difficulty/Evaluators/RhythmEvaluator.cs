@@ -11,7 +11,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class RhythmEvaluator
     {
         private const int history_time_max = 5000; // 5 seconds of calculatingRhythmBonus max.
-        private const double rhythm_multiplier = 1.5;
+        private const double rhythm_multiplier = 1.0;
 
         /// <summary>
         /// Calculates a rhythm multiplier for the difficulty of the tap associated with historic data of the current <see cref="OsuDifficultyHitObject"/>.
@@ -50,7 +50,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double prevDelta = prevObj.StrainTime;
                 double lastDelta = lastObj.StrainTime;
                 double currRatio = Math.PI * Math.Min(5, Math.Max(prevDelta, currDelta) / Math.Min(prevDelta, currDelta));
-                currRatio = 1.0 + 8 * (-0.25 + Math.Min(0.75, Math.Max(0.25, Math.Pow(Math.Sin(currRatio), 2.0) + 0.2 * Math.Pow(Math.Sin(1.5 * currRatio), 2.0))));
+                currRatio = 1.0 + 12 * (-0.25 + Math.Min(0.75, Math.Max(0.25, Math.Pow(Math.Sin(currRatio), 2.0) + 0.2 * Math.Pow(Math.Sin(1.5 * currRatio), 2.0))));
 
                 double windowPenalty = Math.Min(1, Math.Max(0, Math.Abs(prevDelta - currDelta) - currObj.HitWindowGreat * 0.3) / (currObj.HitWindowGreat * 0.3));
 
