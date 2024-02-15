@@ -294,9 +294,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double okVariance = hitWindow100 * hitWindow100;
 
                 // Calculate deviation with 100s
-                deviationOnCircles = Math.Sqrt((greatCountCircles * Math.Pow(deviationOnCircles, 2) + okCountCircles * okVariance) / (greatCountCircles + okCountCircles));
+                deviationOnCircles = Math.Sqrt((greatCountCircles * Math.Pow(deviationOnCircles, 2) + (missCountCircles + okCountCircles) * okVariance) / (greatCountCircles + missCountCircles + okCountCircles));
                 // Calculate deviation with 50s
-                deviationOnCircles = Math.Sqrt(((greatCountCircles + okCountCircles) * Math.Pow(deviationOnCircles, 2) + (mehCountCircles + missCountCircles) * mehVariance) / (greatCountCircles + okCountCircles + missCountCircles + mehCountCircles));
+                deviationOnCircles = Math.Sqrt(((greatCountCircles + okCountCircles) * Math.Pow(deviationOnCircles, 2) + mehCountCircles * mehVariance) / (greatCountCircles + okCountCircles + mehCountCircles));
 
                 // Multiply by a constant to adjust based off the +15 from earlier.
                 deviationOnCircles *= 0.8;
