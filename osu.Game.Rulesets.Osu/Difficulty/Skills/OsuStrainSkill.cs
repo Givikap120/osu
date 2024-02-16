@@ -107,13 +107,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         public override double DifficultyValue()
         {
-            double difficulty = LogarithmicSummation(GetSectionPeaks(), false);
+            double difficulty = LogarithmicSummation(GetCurrentStrainPeaks(), false);
             return difficulty * DifficultyMultiplier;
         }
 
         public override double AbstractDifficultyValue()
         {
-            double difficulty = GeometricSummation(GetSectionPeaks(), false);
+            double difficulty = GeometricSummation(GetCurrentStrainPeaks(), false);
             return difficulty * DifficultyMultiplier;
         }
     }

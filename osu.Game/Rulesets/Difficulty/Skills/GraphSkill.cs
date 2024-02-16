@@ -42,6 +42,6 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// <summary>
         /// Returns a live enumerable of the difficulties
         /// </summary>
-        public virtual IEnumerable<double> GetSectionPeaks() => SectionPeaks.Append(CurrentSectionPeak);
+        public virtual IEnumerable<double> GetCurrentStrainPeaks() => SectionPeaks.Append(CurrentSectionPeak);
     }
 }

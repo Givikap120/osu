@@ -74,7 +74,7 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// </summary>
         public override double DifficultyValue()
         {
-            return GeometricSummation(GetSectionPeaks());
+            return GeometricSummation(GetCurrentStrainPeaks());
         }
 
         protected double LogarithmicSummation(IEnumerable<double> strains)

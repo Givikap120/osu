@@ -41,7 +41,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             flowAim.Process(current);
         }
 
-        public override IEnumerable<double> GetSectionPeaks() => totalAim.GetSectionPeaks();
+        public override IEnumerable<double> GetCurrentStrainPeaks() => totalAim.GetCurrentStrainPeaks();
 
         private double skillMultiplier => 1.37;
         public override double DifficultyValue()
