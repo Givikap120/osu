@@ -173,9 +173,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double hitWindow300 = 80 - 6 * attributes.OverallDifficulty;
 
-            // Scale the speed value with speed deviation.
+            // Scale the speed value with deviation.
             if (deviation != null)
-                speedValue *= 1.0 / (1.0 + Math.Pow((double)deviation / 24.0, 4.0));// + Math.Pow(hitWindow300, .5)), 4.0));
+                speedValue *= 1.0 / (1.0 + Math.Pow((double)deviation / 26.0, 4.0));
 
             return speedValue;
         }
@@ -187,11 +187,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModRelax) || deviation == null)
                 return 0.0;
 
-            // Some fancy stuff to ensure SS values stay the same.
-            double scaling = Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1.0 / (1.0 + 1.0 / hitCircleCount)) / 6;
-
             // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * Math.Exp(-scaling * (double)deviation);
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * Math.Exp(-0.16 * (double)deviation);
+
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -201,11 +199,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (score.Mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02;
-
-            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
-                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
-
-            accuracyValue *= lengthBonus;
 
             return accuracyValue;
         }
@@ -283,7 +276,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 // The probability that a player hits a circle is unknown, but we can estimate it to be
                 // the number of greats on circles divided by the number of greats + 15 as a guess.
-                double greatProbabilityCircle = (double)greatCountCircles / (greatCountCircles + 15);
+                double greatProbabilityCircle = (double)greatCountCircles / (greatCountCircles + 20);
 
                 // Compute the deviation assuming 300s and 100s are normally distributed, and 50s are uniformly distributed.
                 // Begin with the normal distribution first.
@@ -294,12 +287,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double okVariance = hitWindow100 * hitWindow100;
 
                 // Calculate deviation with 100s
-                deviationOnCircles = Math.Sqrt((greatCountCircles * Math.Pow(deviationOnCircles, 2) + (missCountCircles + okCountCircles) * okVariance) / (greatCountCircles + missCountCircles + okCountCircles));
+                deviationOnCircles = Math.Sqrt((greatCountCircles * Math.Pow(deviationOnCircles, 2) + okCountCircles * okVariance) / (greatCountCircles + okCountCircles));
                 // Calculate deviation with 50s
                 deviationOnCircles = Math.Sqrt(((greatCountCircles + okCountCircles) * Math.Pow(deviationOnCircles, 2) + mehCountCircles * mehVariance) / (greatCountCircles + okCountCircles + mehCountCircles));
-
-                // Multiply by a constant to adjust based off the +15 from earlier.
-                deviationOnCircles *= 0.8;
 
                 return deviationOnCircles;
             }
