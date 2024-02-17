@@ -49,7 +49,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double currDelta = currObj.StrainTime;
                 double prevDelta = prevObj.StrainTime;
                 double lastDelta = lastObj.StrainTime;
-                double currRatio = Math.PI * Math.Min(5, Math.Max(prevDelta, currDelta) / Math.Min(prevDelta, currDelta));
+                double currRatio = Math.PI * Math.Min(4, Math.Max(prevDelta, currDelta) / Math.Min(prevDelta, currDelta));
                 currRatio = 1.0 + 24 * (-0.25 + Math.Min(0.75, Math.Max(0.25, Math.Pow(Math.Sin(currRatio), 2.0) + 0.2 * Math.Pow(Math.Sin(1.5 * currRatio), 2.0))));
 
                 double windowPenalty = Math.Min(1, Math.Max(0, Math.Abs(prevDelta - currDelta) - currObj.HitWindowGreat * 0.3) / (currObj.HitWindowGreat * 0.3));
