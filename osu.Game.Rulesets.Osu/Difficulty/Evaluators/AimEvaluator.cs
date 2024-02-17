@@ -65,14 +65,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Nerf flow aim where circles overlap. Aim requirement is significantly lower in these cases.
             flowDifficulty *= currMovement.Length / (osuCurrObj.Radius * 2);
 
-            flowDifficulty *= (55.0 / 75.0) * Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / Math.Max(osuCurrObj.StrainTime - 20, osuLastObj0.StrainTime - 20);
+            flowDifficulty *= (55.0 / 75.0) * (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - 20));
 
             // Snap Stuff
             // Reduce strain time by 25ms to account for stopping time.
-            double snapDifficulty = Math.Max(linearDifficulty * (2 * osuCurrObj.Radius / Math.Max(10, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50) + currMovement.Length / (osuCurrObj.StrainTime - 25)),
-                                             linearDifficulty * currMovement.Length / currTime);
+            double snapDifficulty = linearDifficulty * Math.Max(125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50)
+                                             * osuCurrObj.Radius / Math.Max(10, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)) + osuCurrObj.Movement.Length / osuCurrObj.StrainTime,
+                                             currMovement.Length / currTime);
 
-            double snapBuff = Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / (Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 25);
+            double snapBuff = Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / (Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
             // Begin angle and weird rewards.
             double currVelocity = currMovement.Length / osuCurrObj.StrainTime;
@@ -102,19 +103,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             snapDifficulty += snapBuff * snapVelChange + snapAngle;
             flowDifficulty += flowVelChange + flowAngle;
 
-            double snapFlowDifficulty = Math.Min((linearDifficulty * currMovement.Length / currTime) * (currMovement.Length / (osuCurrObj.Radius * 2))
-                                             + Math.Max(linearDifficulty * (2 * osuLastObj0.Radius / Math.Max(10, Math.Max(osuLastObj0.StrainTime, osuLastObj1.StrainTime) - 50) + prevMovement.Length / (osuLastObj0.StrainTime - 25)),
-                                             linearDifficulty * prevMovement.Length / currTime),
-                                            (linearDifficulty * prevMovement.Length / currTime) * (prevMovement.Length / (osuLastObj0.Radius * 2))
-                                            + Math.Max(linearDifficulty * (2 * osuCurrObj.Radius / Math.Max(10, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50) + currMovement.Length / (osuCurrObj.StrainTime - 25)),
-                                             linearDifficulty * currMovement.Length / currTime));
+            double snapFlowDifficulty = Math.Min((linearDifficulty * currMovement.Length / currTime) * (currMovement.Length / (osuCurrObj.Radius * 2)) * (55.0 / 75.0) * (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - 20))
+                                             + linearDifficulty * Math.Max(125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50)
+                                             * osuCurrObj.Radius / Math.Max(10, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)) + osuLastObj0.Movement.Length / osuLastObj0.StrainTime,
+                                             prevMovement.Length / prevTime),
+                                            (linearDifficulty * prevMovement.Length / currTime) * (prevMovement.Length / (osuLastObj0.Radius * 2)) * (55.0 / 75.0) * (osuLastObj0.StrainTime / (osuLastObj0.StrainTime - 20))
+                                            + linearDifficulty * Math.Max(125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50)
+                                             * osuCurrObj.Radius / Math.Max(10, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)) + osuCurrObj.Movement.Length / osuCurrObj.StrainTime,
+                                             currMovement.Length / currTime));
 
             flowDifficulty = Math.Min(snapFlowDifficulty, flowDifficulty);
             snapDifficulty = Math.Min(snapFlowDifficulty, snapDifficulty);
 
             // Apply balancing parameters.
             flowDifficulty = flowDifficulty * 1.4;
-            snapDifficulty = snapDifficulty * 0.775; 
+            snapDifficulty = snapDifficulty * 1.05;//0.825; 
         
             // Apply small CS buff.
             snapDifficulty *= Math.Sqrt(linearDifficulty);
