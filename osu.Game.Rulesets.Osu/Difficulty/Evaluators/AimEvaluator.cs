@@ -69,11 +69,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Snap Stuff
             // Reduce strain time by 25ms to account for stopping time.
-            double snapDifficulty = linearDifficulty * Math.Max(125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50)
+            double snapDifficulty = linearDifficulty * Math.Max((125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50))
                                              * osuCurrObj.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) + osuCurrObj.Movement.Length / osuCurrObj.StrainTime,
                                              currMovement.Length / currTime);
-
-            double snapBuff = Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) / (Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
             // Begin angle and weird rewards.
             double currVelocity = currMovement.Length / osuCurrObj.StrainTime;
@@ -88,27 +86,38 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double lastAngle = osuLastObj0.Angle.Value;
  
                 // We reward wide angles on snap.
-                snapAngle = snapBuff * linearDifficulty * calculateAngleSpline(Math.Abs(currAngle), false) * Math.Min(Math.Min(currVelocity, prevVelocity), (currMovement + prevMovement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
+                snapAngle = linearDifficulty * calculateAngleSpline(Math.Abs(currAngle), false) * Math.Min(Math.Min(currVelocity, prevVelocity), (currMovement + prevMovement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
 
                 // We reward for angle changes or the acuteness of the angle, whichever is higher. Possibly a case out there to reward both.
-                flowAngle = linearDifficulty * Math.Pow(Math.Sin((currAngle - lastAngle) / 2), 2) * Math.Min(currVelocity, prevVelocity)
-                                  + linearDifficulty * calculateAngleSpline(Math.Abs(currAngle), true) * Math.Min(Math.Min(currVelocity, prevVelocity), (currMovement - prevMovement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime));
+                flowAngle = linearDifficulty * Math.Max(Math.Pow(Math.Sin((currAngle - lastAngle) / 2), 2) * Math.Min(currVelocity, prevVelocity),
+                                                        calculateAngleSpline(Math.Abs(currAngle), true) * Math.Min(Math.Min(currVelocity, prevVelocity), (currMovement - prevMovement).Length / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime)));
             }
-
-            // double flowVelChange = linearDifficulty * Math.Max(0, Math.Min(Math.Abs(currVelocity - prevVelocity) - Math.Min(currVelocity, prevVelocity), Math.Max(osuCurrObj.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime), Math.Min(currVelocity, prevVelocity))));
 
             double flowVelChange = linearDifficulty * Math.Abs(prevVelocity - currVelocity);
             double snapVelChange = linearDifficulty * Math.Max(0, Math.Min(Math.Abs(prevVelocity - currVelocity) - Math.Min(currVelocity, prevVelocity), Math.Max(osuCurrObj.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime), Math.Min(currVelocity, prevVelocity))));
 
-            snapDifficulty += snapBuff * snapVelChange + snapAngle;
+            snapDifficulty += snapVelChange + snapAngle;
             flowDifficulty += flowVelChange + flowAngle;
+
+            double flowSnapDifficulty = Math.Min(linearDifficulty * Math.Max((125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50))
+                                                                             * osuCurrObj.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) + osuCurrObj.Movement.Length / osuCurrObj.StrainTime,
+                                                                             currMovement.Length / currTime)
+                                                                    + linearDifficulty * prevMovement.Length / prevTime * (prevMovement.Length / (osuLastObj0.Radius * 2)) *  ((55.0 / 75.0) * (osuLastObj0.StrainTime / (osuLastObj0.StrainTime - 20))),
+                                                  linearDifficulty * Math.Max((125 / Math.Max(25, Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) - 50))
+                                                    * osuLastObj0.Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj0.StrainTime) + osuLastObj0.Movement.Length / osuLastObj0.StrainTime,
+                                                    prevMovement.Length / prevTime)
+                                                    + linearDifficulty * currMovement.Length / currTime * currMovement.Length / (osuCurrObj.Radius * 2) *  (55.0 / 75.0) * (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - 20)));
+
+            flowDifficulty = Math.Min(flowSnapDifficulty, flowDifficulty);
+            snapDifficulty = Math.Min(flowSnapDifficulty, snapDifficulty);
 
             // Apply balancing parameters.
             flowDifficulty = flowDifficulty * 1.35;
-            snapDifficulty = snapDifficulty * 1.05;//0.825; 
+            snapDifficulty = snapDifficulty * 1.05;
         
             // Apply small CS buff.
             snapDifficulty *= Math.Sqrt(linearDifficulty);
+            flowDifficulty *= Math.Sqrt(linearDifficulty);
             
             // Slider stuff.
             double sustainedSliderStrain = 0.0;
@@ -181,21 +190,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         private static double calculateAngleSpline(double angle, bool reversed)
         {
-            if (reversed)
-            {
-                if (angle == Math.PI) 
-                    return 0;
-                return (Math.PI - angle) / Math.Sqrt(2 * (1 - Math.Cos(Math.PI - angle))) - 1;
-            }
+            // if (reversed)
+            // {
+            //     if (angle == Math.PI) 
+            //         return 0;
+            //     return (Math.PI - angle) / Math.Sqrt(2 * (1 - Math.Cos(Math.PI - angle))) - 1;
+            // }
             // return Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 6, 2 * Math.PI / 3.0) - Math.PI / 6), 2.0);
 
             // angle = Math.Abs(angle);
-            // if (reversed)
-            //     return 1 - Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 4.0, 3 * Math.PI / 4.0) - Math.PI / 4), 2.0);
+            if (reversed)
+                return 1 - Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - 5.5 * Math.PI / 12.0, 0, Math.PI / 2)), 2);
 
             // return Math.Pow(Math.Sin(Math.Clamp(2 * angle, Math.PI / 2.0, Math.PI) - Math.PI / 2), 2.0);
 
-            return Math.Pow(Math.Sin(Math.Min(1.2 * angle - Math.PI / 4.0, (2.0 / 3.0) * Math.PI - Math.PI / 4.0)), 2);
+            return Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - Math.PI / 4.0, 0, Math.PI / 2)), 2);
 
             // return Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 4.0, (3.0 / 4.0) * Math.PI) - Math.PI / 4), 2.0);
 

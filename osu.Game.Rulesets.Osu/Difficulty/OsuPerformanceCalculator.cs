@@ -188,8 +188,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return 0.0;
 
             // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * Math.Exp(-0.16 * (double)deviation);
-
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * Math.Exp(-0.15 * (double)deviation);
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
