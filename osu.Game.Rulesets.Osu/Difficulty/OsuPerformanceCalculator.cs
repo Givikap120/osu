@@ -17,7 +17,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.12727;
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.05;
 
         private double accuracy;
         private int scoreMaxCombo;
@@ -73,12 +73,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedValue = computeSpeedValue(score, osuAttributes);
             double accuracyValue = computeAccuracyValue(score, osuAttributes);
             double flashlightValue = computeFlashlightValue(score, osuAttributes);
+            double p = 1.1;
             double totalValue =
                 Math.Pow(
-                    Math.Pow(aimValue, 1.1) +
-                    Math.Pow(speedValue, 1.1) +
-                    Math.Pow(accuracyValue, 1.1) +
-                    Math.Pow(flashlightValue, 1.1), 1.0 / 1.1
+                    Math.Pow(aimValue, p) +
+                    Math.Pow(speedValue, p) +
+                    Math.Pow(accuracyValue, p) +
+                    Math.Pow(flashlightValue, p), 1.0 / p
                 ) * multiplier;
 
             return new OsuPerformanceAttributes

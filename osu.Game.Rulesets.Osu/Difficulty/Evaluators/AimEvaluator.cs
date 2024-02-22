@@ -200,7 +200,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // angle = Math.Abs(angle);
             if (reversed)
-                return 1 - Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - 5.5 * Math.PI / 12.0, 0, Math.PI / 2)), 2);
+                return 1 - Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - 5.4 * Math.PI / 12.0, 0, Math.PI / 2)), 2);
 
             // return Math.Pow(Math.Sin(Math.Clamp(2 * angle, Math.PI / 2.0, Math.PI) - Math.PI / 2), 2.0);
 
