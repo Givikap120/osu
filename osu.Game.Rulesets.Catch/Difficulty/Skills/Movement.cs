@@ -22,8 +22,6 @@ namespace osu.Game.Rulesets.Catch.Difficulty.Skills
 
         protected override int SectionLength => 750;
 
-        protected readonly float HalfCatcherWidth;
-
         private float? lastPlayerPosition;
         private float lastDistanceMoved;
         private double lastStrainTime;
@@ -33,11 +31,9 @@ namespace osu.Game.Rulesets.Catch.Difficulty.Skills
         /// </summary>
         private readonly double catcherSpeedMultiplier;
 
-        public Movement(Mod[] mods, float halfCatcherWidth, double clockRate)
+        public Movement(Mod[] mods, double clockRate)
             : base(mods)
         {
-            HalfCatcherWidth = halfCatcherWidth;
-
             // In catch, clockrate adjustments do not only affect the timings of hitobjects,
             // but also the speed of the player's catcher, which has an impact on difficulty
             // TODO: Support variable clockrates caused by mods such as ModTimeRamp

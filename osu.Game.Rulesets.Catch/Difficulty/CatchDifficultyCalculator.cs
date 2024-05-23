@@ -4,16 +4,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using osu.Framework.Extensions.ObjectExtensions;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Catch.Beatmaps;
 using osu.Game.Rulesets.Catch.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Catch.Difficulty.Skills;
 using osu.Game.Rulesets.Catch.Mods;
 using osu.Game.Rulesets.Catch.Objects;
 using osu.Game.Rulesets.Catch.UI;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 
 namespace osu.Game.Rulesets.Catch.Difficulty
@@ -22,8 +21,6 @@ namespace osu.Game.Rulesets.Catch.Difficulty
     {
         private const double star_scaling_factor = 0.153;
 
-        private float halfCatcherWidth;
-
         public override int Version => 20220701;
 
         public CatchDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
@@ -31,9 +28,12 @@ namespace osu.Game.Rulesets.Catch.Difficulty
         {
         }
 
-        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
+        private CatchSkills? skills;
+        protected override SkillsBase? Skills => skills;
+
+        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            if (beatmap.HitObjects.Count == 0)
+            if (skills.IsNull() || beatmap.HitObjects.Count == 0)
                 return new CatchDifficultyAttributes { Mods = mods };
 
             // this is the same as osu!, so there's potential to share the implementation... maybe
@@ -41,7 +41,7 @@ namespace osu.Game.Rulesets.Catch.Difficulty
 
             CatchDifficultyAttributes attributes = new CatchDifficultyAttributes
             {
-                StarRating = Math.Sqrt(skills[0].DifficultyValue()) * star_scaling_factor,
+                StarRating = Math.Sqrt(skills.DifficultyValue()) * star_scaling_factor,
                 Mods = mods,
                 ApproachRate = preempt > 1200.0 ? -(preempt - 1800.0) / 120.0 : -(preempt - 1200.0) / 150.0 + 5.0,
                 MaxCombo = beatmap.HitObjects.Count(h => h is Fruit) + beatmap.HitObjects.OfType<JuiceStream>().SelectMany(j => j.NestedHitObjects).Count(h => !(h is TinyDroplet)),
@@ -55,6 +55,11 @@ namespace osu.Game.Rulesets.Catch.Difficulty
             CatchHitObject? lastObject = null;
 
             List<DifficultyHitObject> objects = new List<DifficultyHitObject>();
+
+            float halfCatcherWidth = Catcher.CalculateCatchWidth(beatmap.Difficulty) * 0.5f;
+
+            // For circle sizes above 5.5, reduce the catcher width further to simulate imperfect gameplay.
+            halfCatcherWidth *= 1 - (Math.Max(0, beatmap.Difficulty.CircleSize - 5.5f) * 0.0625f);
 
             // In 2B beatmaps, it is possible that a normal Fruit is placed in the middle of a JuiceStream.
             foreach (var hitObject in CatchBeatmap.GetPalpableObjects(beatmap.HitObjects))
@@ -72,17 +77,10 @@ namespace osu.Game.Rulesets.Catch.Difficulty
             return objects;
         }
 
-        protected override Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
+        protected override SkillsBase CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            halfCatcherWidth = Catcher.CalculateCatchWidth(beatmap.Difficulty) * 0.5f;
-
-            // For circle sizes above 5.5, reduce the catcher width further to simulate imperfect gameplay.
-            halfCatcherWidth *= 1 - (Math.Max(0, beatmap.Difficulty.CircleSize - 5.5f) * 0.0625f);
-
-            return new Skill[]
-            {
-                new Movement(mods, halfCatcherWidth, clockRate),
-            };
+            skills = new CatchSkills(mods, clockRate);
+            return skills;
         }
 
         protected override Mod[] DifficultyAdjustmentMods => new Mod[]

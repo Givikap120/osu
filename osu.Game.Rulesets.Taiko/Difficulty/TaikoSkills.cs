@@ -4,35 +4,28 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Taiko.Difficulty.Skills;
 
-namespace osu.Game.Rulesets.Taiko.Difficulty.Skills
+namespace osu.Game.Rulesets.Taiko.Difficulty
 {
-    public class Peaks : Skill
+    public class TaikoSkills(Mod[] mods) : SkillsBase
     {
+        public readonly Rhythm Rhythm = new(mods);
+        public readonly Colour Colour = new(mods);
+        public readonly Stamina Stamina = new(mods);
+
         private const double rhythm_skill_multiplier = 0.2 * final_multiplier;
         private const double colour_skill_multiplier = 0.375 * final_multiplier;
         private const double stamina_skill_multiplier = 0.375 * final_multiplier;
 
         private const double final_multiplier = 0.0625;
 
-        private readonly Rhythm rhythm;
-        private readonly Colour colour;
-        private readonly Stamina stamina;
-
-        public double ColourDifficultyValue => colour.DifficultyValue() * colour_skill_multiplier;
-        public double RhythmDifficultyValue => rhythm.DifficultyValue() * rhythm_skill_multiplier;
-        public double StaminaDifficultyValue => stamina.DifficultyValue() * stamina_skill_multiplier;
-
-        public Peaks(Mod[] mods)
-            : base(mods)
-        {
-            rhythm = new Rhythm(mods);
-            colour = new Colour(mods);
-            stamina = new Stamina(mods);
-        }
+        public double ColourDifficultyValue => Colour.DifficultyValue() * colour_skill_multiplier;
+        public double RhythmDifficultyValue => Rhythm.DifficultyValue() * rhythm_skill_multiplier;
+        public double StaminaDifficultyValue => Stamina.DifficultyValue() * stamina_skill_multiplier;
 
         /// <summary>
         /// Returns the <i>p</i>-norm of an <i>n</i>-dimensional vector.
@@ -43,9 +36,9 @@ namespace osu.Game.Rulesets.Taiko.Difficulty.Skills
 
         public override void Process(DifficultyHitObject current)
         {
-            rhythm.Process(current);
-            colour.Process(current);
-            stamina.Process(current);
+            Rhythm.Process(current);
+            Colour.Process(current);
+            Stamina.Process(current);
         }
 
         /// <summary>
@@ -55,13 +48,13 @@ namespace osu.Game.Rulesets.Taiko.Difficulty.Skills
         /// For each section, the peak strains of all separate skills are combined into a single peak strain for the section.
         /// The resulting partial rating of the beatmap is a weighted sum of the combined peaks (higher peaks are weighted more).
         /// </remarks>
-        public override double DifficultyValue()
+        public double DifficultyValue()
         {
-            List<double> peaks = new List<double>();
+            var peaks = new List<double>();
 
-            var colourPeaks = colour.GetCurrentStrainPeaks().ToList();
-            var rhythmPeaks = rhythm.GetCurrentStrainPeaks().ToList();
-            var staminaPeaks = stamina.GetCurrentStrainPeaks().ToList();
+            var colourPeaks = Colour.GetCurrentStrainPeaks().ToList();
+            var rhythmPeaks = Rhythm.GetCurrentStrainPeaks().ToList();
+            var staminaPeaks = Stamina.GetCurrentStrainPeaks().ToList();
 
             for (int i = 0; i < colourPeaks.Count; i++)
             {

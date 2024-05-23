@@ -4,14 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using osu.Framework.Extensions.ObjectExtensions;
 using osu.Game.Beatmaps;
 using osu.Game.Extensions;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Difficulty.Skills;
-using osu.Game.Rulesets.Mania.Beatmaps;
 using osu.Game.Rulesets.Mania.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Mania.Difficulty.Skills;
 using osu.Game.Rulesets.Mania.MathUtils;
 using osu.Game.Rulesets.Mania.Mods;
 using osu.Game.Rulesets.Mania.Objects;
@@ -38,9 +36,12 @@ namespace osu.Game.Rulesets.Mania.Difficulty
             originalOverallDifficulty = beatmap.BeatmapInfo.Difficulty.OverallDifficulty;
         }
 
-        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
+        private ManiaSkills? skills;
+        protected override SkillsBase? Skills => skills;
+
+        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            if (beatmap.HitObjects.Count == 0)
+            if (skills.IsNull() || beatmap.HitObjects.Count == 0)
                 return new ManiaDifficultyAttributes { Mods = mods };
 
             HitWindows hitWindows = new ManiaHitWindows();
@@ -48,7 +49,7 @@ namespace osu.Game.Rulesets.Mania.Difficulty
 
             ManiaDifficultyAttributes attributes = new ManiaDifficultyAttributes
             {
-                StarRating = skills[0].DifficultyValue() * star_scaling_factor,
+                StarRating = skills.DifficultyValue() * star_scaling_factor,
                 Mods = mods,
                 // In osu-stable mania, rate-adjustment mods don't affect the hit window.
                 // This is done the way it is to introduce fractional differences in order to match osu-stable for the time being.
@@ -84,10 +85,11 @@ namespace osu.Game.Rulesets.Mania.Difficulty
         // Sorting is done in CreateDifficultyHitObjects, since the full list of hitobjects is required.
         protected override IEnumerable<DifficultyHitObject> SortObjects(IEnumerable<DifficultyHitObject> input) => input;
 
-        protected override Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate) => new Skill[]
+        protected override SkillsBase CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            new Strain(mods, ((ManiaBeatmap)Beatmap).TotalColumns)
-        };
+            skills = new ManiaSkills(beatmap, mods);
+            return skills;
+        }
 
         protected override Mod[] DifficultyAdjustmentMods
         {

@@ -28,6 +28,12 @@ namespace osu.Game.Rulesets.Difficulty
         /// </summary>
         protected IBeatmap Beatmap { get; private set; }
 
+        /// <summary>
+        /// Skills used in difficulty calculation.
+        /// Initialized by <see cref="CreateSkills"/>
+        /// </summary>
+        protected abstract SkillsBase? Skills { get; }
+
         private Mod[] playableMods;
         private double clockRate;
 
@@ -67,18 +73,15 @@ namespace osu.Game.Rulesets.Difficulty
             var skills = CreateSkills(Beatmap, playableMods, clockRate);
 
             if (!Beatmap.HitObjects.Any())
-                return CreateDifficultyAttributes(Beatmap, playableMods, skills, clockRate);
+                return CreateDifficultyAttributes(Beatmap, playableMods, clockRate);
 
             foreach (var hitObject in getDifficultyHitObjects())
             {
-                foreach (var skill in skills)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    skill.Process(hitObject);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                skills.Process(hitObject);
             }
 
-            return CreateDifficultyAttributes(Beatmap, playableMods, skills, clockRate);
+            return CreateDifficultyAttributes(Beatmap, playableMods, clockRate);
         }
 
         /// <summary>
@@ -122,13 +125,10 @@ namespace osu.Game.Rulesets.Difficulty
                     progressiveBeatmap.HitObjects.Add(Beatmap.HitObjects[i]);
                 }
 
-                foreach (var skill in skills)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    skill.Process(obj);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                skills.Process(obj);
 
-                attribs.Add(new TimedDifficultyAttributes(obj.EndTime * clockRate, CreateDifficultyAttributes(progressiveBeatmap, playableMods, skills, clockRate)));
+                attribs.Add(new TimedDifficultyAttributes(obj.EndTime * clockRate, CreateDifficultyAttributes(progressiveBeatmap, playableMods, clockRate)));
             }
 
             return attribs;
@@ -269,9 +269,8 @@ namespace osu.Game.Rulesets.Difficulty
         /// <param name="beatmap">The <see cref="IBeatmap"/> whose difficulty was calculated.
         /// This may differ from <see cref="Beatmap"/> in the case of timed calculation.</param>
         /// <param name="mods">The <see cref="Mod"/>s that difficulty was calculated with.</param>
-        /// <param name="skills">The skills which processed the beatmap.</param>
         /// <param name="clockRate">The rate at which the gameplay clock is run at.</param>
-        protected abstract DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate);
+        protected abstract DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, double clockRate);
 
         /// <summary>
         /// Enumerates <see cref="DifficultyHitObject"/>s to be processed from <see cref="HitObject"/>s in the <see cref="IBeatmap"/>.
@@ -289,7 +288,7 @@ namespace osu.Game.Rulesets.Difficulty
         /// <param name="mods">Mods to calculate difficulty with.</param>
         /// <param name="clockRate">Clockrate to calculate difficulty with.</param>
         /// <returns>The <see cref="Skill"/>s.</returns>
-        protected abstract Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate);
+        protected abstract SkillsBase CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate);
 
         /// <summary>
         /// Used to calculate timed difficulty attributes, where only a subset of hitobjects should be visible at any point in time.

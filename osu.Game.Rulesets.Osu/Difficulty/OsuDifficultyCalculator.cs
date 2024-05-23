@@ -6,13 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using osu.Framework.Extensions.ObjectExtensions;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.Scoring;
@@ -31,20 +30,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
         }
 
-        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
+        private OsuSkills skills;
+        protected override SkillsBase Skills => skills;
+
+        protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            if (beatmap.HitObjects.Count == 0)
+            if (skills.IsNull() || beatmap.HitObjects.Count == 0)
                 return new OsuDifficultyAttributes { Mods = mods };
 
-            double aimRating = Math.Sqrt(skills[0].DifficultyValue()) * difficulty_multiplier;
-            double aimRatingNoSliders = Math.Sqrt(skills[1].DifficultyValue()) * difficulty_multiplier;
-            double speedRating = Math.Sqrt(skills[2].DifficultyValue()) * difficulty_multiplier;
-            double speedNotes = ((Speed)skills[2]).RelevantNoteCount();
+            double aimRating = Math.Sqrt(skills.Aim.DifficultyValue()) * difficulty_multiplier;
+            double aimRatingNoSliders = Math.Sqrt(skills.AimNoSliders.DifficultyValue()) * difficulty_multiplier;
+            double speedRating = Math.Sqrt(skills.Speed.DifficultyValue()) * difficulty_multiplier;
+            double speedNotes = skills.Speed.RelevantNoteCount();
 
             double flashlightRating = 0.0;
 
             if (mods.Any(h => h is OsuModFlashlight))
-                flashlightRating = Math.Sqrt(skills[3].DifficultyValue()) * difficulty_multiplier;
+                flashlightRating = Math.Sqrt(skills.Flashlight.DifficultyValue()) * difficulty_multiplier;
 
             double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
 
@@ -128,19 +130,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return objects;
         }
 
-        protected override Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
+        protected override SkillsBase CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
         {
-            var skills = new List<Skill>
-            {
-                new Aim(mods, true),
-                new Aim(mods, false),
-                new Speed(mods)
-            };
-
-            if (mods.Any(h => h is OsuModFlashlight))
-                skills.Add(new Flashlight(mods));
-
-            return skills.ToArray();
+            skills = new OsuSkills(mods);
+            return skills;
         }
 
         protected override Mod[] DifficultyAdjustmentMods => new Mod[]
