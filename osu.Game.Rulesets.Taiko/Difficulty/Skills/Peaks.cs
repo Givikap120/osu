@@ -59,9 +59,9 @@ namespace osu.Game.Rulesets.Taiko.Difficulty.Skills
         {
             List<double> peaks = new List<double>();
 
-            var colourPeaks = colour.GetSectionPeaks().ToList();
-            var rhythmPeaks = rhythm.GetSectionPeaks().ToList();
-            var staminaPeaks = stamina.GetSectionPeaks().ToList();
+            var colourPeaks = colour.GetCurrentStrainPeaks().ToList();
+            var rhythmPeaks = rhythm.GetCurrentStrainPeaks().ToList();
+            var staminaPeaks = stamina.GetCurrentStrainPeaks().ToList();
 
             for (int i = 0; i < colourPeaks.Count; i++)
             {
