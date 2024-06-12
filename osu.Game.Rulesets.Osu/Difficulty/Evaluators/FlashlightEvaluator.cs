@@ -63,7 +63,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                         smallDistNerf = Math.Min(1.0, jumpDistance / 75.0);
 
                     // We also want to nerf stacks so that only the first object of the stack is accounted for.
-                    double stackNerf = Math.Min(1.0, (currentObj.LazyJumpDistance / scalingFactor) / 25.0);
+                    double stackNerf = Math.Min(1.0, (currentObj.Movement.Length * (50 / currentObj.Radius) / scalingFactor) / 25.0);
 
                     // Bonus based on how visible the object is.
                     double opacityBonus = 1.0 + max_opacity_bonus * (1.0 - osuCurrent.OpacityAt(currentHitObject.StartTime, hidden));
@@ -87,28 +87,28 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (hidden)
                 result *= 1.0 + hidden_bonus;
 
-            // Nerf patterns with repeated angles.
-            result *= min_angle_multiplier + (1.0 - min_angle_multiplier) / (angleRepeatCount + 1.0);
+            // // Nerf patterns with repeated angles.
+            // result *= min_angle_multiplier + (1.0 - min_angle_multiplier) / (angleRepeatCount + 1.0);
 
-            double sliderBonus = 0.0;
+            // double sliderBonus = 0.0;
 
-            if (osuCurrent.BaseObject is Slider osuSlider)
-            {
-                // Invert the scaling factor to determine the true travel distance independent of circle size.
-                double pixelTravelDistance = osuSlider.LazyTravelDistance / scalingFactor;
+            // if (osuCurrent.BaseObject is Slider osuSlider)
+            // {
+            //     // Invert the scaling factor to determine the true travel distance independent of circle size.
+            //     double pixelTravelDistance = osuSlider.LazyTravelDistance / scalingFactor;
 
-                // Reward sliders based on velocity.
-                sliderBonus = Math.Pow(Math.Max(0.0, pixelTravelDistance / osuCurrent.TravelTime - min_velocity), 0.5);
+            //     // Reward sliders based on velocity.
+            //     sliderBonus = Math.Pow(Math.Max(0.0, pixelTravelDistance / osuCurrent.TravelTime - min_velocity), 0.5);
 
-                // Longer sliders require more memorisation.
-                sliderBonus *= pixelTravelDistance;
+            //     // Longer sliders require more memorisation.
+            //     sliderBonus *= pixelTravelDistance;
 
-                // Nerf sliders with repeats, as less memorisation is required.
-                if (osuSlider.RepeatCount > 0)
-                    sliderBonus /= (osuSlider.RepeatCount + 1);
-            }
+            //     // Nerf sliders with repeats, as less memorisation is required.
+            //     if (osuSlider.RepeatCount > 0)
+            //         sliderBonus /= (osuSlider.RepeatCount + 1);
+            // }
 
-            result += sliderBonus * slider_multiplier;
+            // result += sliderBonus * slider_multiplier;
 
             return result;
         }
