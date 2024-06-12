@@ -83,8 +83,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double HitWindowGreat { get; private set; }
 
-        public Vector2 Movement { get; private set; }
-
         private readonly OsuHitObject? lastLastObject;
         private readonly OsuHitObject lastObject;
 
@@ -167,8 +165,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             MinimumJumpTime = StrainTime;
             MinimumJumpDistance = LazyJumpDistance;
 
-            Movement = scalingFactor * (BaseObject.StackedPosition - lastCursorPosition);
-
             if (lastObject is Slider lastSlider)
             {
                 double lastTravelTime = Math.Max(lastSlider.LazyTravelTime / clockRate, min_delta_time);
@@ -236,7 +232,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             IList<HitObject> nestedObjects = slider.NestedHitObjects;
 
-            SliderTick? lastRealTick = slider.NestedHitObjects.OfType<SliderTick>().LastOrDefault();
+            SliderTick? lastRealTick = null;
+
+            foreach (var hitobject in slider.NestedHitObjects)
+            {
+                if (hitobject is SliderTick tick)
+                    lastRealTick = tick;
+            }
 
             if (lastRealTick?.StartTime > trackingEndTime)
             {
