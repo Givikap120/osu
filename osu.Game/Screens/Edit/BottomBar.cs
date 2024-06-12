@@ -4,6 +4,7 @@
 #nullable disable
 
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -21,6 +22,8 @@ namespace osu.Game.Screens.Edit
     internal partial class BottomBar : CompositeDrawable
     {
         public TestGameplayButton TestGameplayButton { get; private set; }
+
+        private IBindable<bool> saveInProgress;
 
         [BackgroundDependencyLoader]
         private void load(OverlayColourProvider colourProvider, Editor editor)
@@ -47,37 +50,42 @@ namespace osu.Game.Screens.Edit
                     RelativeSizeAxes = Axes.Both,
                     Colour = colourProvider.Background4,
                 },
-                new Container
+                new GridContainer
                 {
                     RelativeSizeAxes = Axes.Both,
-                    Child = new GridContainer
+                    ColumnDimensions = new[]
                     {
-                        RelativeSizeAxes = Axes.Both,
-                        ColumnDimensions = new[]
-                        {
-                            new Dimension(GridSizeMode.Absolute, 170),
-                            new Dimension(),
-                            new Dimension(GridSizeMode.Absolute, 220),
-                            new Dimension(GridSizeMode.Absolute, HitObjectComposer.TOOLBOX_CONTRACTED_SIZE_RIGHT),
-                        },
-                        Content = new[]
-                        {
-                            new Drawable[]
-                            {
-                                new TimeInfoContainer { RelativeSizeAxes = Axes.Both },
-                                new SummaryTimeline { RelativeSizeAxes = Axes.Both },
-                                new PlaybackControl { RelativeSizeAxes = Axes.Both },
-                                TestGameplayButton = new TestGameplayButton
-                                {
-                                    RelativeSizeAxes = Axes.Both,
-                                    Size = new Vector2(1),
-                                    Action = editor.TestGameplay,
-                                }
-                            },
-                        }
+                        new Dimension(GridSizeMode.Absolute, 170),
+                        new Dimension(),
+                        new Dimension(GridSizeMode.Absolute, 220),
+                        new Dimension(GridSizeMode.Absolute, HitObjectComposer.TOOLBOX_CONTRACTED_SIZE_RIGHT),
                     },
+                    Content = new[]
+                    {
+                        new Drawable[]
+                        {
+                            new TimeInfoContainer { RelativeSizeAxes = Axes.Both },
+                            new SummaryTimeline { RelativeSizeAxes = Axes.Both },
+                            new PlaybackControl { RelativeSizeAxes = Axes.Both },
+                            TestGameplayButton = new TestGameplayButton
+                            {
+                                RelativeSizeAxes = Axes.Both,
+                                Size = new Vector2(1),
+                                Action = editor.TestGameplay,
+                            }
+                        },
+                    }
                 }
             };
+
+            saveInProgress = editor.MutationTracker.InProgress.GetBoundCopy();
+        }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            saveInProgress.BindValueChanged(_ => TestGameplayButton.Enabled.Value = !saveInProgress.Value, true);
         }
     }
 }
