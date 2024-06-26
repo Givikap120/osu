@@ -87,7 +87,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
             double aimValue = Math.Pow(5.0 * Math.Max(1.0, attributes.AimDifficulty / 0.0675) - 4.0, 3.0) / 100000.0;
-            
+
             double lengthBonus = 0.95 + 0.35 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.2 : 0.0);
             aimValue *= lengthBonus;
@@ -98,6 +98,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             aimValue *= getComboScalingFactor(attributes);
 
+            double multiplier = 1.0;
+
             double approachRateFactor = 0.0;
             if (attributes.ApproachRate > 10.33)
                 approachRateFactor = 0.15 * (attributes.ApproachRate - 10.33);
@@ -107,15 +109,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModRelax))
                 approachRateFactor = 0.0;
 
-            aimValue *= 1.0 + approachRateFactor * lengthBonus; // Buff for longer maps with high AR.
+            multiplier += approachRateFactor * lengthBonus;
 
             if (score.Mods.Any(m => m is OsuModBlinds))
-                aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
+                multiplier += 0.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                aimValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                multiplier += 0.04 * (12.0 - attributes.ApproachRate);
+                if (attributes.ApproachRate < 7)
+                    multiplier += 0.04 * (7.0 - attributes.ApproachRate);
             }
+
+            aimValue *= multiplier;
 
             // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
             double estimateDifficultSliders = attributes.SliderCount * 0.15;
@@ -151,22 +157,28 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             speedValue *= getComboScalingFactor(attributes);
 
+            double multiplier = 1.0;
+
             double approachRateFactor = 0.0;
             if (attributes.ApproachRate > 10.33)
                 approachRateFactor = 0.15 * (attributes.ApproachRate - 10.33);
 
-            speedValue *= 1.0 + approachRateFactor * lengthBonus; // Buff for longer maps with high AR.
+            multiplier += approachRateFactor * lengthBonus; // Buff for longer maps with high AR.
 
             if (score.Mods.Any(m => m is OsuModBlinds))
             {
                 // Increasing the speed value by object count for Blinds isn't ideal, so the minimum buff is given.
-                speedValue *= 1.12;
+                multiplier += 0.12;
             }
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                speedValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                multiplier += 0.04 * (12.0 - attributes.ApproachRate);
+                if (attributes.ApproachRate < 7)
+                    multiplier += 0.04 * (7.0 - attributes.ApproachRate);
             }
+
+            speedValue *= multiplier;
 
             // Calculate accuracy assuming the worst case scenario
             double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
@@ -187,7 +199,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double computeAccuracyValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
             if (score.Mods.Any(h => h is OsuModRelax))
-                return 0.0; 
+                return 0.0;
 
             // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window.
             double betterAccuracyPercentage;
@@ -217,9 +229,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (score.Mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02;
-            
-            // Scale accuracy by approach rate
-            // accuracyValue *= 1 / (1 + Math.Exp((attributes.ApproachRate < 10.33 ? 4 : 8) * (attributes.ApproachRate - 10.33))) + 1;
 
             return accuracyValue;
         }
