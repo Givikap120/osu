@@ -93,7 +93,7 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders
 
             if (editorBeatmap != null)
                 selectedObjects.BindTo(editorBeatmap.SelectedHitObjects);
-            selectedObjects.BindCollectionChanged((_, _) => updateVisualDefinition(), true);
+            selectedObjects.BindCollectionChanged((_, _) => UpdateVisualDefinition(), true);
             showHitMarkers.BindValueChanged(_ =>
             {
                 if (!showHitMarkers.Value)
@@ -126,20 +126,20 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders
 
         protected override bool OnHover(HoverEvent e)
         {
-            updateVisualDefinition();
+            UpdateVisualDefinition();
 
             return base.OnHover(e);
         }
 
         protected override void OnHoverLost(HoverLostEvent e)
         {
-            updateVisualDefinition();
+            UpdateVisualDefinition();
             base.OnHoverLost(e);
         }
 
         protected override void OnSelected()
         {
-            updateVisualDefinition();
+            UpdateVisualDefinition();
             base.OnSelected();
         }
 
@@ -147,11 +147,11 @@ namespace osu.Game.Rulesets.Osu.Edit.Blueprints.Sliders
         {
             base.OnDeselected();
 
-            updateVisualDefinition();
+            UpdateVisualDefinition();
             BodyPiece.RecyclePath();
         }
 
-        private void updateVisualDefinition()
+        protected virtual void UpdateVisualDefinition()
         {
             // To reduce overhead of drawing these blueprints, only add extra detail when only this slider is selected.
             if (IsSelected && selectedObjects.Count < 2)

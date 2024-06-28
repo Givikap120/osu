@@ -17,7 +17,7 @@ namespace osu.Game.Screens.Edit.Compose
     /// Buffers events from the many <see cref="HitObjectContainer"/>s in a nested <see cref="Playfield"/> hierarchy
     /// to ensure correct ordering of events.
     /// </summary>
-    internal class HitObjectUsageEventBuffer : IDisposable
+    public class HitObjectUsageEventBuffer : IDisposable
     {
         /// <summary>
         /// Invoked when a <see cref="HitObject"/> becomes used by a <see cref="DrawableHitObject"/>.

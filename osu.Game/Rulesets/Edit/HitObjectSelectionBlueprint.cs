@@ -19,7 +19,7 @@ namespace osu.Game.Rulesets.Edit
         /// <summary>
         /// The <see cref="DrawableHitObject"/> which this <see cref="HitObjectSelectionBlueprint"/> applies to.
         /// </summary>
-        public DrawableHitObject DrawableObject { get; internal set; }
+        public DrawableHitObject DrawableObject { get; set; }
 
         /// <summary>
         /// Whether the blueprint should be shown even when the <see cref="DrawableObject"/> is not alive.

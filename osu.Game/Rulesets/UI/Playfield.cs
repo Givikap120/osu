@@ -505,7 +505,7 @@ namespace osu.Game.Rulesets.UI
         /// <remarks>
         /// If this <see cref="HitObjectContainer"/> uses pooled objects, this represents the time when the <see cref="HitObject"/>s become alive.
         /// </remarks>
-        internal event Action<HitObject> HitObjectUsageBegan;
+        public event Action<HitObject> HitObjectUsageBegan;
 
         /// <summary>
         /// Invoked when a <see cref="HitObject"/> becomes unused by a <see cref="DrawableHitObject"/>.
@@ -513,14 +513,14 @@ namespace osu.Game.Rulesets.UI
         /// <remarks>
         /// If this <see cref="HitObjectContainer"/> uses pooled objects, this represents the time when the <see cref="HitObject"/>s become dead.
         /// </remarks>
-        internal event Action<HitObject> HitObjectUsageFinished;
+        public event Action<HitObject> HitObjectUsageFinished;
 
         /// <summary>
         /// Sets whether to keep a given <see cref="HitObject"/> always alive within this or any nested <see cref="Playfield"/>.
         /// </summary>
         /// <param name="hitObject">The <see cref="HitObject"/> to set.</param>
         /// <param name="keepAlive">Whether to keep <paramref name="hitObject"/> always alive.</param>
-        internal void SetKeepAlive(HitObject hitObject, bool keepAlive)
+        public void SetKeepAlive(HitObject hitObject, bool keepAlive)
         {
             if (entryManager.TryGet(hitObject, out var entry))
             {
@@ -535,7 +535,7 @@ namespace osu.Game.Rulesets.UI
         /// <summary>
         /// Keeps all <see cref="HitObject"/>s alive within this and all nested <see cref="Playfield"/>s.
         /// </summary>
-        internal void KeepAllAlive()
+        public void KeepAllAlive()
         {
             foreach (var entry in entryManager.AllEntries)
                 entry.KeepAlive = true;
@@ -547,7 +547,7 @@ namespace osu.Game.Rulesets.UI
         /// <summary>
         /// The amount of time prior to the current time within which <see cref="HitObject"/>s should be considered alive.
         /// </summary>
-        internal double PastLifetimeExtension
+        public double PastLifetimeExtension
         {
             get => HitObjectContainer.PastLifetimeExtension;
             set
@@ -562,7 +562,7 @@ namespace osu.Game.Rulesets.UI
         /// <summary>
         /// The amount of time after the current time within which <see cref="HitObject"/>s should be considered alive.
         /// </summary>
-        internal double FutureLifetimeExtension
+        public double FutureLifetimeExtension
         {
             get => HitObjectContainer.FutureLifetimeExtension;
             set
