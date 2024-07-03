@@ -14,7 +14,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     {
         /// <summary>
         /// The default multiplier applied by <see cref="OsuStrainSkill"/> to the final difficulty value after all other calculations.
-        /// May be overridden via <see cref="DifficultyMultiplier"/>.
         /// </summary>
         public const double DEFAULT_DIFFICULTY_MULTIPLIER = 1.06;
 
@@ -29,10 +28,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         /// </summary>
         protected virtual double ReducedStrainBaseline => 0.75;
 
-        /// <summary>
-        /// The final multiplier to be applied to <see cref="DifficultyValue"/> after all other calculations.
-        /// </summary>
-        protected virtual double DifficultyMultiplier => DEFAULT_DIFFICULTY_MULTIPLIER;
+        protected virtual int ReducedEarlySectionCount => 50;
+        protected virtual double ReducedEarlySectionProportion => 0.1;
 
         protected OsuStrainSkill(Mod[] mods)
             : base(mods)
@@ -46,7 +43,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             // Sections with 0 strain are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
             // These sections will not contribute to the difficulty.
-            var peaks = GetCurrentStrainPeaks().Where(p => p > 0);
+            var peaks = GetCurrentStrainPeaks().Where(p => p > 0).ToList();
+
+            // We are reducing the highest strains first to account for extreme difficulty spikes
+            int reducedEarlyStrains = Math.Min((int)(peaks.Count * ReducedEarlySectionProportion), ReducedEarlySectionCount);
+            for (int i = 0; i < reducedEarlyStrains; i++)
+            {
+                double scale = Math.Log10(Interpolation.Lerp(1, 10, Math.Clamp((float)i / reducedEarlyStrains, 0, 1)));
+                peaks[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
+            }
 
             List<double> strains = peaks.OrderDescending().ToList();
 
@@ -65,7 +70,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 weight *= DecayWeight;
             }
 
-            return difficulty * DifficultyMultiplier;
+            return difficulty * DEFAULT_DIFFICULTY_MULTIPLIER;
         }
     }
 }
