@@ -36,6 +36,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Calculate the velocity to the current hitobject, which starts with a base distance / time assuming the last object is a hitcircle.
             double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.StrainTime;
 
+            // Low BPM jumps bonus
+            double targetBPM = 200 + (currVelocity - 4) * (currVelocity > 4 ? 25 : 15);
+            double targetStrainTime = 1000 * 30 / targetBPM;
+
+            if (osuCurrObj.StrainTime > targetStrainTime && currVelocity > 0)
+            {
+                double currentPeakStrain = currVelocity / (1 - Math.Pow(0.15, osuCurrObj.StrainTime / 1000));
+                double targetPeakStrain = currVelocity / (1 - Math.Pow(0.15, targetStrainTime / 1000));
+                currVelocity *= targetPeakStrain / currentPeakStrain;
+            }
+
             // But if the last object is a slider, then we extend the travel velocity through the slider into the current object.
             if (osuLastObj.BaseObject is Slider && withSliderTravelDistance)
             {
