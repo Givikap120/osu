@@ -14,12 +14,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class AimEvaluator
     {
-        private const double wide_angle_multiplier = 1.0;
-        private const double acute_angle_multiplier = 1.95;
-        private const double slider_multiplier = 1.35;
-        private const double velocity_change_multiplier = 0.75;
-        private const double reaction_time = 150;
-
         /// <summary>
         /// Evaluates the difficulty of aiming the current object, based on:
         /// <list type="bullet">
@@ -40,16 +34,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj0 = (OsuDifficultyHitObject)current.Previous(0);
-            var osuLastObj1 = (OsuDifficultyHitObject)current.Previous(1);
-            var osuLastObj2 = (OsuDifficultyHitObject)current.Previous(2);
 
             //////////////////////// CIRCLE SIZE /////////////////////////
             double linearDifficulty = 32.0 / osuCurrObj.Radius;
 
             var currMovement = osuCurrObj.Movement;
             var prevMovement = osuLastObj0.Movement;
-            var currTime = osuCurrObj.MovementTime;
-            var prevTime = osuLastObj0.MovementTime;
+            double currTime = osuCurrObj.MovementTime;
+            double prevTime = osuLastObj0.MovementTime;
 
             if (!withSliderTravelDistance)
             {
@@ -64,8 +56,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double flowDifficulty = linearDifficulty * currMovement.Length / currTime;
 
             flowDifficulty *= currMovement.Length / (osuCurrObj.Radius * 2);
-
-            //flowDifficulty *= (55.0 / 75.0) * (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - 20));
 
             // Snap Stuff
             // Reduce strain time by 25ms to account for stopping time.
@@ -156,13 +146,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
                 double noteStrain = 0;
 
-                // if (index == 0 && osuCurrObj.SliderSubObjects.Count > 1)
-                //     noteStrain = Math.Max(0, linearDifficulty * subObject.Movement.Length - 2 * osuCurrObj.Radius) / subObject.StrainTime;
-
                 historyVector += subObject.Movement;
                 historyTime += subObject.StrainTime;
                 historyDistance += subObject.Movement.Length;
-                
+
                 if ((historyVector - priorMinimalPos).Length > sliderRadius)
                 {
                     double angleBonus = Math.Min(Math.Min(previousHistoryVector.Length, historyVector.Length), Math.Min((previousHistoryVector - historyVector).Length, (previousHistoryVector + historyVector).Length));
@@ -189,38 +176,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             return Math.Max(currentStrain, peakStrain);
         }
 
-        private static double calculateFlowCurvatureMultiplier(double angle)
-        {
-            if (angle == Math.PI)
-                return 1;
-            return (Math.PI - angle) / Math.Sqrt(2 * (1 - Math.Cos(Math.PI - angle)));
-        }
-
         private static double calculateAngleSpline(double angle, bool reversed)
         {
-            // if (reversed)
-            // {
-            //     if (angle == Math.PI) 
-            //         return 0;
-            //     return (Math.PI - angle) / Math.Sqrt(2 * (1 - Math.Cos(Math.PI - angle))) - 1;
-            // }
-            // return Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 6, 2 * Math.PI / 3.0) - Math.PI / 6), 2.0);
-
-            // angle = Math.Abs(angle);
             if (reversed)
                 return 1 - Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - 5.4 * Math.PI / 12.0, 0, Math.PI / 2)), 2);
 
-            // return Math.Pow(Math.Sin(Math.Clamp(2 * angle, Math.PI / 2.0, Math.PI) - Math.PI / 2), 2.0);
-
             return Math.Pow(Math.Sin(Math.Clamp(1.2 * angle - Math.PI / 4.0, 0, Math.PI / 2)), 2);
-
-            // return Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 4.0, (3.0 / 4.0) * Math.PI) - Math.PI / 4), 2.0);
-
-            // angle = Math.Abs(angle);
-            // if (reversed)
-            //     return 1 - Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 3.0, 5 * Math.PI / 6.0) - Math.PI / 3), 2.0);
-
-            // return Math.Pow(Math.Sin(Math.Clamp(angle, Math.PI / 3.0, 5 * Math.PI / 6.0) - Math.PI / 3), 2.0);
         }
     }
 }
