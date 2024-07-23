@@ -2,18 +2,16 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
-using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
-using osuTK;
-using osu.Game.Rulesets.Osu.Difficulty.Skills;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class AimEvaluator
     {
+        private const double slider_multiplier = 1.65;
+
         /// <summary>
         /// Evaluates the difficulty of aiming the current object, based on:
         /// <list type="bullet">
@@ -110,70 +108,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             snapDifficulty *= smallCSBonus;
             flowDifficulty *= smallCSBonus;
 
-            // Slider stuff.
-            double sustainedSliderStrain = 0.0;
-
-            if (osuCurrObj.SliderSubObjects.Count != 0)
-                sustainedSliderStrain = calculateSustainedSliderStrain(osuCurrObj, withSliderTravelDistance);
-            
-            // Apply slider strain with constant adjustment
-            flowDifficulty += 2.0 * sustainedSliderStrain;
-            snapDifficulty += 2.0 * sustainedSliderStrain;
-
-            return (flowDifficulty, snapDifficulty);
-        }
-
-        private static double calculateSustainedSliderStrain(OsuDifficultyHitObject osuCurrObj, bool withSliderTravelDistance)
-        {
-            int index = 1;
-
-            double sliderRadius = 2.4 * osuCurrObj.Radius;
-            double linearDifficulty = 32.0 / osuCurrObj.Radius;
-
-            var previousHistoryVector = new Vector2(0, 0);
-            var historyVector = new Vector2(0, 0);
-            var priorMinimalPos = new Vector2(0, 0);
-            double historyTime = 0;
-            double historyDistance = 0;
-
-            double peakStrain = 0;
-            double currentStrain = 0;
-
-            foreach (var subObject in osuCurrObj.SliderSubObjects)
+            double sliderBonus = 0;
+            if (withSliderTravelDistance && osuLastObj0.BaseObject is Slider)
             {
-                if (index == osuCurrObj.SliderSubObjects.Count && !withSliderTravelDistance)
-                    break;
-
-                double noteStrain = 0;
-
-                historyVector += subObject.Movement;
-                historyTime += subObject.StrainTime;
-                historyDistance += subObject.Movement.Length;
-
-                if ((historyVector - priorMinimalPos).Length > sliderRadius)
-                {
-                    double angleBonus = Math.Min(Math.Min(previousHistoryVector.Length, historyVector.Length), Math.Min((previousHistoryVector - historyVector).Length, (previousHistoryVector + historyVector).Length));
-
-                    noteStrain += linearDifficulty * (historyDistance + angleBonus - sliderRadius) / historyTime;
-
-                    previousHistoryVector = historyVector;
-                    priorMinimalPos = Vector2.Multiply(historyVector, (float) - sliderRadius / historyVector.Length);
-                    historyVector = new Vector2(0,0);
-                    historyTime = 0;
-                    historyDistance = 0;
-                }
-
-                currentStrain *= Math.Pow(Aim.STRAIN_DECAY_BASE, subObject.StrainTime / 1000.0); // TODO bug here using strainTime.
-                currentStrain += noteStrain;
-                peakStrain = Math.Max(peakStrain, currentStrain);
-
-                index += 1;
+                // Reward sliders based on velocity.
+                sliderBonus = osuLastObj0.TravelDistance / osuLastObj0.TravelTime;
+                sliderBonus *= slider_multiplier;
             }
 
-            if (historyTime > 0 && withSliderTravelDistance)
-                currentStrain += Math.Max(0, linearDifficulty * Math.Max(0, historyVector.Length - 2 * osuCurrObj.Radius) / historyTime);
+            // Apply slider strain with constant adjustment
+            flowDifficulty += sliderBonus;
+            snapDifficulty += sliderBonus;
 
-            return Math.Max(currentStrain, peakStrain);
+            return (flowDifficulty, snapDifficulty);
         }
 
         private static double calculateAngleSpline(double angle, bool reversed)
