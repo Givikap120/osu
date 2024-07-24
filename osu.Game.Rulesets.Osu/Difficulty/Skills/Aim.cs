@@ -22,36 +22,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private readonly bool withSliders;
 
-        private double currentFlowStrain;
-        private double currentSnapStrain;
-        private double realStrain;
+        private double currentStrain;
 
         private double skillMultiplier => 32;
         private double strainDecayBase => 0.15;
 
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
-        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => realStrain * strainDecay(time - current.Previous(0).StartTime);
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime);
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
-            currentFlowStrain *= strainDecay(current.DeltaTime);
-            currentSnapStrain *= strainDecay(current.DeltaTime);
+            currentStrain *= strainDecay(current.DeltaTime);
 
             (double flow, double snap) aimResult = AimEvaluator.EvaluateDifficultyOf(current, withSliders);
 
-            double flowStrain = aimResult.flow * skillMultiplier;
-            double snapStrain = aimResult.snap * skillMultiplier;
+            currentStrain += Math.Min(aimResult.flow, aimResult.snap) * skillMultiplier;
 
-            if (flowStrain < snapStrain)
-                currentFlowStrain += flowStrain;
-            else
-                currentSnapStrain += snapStrain;
-
-            // double p = 3;
-            realStrain = currentFlowStrain + currentSnapStrain;// + (Math.Pow(Math.Pow(currentFlowStrain, p) + Math.Pow(currentSnapStrain, p), 1.0 / p) - Math.Max(currentFlowStrain, currentSnapStrain));
-
-            return realStrain;
+            return currentStrain;
         }
     }
 }

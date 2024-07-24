@@ -20,7 +20,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public const int NORMALISED_RADIUS = 50; // Change radius to 50 to make 100 the diameter. Easier for mental maths.
 
-        private const int min_delta_time = 30;
+        private const int min_delta_time = 25;
         private const float maximum_slider_radius = NORMALISED_RADIUS * 2.4f;
         private const float assumed_slider_radius = NORMALISED_RADIUS * 1.8f;
 
