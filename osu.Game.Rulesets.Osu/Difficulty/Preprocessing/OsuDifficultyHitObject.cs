@@ -93,9 +93,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             MovementTime = StrainTime;
 
-            if (lastObject is Slider lastSlider)
+            //if (lastObject is Slider lastSlider)
+            //{
+            //    MovementTime = Math.Max(MovementTime - lastSlider.LazyTravelTime, min_delta_time);
+            //}
+
+            if (BaseObject is Slider currentSlider)
             {
-                MovementTime = Math.Max(MovementTime - lastSlider.LazyTravelTime, min_delta_time);
+                computeSliderCursorPosition(currentSlider, clockRate);
+                // Bonus for repeat sliders until a better per nested object strain system can be achieved.
+                TravelDistance = currentSlider.LazyTravelDistance * (float)Math.Pow(1 + currentSlider.RepeatCount / 2.5, 1.0 / 2.5);
+                TravelTime = Math.Max(currentSlider.LazyTravelTime, min_delta_time);
             }
 
             Movement = BaseObject.StackedPosition - getEndCursorPosition(this.lastObject, clockRate);
@@ -113,14 +121,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 float det = v1.X * v2.Y - v1.Y * v2.X;
 
                 Angle = Math.Atan2(det, dot);
-            }
-
-            if (BaseObject is Slider currentSlider)
-            {
-                computeSliderCursorPosition(currentSlider, clockRate);
-                // Bonus for repeat sliders until a better per nested object strain system can be achieved.
-                TravelDistance = currentSlider.LazyTravelDistance * (float)Math.Pow(1 + currentSlider.RepeatCount / 2.5, 1.0 / 2.5);
-                TravelTime = Math.Max(currentSlider.LazyTravelTime, min_delta_time);
             }
         }
 

@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class AimEvaluator
     {
-        private const double slider_multiplier = 1.65;
+        private const double slider_multiplier = 1.8;
 
         /// <summary>
         /// Evaluates the difficulty of aiming the current object, based on:
