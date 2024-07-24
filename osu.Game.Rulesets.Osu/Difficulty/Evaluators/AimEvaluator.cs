@@ -104,7 +104,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             snapDifficulty *= 1.05;
 
             // Apply small CS buff.
-            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4.5) / 25; // cs7 have 1.04x multiplier
+            double smallCSBonus = 1 + 4.5 * Math.Pow(3.25 / osuCurrObj.Radius, 1.35); // cs7 have 1.04x multiplier
+            smallCSBonus /= 1.175; // Adjust so CS4 will have multiplier = 1
 
             snapDifficulty *= smallCSBonus;
             flowDifficulty *= smallCSBonus;
