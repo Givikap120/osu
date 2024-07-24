@@ -22,23 +22,36 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private readonly bool withSliders;
 
-        private double currentStrain;
+        private double currentFlowStrain;
+        private double currentSnapStrain;
+        private double realStrain;
 
         private double skillMultiplier => 32;
-        public const double STRAIN_DECAY_BASE = 0.15;
+        private double strainDecayBase => 0.15;
 
-        private double strainDecay(double ms) => Math.Pow(STRAIN_DECAY_BASE, ms / 1000);
+        private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
-        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime);
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => realStrain * strainDecay(time - current.Previous(0).StartTime);
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
-            currentStrain *= strainDecay(current.DeltaTime);
+            currentFlowStrain *= strainDecay(current.DeltaTime);
+            currentSnapStrain *= strainDecay(current.DeltaTime);
 
-            (double snap, double flow) difficulty = AimEvaluator.EvaluateDifficultyOf(current, withSliders);
-            currentStrain += Math.Min(difficulty.snap, difficulty.flow) * skillMultiplier;
+            (double flow, double snap) aimResult = AimEvaluator.EvaluateDifficultyOf(current, withSliders);
 
-            return currentStrain;
+            double flowStrain = aimResult.flow * skillMultiplier;
+            double snapStrain = aimResult.snap * skillMultiplier;
+
+            if (flowStrain < snapStrain)
+                currentFlowStrain += flowStrain;
+            else
+                currentSnapStrain += snapStrain;
+
+            // double p = 3;
+            realStrain = currentFlowStrain + currentSnapStrain;// + (Math.Pow(Math.Pow(currentFlowStrain, p) + Math.Pow(currentSnapStrain, p), 1.0 / p) - Math.Max(currentFlowStrain, currentSnapStrain));
+
+            return realStrain;
         }
     }
 }

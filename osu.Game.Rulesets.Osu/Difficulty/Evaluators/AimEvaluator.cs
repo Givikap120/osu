@@ -54,6 +54,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double flowDifficulty = linearDifficulty * currMovement.Length / currTime;
 
             flowDifficulty *= currMovement.Length / (osuCurrObj.Radius * 2);
+            flowDifficulty *= (55.0 / 75.0) * (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - 20));
 
             // Snap Stuff
             // Reduce strain time by 25ms to account for stopping time.
@@ -104,7 +105,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             snapDifficulty *= 1.05;
 
             // Apply small CS buff.
-            double smallCSBonus = 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4.5) / 25; // cs7 have 1.04x multiplier
+            double smallCSBonus = 0.93169005129836946; // This is some magic number to preserve the same base bonus as xexxar CS bonus
+            smallCSBonus *= 1 + Math.Pow(23.04 / osuCurrObj.Radius, 4.5) / 25; // cs7 have 1.04x multiplier
+
             snapDifficulty *= smallCSBonus;
             flowDifficulty *= smallCSBonus;
 
