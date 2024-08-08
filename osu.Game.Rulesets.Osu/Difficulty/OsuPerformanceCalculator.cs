@@ -58,11 +58,18 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (usingSliderAccuracy)
             {
                 effectiveMissCount = countMiss;
-                countSliderEndsDropped = osuAttributes.SliderCount - score.Statistics.GetValueOrDefault(HitResult.SliderTailHit);
             }
             else
             {
                 effectiveMissCount = calculateEffectiveMissCount(osuAttributes);
+            }
+
+            if (score.MaximumStatistics.ContainsKey(HitResult.SliderTailHit))
+            {
+                countSliderEndsDropped = osuAttributes.SliderCount - score.Statistics.GetValueOrDefault(HitResult.SliderTailHit);
+            }
+            else
+            {
                 countSliderEndsDropped = Math.Min(countOk + countMeh + countMiss, attributes.MaxCombo - scoreMaxCombo);
             }
 
