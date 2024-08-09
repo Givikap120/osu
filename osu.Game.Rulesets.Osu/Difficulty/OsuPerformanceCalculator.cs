@@ -55,6 +55,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             usingSliderAccuracy = !score.Mods.Any(h => h is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value);
 
+            // TEMPORARILY DISABLE THIS TO COMPARE IT WITH FROST BRANCH
+            usingSliderAccuracy = false;
+
             if (usingSliderAccuracy)
             {
                 effectiveMissCount = countMiss;
@@ -239,8 +242,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (deviation == double.PositiveInfinity || score.Mods.Any(h => h is OsuModRelax) || deviation == double.PositiveInfinity)
                 return 0.0;
 
-            int amountHitObjectsWithAccuracy = attributes.HitCircleCount;
-            if (usingSliderAccuracy) amountHitObjectsWithAccuracy += attributes.SliderCount;
+            double amountHitObjectsWithAccuracy;
+            if (usingSliderAccuracy)
+            {
+                amountHitObjectsWithAccuracy = attributes.HitCircleCount + attributes.SliderCount;
+            }
+            else
+            {
+                // Start with amount of hit circles
+                amountHitObjectsWithAccuracy = attributes.HitCircleCount;
+
+                // If amount of circles is too small - also add sliders, because UR is calculated according to sliders too
+                double circlesRatio = (double)attributes.HitCircleCount / (attributes.HitCircleCount + attributes.SliderCount);
+                if (circlesRatio < 0.25)
+                {
+                    amountHitObjectsWithAccuracy += attributes.SliderCount * (1 - circlesRatio / 0.25);
+                }
+            }
 
             double liveLengthBonus = Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.3));
             double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
