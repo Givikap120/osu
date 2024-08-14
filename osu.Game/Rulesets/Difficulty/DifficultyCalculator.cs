@@ -29,7 +29,7 @@ namespace osu.Game.Rulesets.Difficulty
         /// </summary>
         protected IBeatmap Beatmap { get; private set; }
 
-        public Mod[] PlayableMods { get; private set; }
+        protected Mod[] PlayableMods { get; private set; }
         private double clockRate;
 
         private readonly IRulesetInfo ruleset;
