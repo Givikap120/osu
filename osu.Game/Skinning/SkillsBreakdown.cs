@@ -54,6 +54,9 @@ namespace osu.Game.Skinning
                 colorSource.Blue3,
                 colorSource.Lime3,
                 colorSource.Red3,
+                colorSource.RedLight,
+                colorSource.GrayC,
+                colorSource.YellowLight,
                 colorSource.YellowDark
             };
 

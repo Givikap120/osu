@@ -4,12 +4,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
+using osu.Game.Rulesets.Osu.Mods;
+using osu.Game.Scoring;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -125,19 +128,51 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         public override SkillValue[] GetSkillValues()
         {
-            double aimPerformanceWithoutSliders = Math.Pow(OsuStrainSkill.DifficultyToPerformance(AimDifficulty * SliderFactor), 2);
-            double aimPerformanceOnlySliders = Math.Pow(OsuStrainSkill.DifficultyToPerformance(AimDifficulty), 2) - aimPerformanceWithoutSliders;
+            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(AimDifficulty);
+            double aimPerformanceWithoutSliders = OsuStrainSkill.DifficultyToPerformance(AimDifficulty * SliderFactor);
 
-            double speedPerformance = Math.Pow(OsuStrainSkill.DifficultyToPerformance(SpeedDifficulty), 2);
-            double flashlightPerformance = Math.Pow(Flashlight.DifficultyToPerformance(FlashlightDifficulty), 2);
+            double speedPerformance = OsuStrainSkill.DifficultyToPerformance(SpeedDifficulty);
+            double flashlightPerformance = Flashlight.DifficultyToPerformance(FlashlightDifficulty);
+
+            double totalHits = HitCircleCount + SliderCount;
+            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
+
+            double highARbonus = Mods.Any(h => h is OsuModRelax) ? 0 : Math.Max(0, 0.3 * (ApproachRate - 10.33)) * lengthBonus;
+            double lowARbonus = Mods.Any(h => h is OsuModRelax) ? 0 : Math.Max(0, 0.05 * (8.0 - ApproachRate)) * lengthBonus;
+
+            bool isBlinds = Mods.Any(m => m is OsuModBlinds);
+            double blindsBonusAim = isBlinds ? 0.3 + (totalHits * 0.0016 * (1 - 0.003 * DrainRate * DrainRate)) : 0;
+            double blindsBonusSpeed = isBlinds ? 0.16 : 0;
+
+            bool isTraceable = Mods.Any(m => m is OsuModTraceable);
+            double HDBonus = (Mods.Any(m => m is ModHidden || m is OsuModTraceable) && !isBlinds) ? 0.04 * (12.0 - ApproachRate) : 0;
+
+            double readingHighARPerformance = (aimPerformance + speedPerformance) * highARbonus;
+            double readingLowARPerformance = aimPerformance * lowARbonus;
+            double readingHiddenPerformance = (aimPerformance + speedPerformance) * HDBonus;
+            double memoryPerformance = Math.Max(flashlightPerformance, aimPerformance * blindsBonusAim + speedPerformance * blindsBonusSpeed);
+
+            // Rescale mechanical performance values to make values more clear
+            double mechanicalPerformance = aimPerformance + speedPerformance;
+            double mechanicalPerformanceSqr = sqr(aimPerformance) + sqr(speedPerformance);
+
+            aimPerformance = mechanicalPerformance * sqr(aimPerformance) / mechanicalPerformanceSqr;
+            aimPerformanceWithoutSliders = mechanicalPerformance * sqr(aimPerformanceWithoutSliders) / mechanicalPerformanceSqr;
+            speedPerformance = mechanicalPerformance * sqr(speedPerformance) / mechanicalPerformanceSqr;
 
             return [
-                new SkillValue { Value = aimPerformanceOnlySliders, SkillName = "Slider Aim" },
+                new SkillValue { Value = aimPerformance - aimPerformanceWithoutSliders, SkillName = "Slider Aim" },
                 new SkillValue { Value = aimPerformanceWithoutSliders, SkillName = "Aim" },
                 new SkillValue { Value = speedPerformance, SkillName = "Speed" },
-                new SkillValue { Value = flashlightPerformance, SkillName = "Flashlight" }
+                new SkillValue { Value = readingHighARPerformance, SkillName = "High AR" },
+                new SkillValue { Value = readingLowARPerformance, SkillName = "Low AR" },
+                new SkillValue { Value = readingHiddenPerformance, SkillName = isTraceable ? "Traceable" : "Hidden" },
+                new SkillValue { Value = memoryPerformance, SkillName = isBlinds ? "Blinds" : "Flashlight" }
             ];
         }
+
+        private static double sqr(double a) => a * a;
 
         #region Newtonsoft.Json implicit ShouldSerialize() methods
 

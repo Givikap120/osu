@@ -61,12 +61,37 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 flashlightRating *= 0.7;
             }
 
-            double baseAimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
-            double baseSpeedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
+            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
+            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
+
+            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
+            double approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
+            double drainRate = beatmap.Difficulty.DrainRate;
+
+            double totalHits = hitCirclesCount + sliderCount;
+            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
+
+            double highARmultiplier = 1 + Math.Max(0, 0.3 * (approachRate - 10.33)) * lengthBonus;
+            double lowARmultiplier = 1 + Math.Max(0, 0.05 * (8.0 - approachRate)) * lengthBonus;
+            double HDmultiplier = mods.Any(m => m is ModHidden || m is OsuModTraceable) ? 1 + 0.04 * (12.0 - approachRate) : 1;
+
+            double baseAimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating) * highARmultiplier * lowARmultiplier;
+            double baseSpeedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating) * highARmultiplier;
             double baseFlashlightPerformance = 0.0;
 
             if (mods.Any(h => h is OsuModFlashlight))
                 baseFlashlightPerformance = Flashlight.DifficultyToPerformance(flashlightRating);
+            else if (mods.Any(h => h is OsuModBlinds))
+            {
+                baseAimPerformance *= 1.3 + (totalHits * 0.0016 * (1 - 0.003 * drainRate * drainRate));
+                baseSpeedPerformance *= 1.16;
+                HDmultiplier = 1;
+            }
+
+            baseAimPerformance *= HDmultiplier;
+            baseSpeedPerformance *= HDmultiplier;
 
             double basePerformance =
                 Math.Pow(
@@ -79,13 +104,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
-            double drainRate = beatmap.Difficulty.DrainRate;
             int maxCombo = beatmap.GetMaxCombo();
-
-            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
-            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
-            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
