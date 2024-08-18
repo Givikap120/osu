@@ -16,58 +16,50 @@ namespace osu.Game.Skinning.Triangles
 {
     public partial class TrianglesPerformancePointsCounter : PerformancePointsCounter, ISerialisableDrawable
     {
-        protected override bool IsRollingProportional => true;
-
-        protected override double RollingDuration => 500;
-
-        private const float alpha_when_invalid = 0.3f;
-
         [BackgroundDependencyLoader]
-        private void load(OsuColour colours)
+        private void load()
         {
-            Colour = colours.BlueLighter;
+            AddInternal(PpCounter = new TrianglesCounter());
         }
 
-        public override bool IsValid
+        private partial class TrianglesCounter : InternalPpCounter
         {
-            get => base.IsValid;
-            set
-            {
-                if (value == IsValid)
-                    return;
+            protected override bool IsRollingProportional => true;
 
-                base.IsValid = value;
-                DrawableCount.FadeTo(value ? 1 : alpha_when_invalid, 1000, Easing.OutQuint);
+            protected override double RollingDuration => 500;
+
+
+            [BackgroundDependencyLoader]
+            private void load(OsuColour colours)
+            {
+                Colour = colours.BlueLighter;
             }
-        }
+            protected override Drawable Text => DrawableCount;
 
-        protected override LocalisableString FormatCount(int count) => count.ToString(@"D");
+            protected override LocalisableString FormatCount(int count) => count.ToString(@"D");
 
-        protected override IHasText CreateText() => new TextComponent
-        {
-            Alpha = alpha_when_invalid
-        };
+            protected override IHasText CreateText() => new TextComponent();
 
-        private partial class TextComponent : CompositeDrawable, IHasText
-        {
-            public LocalisableString Text
+            private partial class TextComponent : CompositeDrawable, IHasText
             {
-                get => text.Text;
-                set => text.Text = value;
-            }
-
-            private readonly OsuSpriteText text;
-
-            public TextComponent()
-            {
-                AutoSizeAxes = Axes.Both;
-
-                InternalChild = new FillFlowContainer
+                public LocalisableString Text
                 {
-                    AutoSizeAxes = Axes.Both,
-                    Spacing = new Vector2(2),
-                    Children = new Drawable[]
+                    get => text.Text;
+                    set => text.Text = value;
+                }
+
+                private readonly OsuSpriteText text;
+
+                public TextComponent()
+                {
+                    AutoSizeAxes = Axes.Both;
+
+                    InternalChild = new FillFlowContainer
                     {
+                        AutoSizeAxes = Axes.Both,
+                        Spacing = new Vector2(2),
+                        Children = new Drawable[]
+                        {
                         text = new OsuSpriteText
                         {
                             Anchor = Anchor.BottomLeft,
@@ -82,8 +74,9 @@ namespace osu.Game.Skinning.Triangles
                             Font = OsuFont.Numeric.With(size: 8),
                             Padding = new MarginPadding { Bottom = 1.5f }, // align baseline better
                         }
-                    }
-                };
+                        }
+                    };
+                }
             }
         }
     }

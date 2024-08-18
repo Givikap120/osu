@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Extensions.LocalisationExtensions;
 using osu.Framework.Graphics;
@@ -15,11 +16,6 @@ namespace osu.Game.Screens.Play.HUD
 {
     public partial class ArgonPerformancePointsCounter : PerformancePointsCounter, ISerialisableDrawable
     {
-        private ArgonCounterTextComponent text = null!;
-
-        protected override double RollingDuration => 250;
-
-        private const float alpha_when_invalid = 0.3f;
 
         [SettingSource("Wireframe opacity", "Controls the opacity of the wireframes behind the digits.")]
         public BindableFloat WireframeOpacity { get; } = new BindableFloat(0.25f)
@@ -32,50 +28,62 @@ namespace osu.Game.Screens.Play.HUD
         [SettingSource(typeof(SkinnableComponentStrings), nameof(SkinnableComponentStrings.ShowLabel), nameof(SkinnableComponentStrings.ShowLabelDescription))]
         public Bindable<bool> ShowLabel { get; } = new BindableBool(true);
 
-        public override bool IsValid
+
+        [BackgroundDependencyLoader]
+        private void load()
         {
-            get => base.IsValid;
-            set
+            AddInternal(PpCounter = new ArgonCounter(WireframeOpacity, ShowLabel));
+        }
+
+        private partial class ArgonCounter : InternalPpCounter
+        {
+            private ArgonCounterTextComponent text = null!;
+
+            private readonly Bindable<float> wireframeOpacity;
+            private readonly Bindable<bool> showLabel;
+
+            public ArgonCounter(Bindable<float> wireframeOpacity, Bindable<bool> showLabel)
             {
-                if (value == IsValid)
-                    return;
-
-                base.IsValid = value;
-                text.FadeTo(value ? 1 : alpha_when_invalid, 1000, Easing.OutQuint);
+                this.wireframeOpacity = wireframeOpacity;
+                this.showLabel = showLabel;
             }
-        }
 
-        public override int DisplayedCount
-        {
-            get => base.DisplayedCount;
-            set
+            protected override double RollingDuration => 250;
+
+            public override int DisplayedCount
             {
-                base.DisplayedCount = value;
-                updateWireframe();
+                get => base.DisplayedCount;
+                set
+                {
+                    base.DisplayedCount = value;
+                    updateWireframe();
+                }
             }
+
+            protected override Drawable Text => text;
+
+            private void updateWireframe()
+            {
+                int digitsRequiredForDisplayCount = Math.Max(3, getDigitsRequiredForDisplayCount());
+
+                if (digitsRequiredForDisplayCount != text.WireframeTemplate.Length)
+                    text.WireframeTemplate = new string('#', digitsRequiredForDisplayCount);
+            }
+
+            private int getDigitsRequiredForDisplayCount()
+            {
+                int digitsRequired = 1;
+                long c = DisplayedCount;
+                while ((c /= 10) > 0)
+                    digitsRequired++;
+                return digitsRequired;
+            }
+
+            protected override IHasText CreateText() => text = new ArgonCounterTextComponent(Anchor.TopRight, BeatmapsetsStrings.ShowScoreboardHeaderspp.ToUpper())
+            {
+                WireframeOpacity = { BindTarget = wireframeOpacity },
+                ShowLabel = { BindTarget = showLabel },
+            };
         }
-
-        private void updateWireframe()
-        {
-            int digitsRequiredForDisplayCount = Math.Max(3, getDigitsRequiredForDisplayCount());
-
-            if (digitsRequiredForDisplayCount != text.WireframeTemplate.Length)
-                text.WireframeTemplate = new string('#', digitsRequiredForDisplayCount);
-        }
-
-        private int getDigitsRequiredForDisplayCount()
-        {
-            int digitsRequired = 1;
-            long c = DisplayedCount;
-            while ((c /= 10) > 0)
-                digitsRequired++;
-            return digitsRequired;
-        }
-
-        protected override IHasText CreateText() => text = new ArgonCounterTextComponent(Anchor.TopRight, BeatmapsetsStrings.ShowScoreboardHeaderspp.ToUpper())
-        {
-            WireframeOpacity = { BindTarget = WireframeOpacity },
-            ShowLabel = { BindTarget = ShowLabel },
-        };
     }
 }
