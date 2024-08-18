@@ -33,6 +33,7 @@ namespace osu.Game.Screens.Play.HUD
         protected override void LoadComplete()
         {
             base.LoadComplete();
+
             PpCounter.IsValid = IsValid;
         }
 
@@ -61,7 +62,8 @@ namespace osu.Game.Screens.Play.HUD
             }
 
             ScoreProcessor.PopulateScore(scoreInfo);
-            PpCounter.Current.Value = (int)Math.Round(performanceCalculator?.Calculate(scoreInfo, attrib).Total ?? 0, MidpointRounding.AwayFromZero);
+            int newPp = (int)Math.Round(performanceCalculator?.Calculate(scoreInfo, attrib).Total ?? 0, MidpointRounding.AwayFromZero);
+            PpCounter.Current.Value = newPp;
         }
 
         protected abstract partial class InternalPpCounter : RollingCounter<int>
@@ -71,6 +73,8 @@ namespace osu.Game.Screens.Play.HUD
 
             protected override void LoadComplete()
             {
+                base.LoadComplete();
+
                 Text.FadeTo(isValid ? 1 : alpha_when_invalid, 1000, Easing.OutQuint);
             }
 

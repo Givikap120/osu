@@ -148,9 +148,43 @@ namespace osu.Game.Beatmaps
 
         protected override bool CacheNullValues => false;
 
+        private Task<List<TimedDifficultyAttributes>>? currentTask;
+        private TimedAttributes? currentTimedAttributes;
+
         public Task<List<TimedDifficultyAttributes>> GetTimedDifficultyAttributesAsync(IWorkingBeatmap beatmap, Ruleset ruleset, Mod[] mods, CancellationToken cancellationToken = default)
         {
-            return Task.Factory.StartNew(() => ruleset.CreateDifficultyCalculator(beatmap).CalculateTimed(mods, cancellationToken),
+            if (currentTimedAttributes == null
+                || !currentTimedAttributes.Value.BeatmapInfo.Equals(beatmap.BeatmapInfo)
+                || !currentTimedAttributes.Value.Ruleset.Equals(ruleset.RulesetInfo)
+                || !currentTimedAttributes.Value.Mods.SequenceEqual(mods))
+
+            {
+                currentTimedAttributes = new TimedAttributes(beatmap.BeatmapInfo, ruleset.RulesetInfo, mods);
+                currentTask = calculateTimedDifficultyAttributesAsync(beatmap, ruleset, mods, cancellationToken);
+                return currentTask;
+            }
+
+            if (currentTimedAttributes.Value.Attributes == null)
+            {
+                return currentTask!;
+            }
+
+            return Task.Run(() => currentTimedAttributes.Value.Attributes);
+        }
+
+        private Task<List<TimedDifficultyAttributes>> calculateTimedDifficultyAttributesAsync(IWorkingBeatmap beatmap, Ruleset ruleset, Mod[] mods, CancellationToken cancellationToken)
+        {
+            return Task.Factory.StartNew(() =>
+            {
+                var result = ruleset.CreateDifficultyCalculator(beatmap).CalculateTimed(mods, cancellationToken);
+                if (currentTimedAttributes != null)
+                {
+                    var value = currentTimedAttributes.Value;
+                    value.Attributes = result;
+                    currentTimedAttributes = value;
+                }
+                return result;
+            },
                 cancellationToken,
                 TaskCreationOptions.HideScheduler | TaskCreationOptions.RunContinuationsAsynchronously,
                 updateScheduler);
@@ -315,6 +349,21 @@ namespace osu.Game.Beatmaps
             {
                 BeatmapInfo = beatmapInfo;
                 CancellationToken = cancellationToken;
+            }
+        }
+
+        private struct TimedAttributes
+        {
+            public List<TimedDifficultyAttributes>? Attributes;
+            public readonly IBeatmapInfo BeatmapInfo;
+            public readonly IRulesetInfo Ruleset;
+            public readonly IReadOnlyList<Mod> Mods;
+
+            public TimedAttributes(IBeatmapInfo beatmapInfo, IRulesetInfo ruleset, IReadOnlyList<Mod> mods)
+            {
+                BeatmapInfo = beatmapInfo;
+                Ruleset = ruleset;
+                Mods = mods;
             }
         }
     }

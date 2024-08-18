@@ -19,7 +19,7 @@ namespace osu.Game.Skinning.Triangles
         [BackgroundDependencyLoader]
         private void load()
         {
-            AddInternal(PpCounter = new TrianglesCounter());
+            Child = PpCounter = new TrianglesCounter();
         }
 
         private partial class TrianglesCounter : InternalPpCounter
@@ -60,20 +60,20 @@ namespace osu.Game.Skinning.Triangles
                         Spacing = new Vector2(2),
                         Children = new Drawable[]
                         {
-                        text = new OsuSpriteText
-                        {
-                            Anchor = Anchor.BottomLeft,
-                            Origin = Anchor.BottomLeft,
-                            Font = OsuFont.Numeric.With(size: 16, fixedWidth: true)
-                        },
-                        new OsuSpriteText
-                        {
-                            Anchor = Anchor.BottomLeft,
-                            Origin = Anchor.BottomLeft,
-                            Text = BeatmapsetsStrings.ShowScoreboardHeaderspp,
-                            Font = OsuFont.Numeric.With(size: 8),
-                            Padding = new MarginPadding { Bottom = 1.5f }, // align baseline better
-                        }
+                            text = new OsuSpriteText
+                            {
+                                Anchor = Anchor.BottomLeft,
+                                Origin = Anchor.BottomLeft,
+                                Font = OsuFont.Numeric.With(size: 16, fixedWidth: true)
+                            },
+                            new OsuSpriteText
+                            {
+                                Anchor = Anchor.BottomLeft,
+                                Origin = Anchor.BottomLeft,
+                                Text = BeatmapsetsStrings.ShowScoreboardHeaderspp,
+                                Font = OsuFont.Numeric.With(size: 8),
+                                Padding = new MarginPadding { Bottom = 1.5f }, // align baseline better
+                            }
                         }
                     };
                 }

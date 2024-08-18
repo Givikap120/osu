@@ -32,7 +32,7 @@ namespace osu.Game.Screens.Play.HUD
         [BackgroundDependencyLoader]
         private void load()
         {
-            AddInternal(PpCounter = new ArgonCounter(WireframeOpacity, ShowLabel));
+            Child = PpCounter = new ArgonCounter(WireframeOpacity, ShowLabel);
         }
 
         private partial class ArgonCounter : InternalPpCounter

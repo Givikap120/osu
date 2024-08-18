@@ -1,22 +1,35 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using JetBrains.Annotations;
+using osu.Game.Skinning;
 using osu.Framework.Allocation;
 using osu.Game.Rulesets.Judgements;
-using osu.Game.Skinning;
-using osu.Game.Beatmaps.Drawables;
 using osu.Game.Beatmaps;
+using osu.Framework.Graphics;
+using osuTK;
+
 
 namespace osu.Game.Screens.Play.HUD
 {
-    public partial class StarRatingCounter : LiveDifficultyDisplay, ISerialisableDrawable
+    [UsedImplicitly]
+    public partial class LiveSkillsBreakdown : LiveDifficultyDisplay, ISerialisableDrawable
     {
-        private StarRatingDisplay starRatingDisplay = null!;
+        private SkillsBreakdownBase skillsBreakdown = null!;
+
+        public LiveSkillsBreakdown()
+        {
+            AutoSizeAxes = Axes.None;
+            Size = new Vector2(50);
+        }
 
         [BackgroundDependencyLoader]
         private void load()
         {
-            Child = starRatingDisplay = new StarRatingDisplay(default, animated: true);
+            Child = skillsBreakdown = new SkillsBreakdownBase()
+            {
+                RelativeSizeAxes = Axes.Both
+            };
         }
 
         protected override void OnJudgementChanged(JudgementResult judgement)
@@ -30,7 +43,7 @@ namespace osu.Game.Screens.Play.HUD
                 return;
             }
 
-            starRatingDisplay.Current.Value = new StarDifficulty(attrib);
+            skillsBreakdown.UpdateSkillsBreakdown(new StarDifficulty(attrib));
         }
     }
 }

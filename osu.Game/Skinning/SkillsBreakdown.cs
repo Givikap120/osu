@@ -21,9 +21,14 @@ using osu.Framework.Layout;
 namespace osu.Game.Skinning
 {
     [UsedImplicitly]
-    public partial class SkillsBreakdown : CompositeDrawable, ISerialisableDrawable
+    public partial class SkillsBreakdown : SkillsBreakdownBase, ISerialisableDrawable
     {
         public bool UsesFixedAnchor { get; set; }
+
+        public SkillsBreakdown()
+        {
+            Size = new Vector2(50);
+        }
 
         [Resolved]
         private IBindable<WorkingBeatmap> beatmap { get; set; } = null!;
@@ -33,13 +38,28 @@ namespace osu.Game.Skinning
         private IBindable<StarDifficulty?> starDifficulty = null!;
         private CancellationTokenSource? cancellationSource;
 
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            beatmap.BindValueChanged(b =>
+            {
+                cancellationSource?.Cancel();
+                starDifficulty = difficultyCache.GetBindableDifficulty(b.NewValue.BeatmapInfo, (cancellationSource = new CancellationTokenSource()).Token);
+                starDifficulty.BindValueChanged(d => UpdateSkillsBreakdown(d.NewValue));
+            }, true);
+        }
+    }
+
+    public partial class SkillsBreakdownBase : CompositeDrawable
+    {
         private Color4[] colors = null!;
         private Container<SkillCircle> circles = null!;
 
-        public SkillsBreakdown()
-        {
-            Size = new Vector2(50);
-        }
+        //public SkillsBreakdownBase()
+        //{
+        //    Size = new Vector2(50);
+        //}
 
         [BackgroundDependencyLoader]
         private void load(OsuColour colorSource)
@@ -66,19 +86,7 @@ namespace osu.Game.Skinning
             circles.First().SetProgress(0, 1);
         }
 
-        protected override void LoadComplete()
-        {
-            base.LoadComplete();
-
-            beatmap.BindValueChanged(b =>
-            {
-                cancellationSource?.Cancel();
-                starDifficulty = difficultyCache.GetBindableDifficulty(b.NewValue.BeatmapInfo, (cancellationSource = new CancellationTokenSource()).Token);
-                starDifficulty.BindValueChanged(d => updateSkillsBreakdown(d.NewValue));
-            }, true);
-        }
-
-        private void updateSkillsBreakdown(StarDifficulty? starDifficulty)
+        public void UpdateSkillsBreakdown(StarDifficulty? starDifficulty)
         {
             if (starDifficulty == null)
                 return;
