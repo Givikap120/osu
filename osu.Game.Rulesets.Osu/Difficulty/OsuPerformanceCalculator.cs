@@ -230,8 +230,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 speedValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
             }
 
-            // Scale the speed value with speed deviation
-            speedValue *= SpecialFunctions.Erf(20 / (Math.Sqrt(2) * speedDeviation));
+            // Scale the speed value with speed deviation.
+            // Use additional bad UR penalty for high speed difficulty
+            // (WARNING: potentially unstable, but instability detected in playable difficulty range).
+            speedValue *= SpecialFunctions.Erf(20 / (Math.Sqrt(2) * speedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1.2))));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
