@@ -95,7 +95,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             : base(mods, false)
         {
         }
-        protected new double SkillMultiplier => 7.2;
+        protected new double SkillMultiplier => 7.632;
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
