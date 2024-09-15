@@ -109,6 +109,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         [JsonProperty("speed_difficult_strain_count")]
         public double SpeedDifficultStrainCount { get; set; }
 
+        [JsonProperty("low_ar_difficult_strain_count")]
+        public double LowArDifficultStrainCount { get; set; }
+
+        [JsonProperty("hidden_difficult_strain_count")]
+        public double HiddenDifficultStrainCount { get; set; }
+
         public override IEnumerable<(int attributeId, object value)> ToDatabaseAttributes()
         {
             foreach (var v in base.ToDatabaseAttributes())

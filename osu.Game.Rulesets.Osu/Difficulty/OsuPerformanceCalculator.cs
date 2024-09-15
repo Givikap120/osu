@@ -282,18 +282,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeReadingLowARValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            double rawReading = attributes.ReadingDifficultyLowAR;
+            double readingValue = ReadingLowAR.DifficultyToPerformance(attributes.ReadingDifficultyLowAR);
 
-            if (score.Mods.Any(m => m is OsuModTouchDevice))
-                rawReading = Math.Pow(rawReading, 0.8);
-
-            double readingValue = ReadingLowAR.DifficultyToPerformance(rawReading);
-
-            // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
             if (effectiveMissCount > 0)
-                readingValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), Math.Pow(effectiveMissCount, .875));
-
-            readingValue *= getComboScalingFactor(attributes);
+                readingValue *= calculateMissPenalty(effectiveMissCount, attributes.LowArDifficultStrainCount);
 
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             readingValue *= accuracy * accuracy;
@@ -306,12 +298,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double computeReadingHighARValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
             double highARValue = OsuStrainSkill.DifficultyToPerformance(attributes.ReadingDifficultyHighAR);
-
-            // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
-            if (effectiveMissCount > 0)
-                highARValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), effectiveMissCount);
-
-            highARValue *= getComboScalingFactor(attributes);
 
             // Approximate how much of high AR difficulty is aim
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
@@ -332,6 +318,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     aimPartValue *= sliderNerfFactor;
                 }
 
+                if (effectiveMissCount > 0)
+                    aimPartValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+
                 aimPartValue *= accuracy;
                 // It is important to consider accuracy difficulty when scaling with accuracy.
                 aimPartValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
@@ -346,6 +335,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantCountOk = Math.Max(0, countOk - Math.Max(0, relevantTotalDiff - countGreat));
                 double relevantCountMeh = Math.Max(0, countMeh - Math.Max(0, relevantTotalDiff - countGreat - countOk));
                 double relevantAccuracy = attributes.SpeedNoteCount == 0 ? 0 : (relevantCountGreat * 6.0 + relevantCountOk * 2.0 + relevantCountMeh) / (attributes.SpeedNoteCount * 6.0);
+
+                if (effectiveMissCount > 0)
+                    speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
 
                 // Scale the speed value with accuracy and OD.
                 speedPartValue *= (0.95 + Math.Pow(attributes.OverallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - Math.Max(attributes.OverallDifficulty, 8)) / 2);
@@ -362,17 +354,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (!score.Mods.Any(h => h is OsuModHidden))
                 return 0.0;
 
-            double rawReading = attributes.HiddenDifficulty;
             double hiddenValue = ReadingHidden.DifficultyToPerformance(attributes.HiddenDifficulty);
 
             double lengthBonus = CalculateDefaultLengthBonus(totalHits);
             hiddenValue *= lengthBonus;
 
-            // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
             if (effectiveMissCount > 0)
-                hiddenValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), Math.Pow(effectiveMissCount, .875));
-
-            hiddenValue *= getComboScalingFactor(attributes);
+                hiddenValue *= calculateMissPenalty(effectiveMissCount, attributes.HiddenDifficultStrainCount);
 
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             hiddenValue *= accuracy * accuracy;

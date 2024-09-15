@@ -170,7 +170,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             (ReadingObjects, OverlapValues) = getReadingObjects();
 
-            RhythmDifficulty = RhythmEvaluator.EvaluateDifficultyOf(this);
+            RhythmDifficulty = RhythmEvaluator.EvaluateDifficultyOf(this, mods);
         }
 
         private (IList<ReadingObject>, IDictionary<int, double>) getReadingObjects()
