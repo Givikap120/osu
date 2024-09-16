@@ -35,7 +35,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private bool usingSliderAccuracy;
         private double hitWindow300, hitWindow100, hitWindow50;
         private double deviation, speedDeviation;
-        private double deviationARadjust;
 
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
@@ -105,23 +104,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             hitWindow100 = (140 - 8 * ((80 - hitWindow300 * clockRate) / 6)) / clockRate;
             hitWindow50 = (200 - 10 * ((80 - hitWindow300 * clockRate) / 6)) / clockRate;
 
-            // Bonus for low AR to account for the fact that it's more difficult to get low UR on low AR
-            deviationARadjust = 0.475 + 0.7 / (1.0 + Math.Pow(1.73, 7.9 - osuAttributes.ApproachRate));
+            deviation = calculateTotalDeviation(score, osuAttributes);
+            speedDeviation = calculateSpeedDeviation(score, osuAttributes);
 
-            deviation = calculateTotalDeviation(score, osuAttributes) * deviationARadjust;
-            speedDeviation = calculateSpeedDeviation(score, osuAttributes) * deviationARadjust;
-
-            // Use adjusted deviation to not nerf EZHT aim maps
-            double totalAntiRakeMultiplier = calculateTotalRakeNerf(osuAttributes, deviation);
-
-            // Use raw speed deviation to prevent abuse of deviation AR adjust with EZDT
-            double speedAntiRakeMultiplier = calculateSpeedRakeNerf(osuAttributes, speedDeviation / deviationARadjust);
-            speedAntiRakeMultiplier = Math.Min(speedAntiRakeMultiplier, totalAntiRakeMultiplier);
-
-            double aimValue = computeAimValue(score, osuAttributes) * totalAntiRakeMultiplier;
-            double speedValue = computeSpeedValue(score, osuAttributes) * speedAntiRakeMultiplier;
+            double aimValue = computeAimValue(score, osuAttributes);
+            double speedValue = computeSpeedValue(score, osuAttributes);
             double accuracyValue = computeAccuracyValue(score, osuAttributes);
-            double flashlightValue = computeFlashlightValue(score, osuAttributes) * totalAntiRakeMultiplier;
+            double flashlightValue = computeFlashlightValue(score, osuAttributes);
 
             double totalValue =
                 Math.Pow(
@@ -138,8 +127,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Accuracy = accuracyValue,
                 Flashlight = flashlightValue,
                 EffectiveMissCount = effectiveMissCount,
-                Deviation = deviation / deviationARadjust,
-                SpeedDeviation = speedDeviation / deviationARadjust,
+                Deviation = deviation,
+                SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
         }
@@ -190,8 +179,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= sliderNerfFactor;
             }
 
-            // Scale the aim value with  deviation
-            aimValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * deviation));
+            // Apply antirake nerf
+            double totalAntiRakeMultiplier = calculateTotalRakeNerf(attributes);
+            aimValue *= totalAntiRakeMultiplier;
+
+            // Scale the aim value with adjusted deviation
+            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            aimValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             return aimValue;
@@ -231,10 +225,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 speedValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
             }
 
+            // Apply antirake nerf
+            double speedAntiRakeMultiplier = calculateSpeedRakeNerf(attributes);
+            speedValue *= speedAntiRakeMultiplier;
+
             // Scale the speed value with speed deviation.
             // Use additional bad UR penalty for high speed difficulty
             // (WARNING: potentially unstable, but instability detected in playable difficulty range).
-            speedValue *= SpecialFunctions.Erf(22 / (Math.Sqrt(2) * speedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1.2))));
+            double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
+            double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
+            speedValue *= SpecialFunctions.Erf(22 / (Math.Sqrt(2) * adjustedSpeedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1.2))));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
@@ -269,8 +269,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Some fancy stuff to make curve similar to live
             double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
 
+            // Only apply penalty for AR>10 (for balancing sake)
+            double adjustedDeviation = deviation * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
+
             // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * deviation);
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * adjustedDeviation);
 
             // Punish very low amount of hits additionally to prevent big pp values right at the start of the map
             double amountOfHits = Math.Clamp(totalSuccessfulHits - attributes.SpinnerCount, 0, amountHitObjectsWithAccuracy);
@@ -306,8 +309,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             flashlightValue *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
 
-            // Scale the flashlight value with deviation
-            flashlightValue *= SpecialFunctions.Erf(55 / (Math.Sqrt(2) * deviation));
+            // Apply antirake nerf
+            double totalAntiRakeMultiplier = calculateTotalRakeNerf(attributes);
+            flashlightValue *= totalAntiRakeMultiplier;
+
+            // Scale the flashlight value with adjusted deviation
+            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            flashlightValue *= SpecialFunctions.Erf(55 / (Math.Sqrt(2) * adjustedDeviation));
             flashlightValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500;  // OD 11 SS stays the same.
 
             return flashlightValue;
@@ -466,13 +474,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         // Calculates multiplier for speed accounting for rake based on the deviation and speed difficulty
         // https://www.desmos.com/calculator/puc1mzdtfv
-        private double calculateSpeedRakeNerf(OsuDifficultyAttributes attributes, double rawSpeedDeviation)
+        private double calculateSpeedRakeNerf(OsuDifficultyAttributes attributes)
         {
             // Base speed value
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             // Starting from this pp amount - penalty will be applied
-            double abusePoint = 100 + 260 * Math.Pow(22 / rawSpeedDeviation, 5.8);
+            double abusePoint = 100 + 260 * Math.Pow(22 / speedDeviation, 5.8);
 
             if (speedValue <= abusePoint)
                 return 1.0;
@@ -485,15 +493,18 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         }
 
         // Calculates multiplier for total pp accounting for rake based on the deviation and sliderless aim and speed difficulty
-        private double calculateTotalRakeNerf(OsuDifficultyAttributes attributes, double deviation)
+        private double calculateTotalRakeNerf(OsuDifficultyAttributes attributes)
         {
+            // Use adjusted deviation to not nerf EZHT aim maps
+            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+
             // Base values
             double aimNoSlidersValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty * attributes.SliderFactor);
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
             double totalValue = Math.Pow(Math.Pow(aimNoSlidersValue, 1.1) + Math.Pow(speedValue, 1.1), 1 / 1.1);
 
             // Starting from this pp amount - penalty will be applied
-            double abusePoint = 200 + 600 * Math.Pow(22 / deviation, 4.2);
+            double abusePoint = 200 + 600 * Math.Pow(22 / adjustedDeviation, 4.2);
 
             if (totalValue <= abusePoint)
                 return 1.0;
@@ -504,6 +515,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return adjustedTotalValue / totalValue;
         }
 
+        private static double calculateDeviationArAdjust(double AR) => 0.4 + 0.775 / (1.0 + Math.Pow(1.73, 7.9 - AR));
         private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
         private int totalHits => countGreat + countOk + countMeh + countMiss;
         private int totalSuccessfulHits => countGreat + countOk + countMeh;
