@@ -234,7 +234,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // (WARNING: potentially unstable, but instability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
             double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
-            speedValue *= SpecialFunctions.Erf(22 / (Math.Sqrt(2) * adjustedSpeedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1.2))));
+            speedValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1.2))));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
@@ -386,8 +386,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (totalSuccessfulHits == 0)
                 return double.PositiveInfinity;
 
-            // Calculate accuracy assuming the worst case scenario
-            double speedNoteCount = attributes.SpeedNoteCount;
+            // Calculate accuracy assuming close to the worst case scenario
+            double speedNoteCount = attributes.SpeedNoteCount + 0.1 * Math.Max(0, totalHits - attributes.SpeedNoteCount);
 
             // Assume worst case: all mistakes was on speed notes
             double relevantCountMiss = Math.Min(countMiss, speedNoteCount);
