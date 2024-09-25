@@ -82,8 +82,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
             double drainRate = beatmap.Difficulty.DrainRate;
 
-            int maxCombo = beatmap.GetMaxCombo();
-
             int hitCirclesCount = beatmap.GetHitObjectCountOf(typeof(HitCircle));
             int sliderCount = beatmap.GetHitObjectCountOf(typeof(Slider));
             int spinnerCount = beatmap.GetHitObjectCountOf(typeof(Spinner));
@@ -105,7 +103,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ApproachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5,
                 OverallDifficulty = (80 - hitWindowGreat) / 6,
                 DrainRate = drainRate,
-                MaxCombo = maxCombo,
+                MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCirclesCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
