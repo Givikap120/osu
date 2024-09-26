@@ -33,7 +33,7 @@ namespace osu.Game.Screens.Ranking.Expanded.Statistics
         private RollingCounter<int> counter = null!;
 
         public PerformanceStatistic(ScoreInfo score)
-            : base(BeatmapsetsStrings.ShowScoreboardHeaderspp)
+            : base(new LocalisableString("gp"))
         {
             this.score = score;
         }

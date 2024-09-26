@@ -78,7 +78,7 @@ namespace osu.Game.Skinning.Triangles
                         {
                             Anchor = Anchor.BottomLeft,
                             Origin = Anchor.BottomLeft,
-                            Text = BeatmapsetsStrings.ShowScoreboardHeaderspp,
+                            Text = new LocalisableString("gp"),
                             Font = OsuFont.Numeric.With(size: 8),
                             Padding = new MarginPadding { Bottom = 1.5f }, // align baseline better
                         }

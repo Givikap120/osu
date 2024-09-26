@@ -87,7 +87,7 @@ namespace osu.Game.Overlays.BeatmapSet.Scores
                                 Direction = FillDirection.Horizontal,
                                 Spacing = new Vector2(margin, 0),
                             },
-                            ppColumn = new TextColumn(BeatmapsetsStrings.ShowScoreboardHeaderspp, smallFont, bottom_columns_min_width),
+                            ppColumn = new TextColumn(new LocalisableString("gp"), smallFont, bottom_columns_min_width),
                             modsColumn = new ModsInfoColumn(),
                         }
                     },

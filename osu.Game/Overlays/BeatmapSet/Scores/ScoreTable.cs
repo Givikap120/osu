@@ -122,7 +122,7 @@ namespace osu.Game.Overlays.BeatmapSet.Scores
             }
 
             if (showPerformancePoints)
-                columns.Add(new TableColumn(BeatmapsetsStrings.ShowScoreboardHeaderspp, Anchor.CentreLeft, new Dimension(GridSizeMode.Absolute, 30)));
+                columns.Add(new TableColumn(new LocalisableString("gp"), Anchor.CentreLeft, new Dimension(GridSizeMode.Absolute, 30)));
 
             columns.Add(new TableColumn(BeatmapsetsStrings.ShowScoreboardHeadersTime, Anchor.CentreLeft, new Dimension(GridSizeMode.AutoSize)));
             columns.Add(new TableColumn(BeatmapsetsStrings.ShowScoreboardHeadersMods, Anchor.CentreLeft, new Dimension(GridSizeMode.AutoSize)));

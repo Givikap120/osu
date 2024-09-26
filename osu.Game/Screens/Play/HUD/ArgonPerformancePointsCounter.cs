@@ -6,6 +6,7 @@ using osu.Framework.Bindables;
 using osu.Framework.Extensions.LocalisationExtensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Sprites;
+using osu.Framework.Localisation;
 using osu.Game.Configuration;
 using osu.Game.Localisation.SkinComponents;
 using osu.Game.Resources.Localisation.Web;
@@ -72,7 +73,7 @@ namespace osu.Game.Screens.Play.HUD
             return digitsRequired;
         }
 
-        protected override IHasText CreateText() => text = new ArgonCounterTextComponent(Anchor.TopRight, BeatmapsetsStrings.ShowScoreboardHeaderspp.ToUpper())
+        protected override IHasText CreateText() => text = new ArgonCounterTextComponent(Anchor.TopRight, new LocalisableString("gp").ToUpper())
         {
             WireframeOpacity = { BindTarget = WireframeOpacity },
             ShowLabel = { BindTarget = ShowLabel },
