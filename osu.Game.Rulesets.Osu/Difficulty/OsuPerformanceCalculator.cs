@@ -55,9 +55,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             usingSliderAccuracy = !score.Mods.Any(h => h is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value);
 
-            // TEMPORARILY DISABLE THIS TO COMPARE IT WITH FROST BRANCH
-            usingSliderAccuracy = false;
-
             if (usingSliderAccuracy)
             {
                 effectiveMissCount = countMiss;

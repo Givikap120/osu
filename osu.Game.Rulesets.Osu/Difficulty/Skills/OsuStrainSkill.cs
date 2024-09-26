@@ -57,7 +57,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 weight *= DecayWeight;
             }
 
-            return Difficulty * DifficultyMultiplier;
+            return Difficulty;
         }
 
         /// <summary>
