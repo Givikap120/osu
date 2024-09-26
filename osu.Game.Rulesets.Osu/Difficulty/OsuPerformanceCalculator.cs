@@ -140,7 +140,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
 
-            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+            double lengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
             aimValue *= lengthBonus;
 
@@ -152,7 +152,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double approachRateFactor = 0.0;
             if (attributes.ApproachRate > 10.33)
-                approachRateFactor = 0.3 * (attributes.ApproachRate - 10.33);
+                approachRateFactor = 0.2 * (attributes.ApproachRate - 10.33);
             else if (attributes.ApproachRate < 8.0)
                 approachRateFactor = 0.05 * (8.0 - attributes.ApproachRate);
 
@@ -165,8 +165,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
+                double hdBonus = Math.Max(0, 0.04 * (12.0 - attributes.ApproachRate));
+                if (attributes.ApproachRate > 10.33)
+                    hdBonus *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10.33);
+
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                aimValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                aimValue *= 1.0 + hdBonus;
             }
 
             // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
@@ -198,7 +202,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
-            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+            double lengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
             speedValue *= lengthBonus;
 
@@ -210,7 +214,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double approachRateFactor = 0.0;
             if (attributes.ApproachRate > 10.33)
-                approachRateFactor = 0.3 * (attributes.ApproachRate - 10.33);
+                approachRateFactor = 0.2 * (attributes.ApproachRate - 10.33);
 
             speedValue *= 1.0 + approachRateFactor * lengthBonus; // Buff for longer maps with high AR.
 
@@ -221,8 +225,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
+                double hdBonus = Math.Max(0, 0.04 * (12.0 - attributes.ApproachRate));
+                if (attributes.ApproachRate > 10.33)
+                    hdBonus *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10.33);
+
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                speedValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                speedValue *= 1.0 + hdBonus;
             }
 
             // Apply antirake nerf
@@ -270,7 +278,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
 
             // Only apply penalty for AR>10 (for balancing sake)
-            double adjustedDeviation = deviation * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
+            double adjustedDeviation = deviation;// * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
 
             // Accuracy pp formula that's roughly the same as live.
             double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * adjustedDeviation);
@@ -284,7 +292,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(m => m is OsuModBlinds))
                 accuracyValue *= 1.14;
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
-                accuracyValue *= 1.08;
+            {
+                double hdFactor = 0.08;
+
+                if (attributes.ApproachRate > 10)
+                    hdFactor *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10);
+
+                accuracyValue *= 1 + hdFactor;
+            }
 
             if (score.Mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02;
