@@ -96,7 +96,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             // Capped to 25ms to prevent difficulty calculation breaking from simultaneous objects.
             StrainTime = Math.Max(DeltaTime, min_delta_time);
 
-            if (BaseObject is Slider sliderObject && mods.Any(m => m is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value))
+            if (BaseObject is Slider sliderObject)
             {
                 HitWindowGreat = 2 * sliderObject.HeadCircle.HitWindows.WindowFor(HitResult.Great) / clockRate;
             }
