@@ -135,7 +135,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                         }
 
                         // scale down the difficulty if the object is doubletappable
-                        double doubletapness = prevObj.GetDoubletapness((OsuDifficultyHitObject?)prevObj.Next(0));
+                        double doubletapness = prevObj.GetDoubletapness(lastObj, currObj);
                         effectiveRatio *= 1 - doubletapness * 0.75;
 
                         rhythmComplexitySum += Math.Sqrt(effectiveRatio * startRatio) * currHistoricalDecay;
