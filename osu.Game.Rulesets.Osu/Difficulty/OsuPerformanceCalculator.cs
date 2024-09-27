@@ -159,22 +159,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
-                double hdBonus = Math.Max(0, 0.04 * (12.0 - attributes.ApproachRate));
+                double hdBonus = Math.Max(0, 0.041 * (12.0 - attributes.ApproachRate));
                 if (attributes.ApproachRate > 10.33)
                     hdBonus *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10.33);
+
+                hdBonus *= (0.5 + 0.5 * Math.Pow(attributes.SliderFactor, 3));
 
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
                 aimValue *= 1.0 + hdBonus;
             }
 
-            // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
+            // We assume 25% of sliders in a map are difficult since there's no way to tell from the performance calculator.
             double estimateDifficultSliders = attributes.SliderCount * 0.15;
 
             if (attributes.SliderCount > 0)
             {
                 double estimateSliderEndsDropped = Math.Clamp(countSliderEndsDropped + countSliderBreaks * 2, 0, estimateDifficultSliders);
-                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateSliderEndsDropped / estimateDifficultSliders, 3) + attributes.SliderFactor;
-                aimValue *= sliderNerfFactor;
+                double sliderNerfFactor = (1 - attributes.SliderFactor) * (1 - estimateSliderEndsDropped / estimateDifficultSliders) + attributes.SliderFactor;
+                aimValue *= Math.Pow(sliderNerfFactor, 3);
             }
 
             // Apply antirake nerf
