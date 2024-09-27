@@ -27,6 +27,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (current.BaseObject is Spinner)
                 return 0;
 
+            bool isCl = mods.Any(m => m is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value);
+
             double rhythmComplexitySum = 0;
 
             double deltaDifferenceEpsilon = ((OsuDifficultyHitObject)current).HitWindowGreat * 0.3;
@@ -89,7 +91,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                     }
                     else
                     {
-                        if (currObj.BaseObject is Slider && mods.Any(m => m is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value)) // bpm change is into slider, this is easy acc window without slider head accuracy // bpm change is into slider, this is easy acc window
+                        // bpm change is into slider, this is easy acc window without slider head accuracy
+                        if (currObj.BaseObject is Slider && isCl)
                             effectiveRatio *= 0.125;
 
                         // bpm change was from a slider, this is easier typically than circle -> circle
@@ -153,7 +156,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                     firstDeltaSwitch = true;
 
                     // bpm change is into slider, this is easy acc window
-                    if (currObj.BaseObject is Slider)
+                    if (currObj.BaseObject is Slider && isCl)
                         effectiveRatio *= 0.6;
 
                     // bpm change was from a slider, this is easier typically than circle -> circle
