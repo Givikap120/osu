@@ -97,10 +97,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 + cognitionValue) * multiplier;
 
             double savedEffectiveMissCount = effectiveMissCount;
+
             effectiveMissCount = 0;
             countMiss = 0;
+            scoreMaxCombo = osuAttributes.MaxCombo;
 
-            double balanceAdjustingMultiplier = calculateMechanicalBalancingMultiplier(score, osuAttributes);
+            double balanceAdjustingMultiplier = calculateBalancerAdjustingMultiplier(score, osuAttributes);
             totalValue *= balanceAdjustingMultiplier;
 
             // Fancy stuff for better visual display of FL pp
@@ -387,15 +389,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return Math.Max(countMiss, comboBasedMissCount);
         }
 
-        // Miss penalty assumes that a player will miss on the hardest parts of a map,
-        // so we use the amount of relatively difficult sections to adjust miss penalty
-        // to make it more punishing on maps with lower amount of hard sections.
-        private double calculateMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
-        private double calculateMechanicalBalancingMultiplier(ScoreInfo originalScore, OsuDifficultyAttributes osuAttributes)
+        private double calculateBalancerAdjustingMultiplier(ScoreInfo score, OsuDifficultyAttributes osuAttributes)
         {
-            ScoreInfo score = originalScore.DeepClone();
-            score.MaxCombo = scoreMaxCombo;
-
             double multiplier = PERFORMANCE_BASE_MULTIPLIER;
             double power = OsuDifficultyCalculator.SUM_POWER;
 
@@ -431,8 +426,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 (Math.Pow(Math.Pow(mechanicalValue, power) + Math.Pow(accuracyValue, power), 1.0 / power)
                 + cognitionValue) * multiplier;
 
-            double result = totalValue > 1000 ? 1 + 0.15625 * (totalValue - 1000) / 1000 : 1;
-            return result;
+            if (totalValue < 600)
+                return 1;
+
+            double rescaledValue = (totalValue - 600) / 1000;
+            double result = Math.Min(0.06 * rescaledValue, 0.088 * Math.Pow(rescaledValue, 0.4));
+            return 1 + result;
         }
 
         private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
