@@ -81,10 +81,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                         acuteAngleBonus = 0;
                     else
                     {
-                        acuteAngleBonus *= calcAcuteAngleBonus(lastAngle) // Multiply by previous angle, we don't want to buff unless this is a wiggle type pattern.
-                                           * Math.Min(angleBonus, 125 / osuCurrObj.StrainTime) // The maximum velocity we buff is equal to 125 / strainTime
-                                           * Math.Pow(Math.Sin(Math.PI / 2 * Math.Min(1, (100 - osuCurrObj.StrainTime) / 25)), 2) // scale buff from 150 bpm 1/4 to 200 bpm 1/4
-                                           * Math.Pow(Math.Sin(Math.PI / 2 * (Math.Clamp(osuCurrObj.LazyJumpDistance, 50, 100) - 50) / 50), 2); // Buff distance exceeding 50 (radius) up to 100 (diameter).
+                        // Multiply by previous angle, we don't want to buff unless this is a wiggle type pattern.
+                        acuteAngleBonus *= calcAcuteAngleBonus(lastAngle);
+
+                        // The maximum velocity we buff is equal to 125 / strainTime
+                        acuteAngleBonus *= Math.Min(angleBonus, 125 / osuCurrObj.StrainTime);
+
+                        // scale buff from 150 bpm 1/4 to 200 bpm 1/4
+                        double buffBase = Math.Pow(Math.Sin(Math.PI / 2 * Math.Min(1, (100 - osuCurrObj.StrainTime) / 25)), 2);
+
+                        // Magic numbers are from differntial equations
+                        if (osuCurrObj.StrainTime < 80) buffBase = Math.Max(buffBase, 0.9045 + (80 - osuCurrObj.StrainTime) * (0.0369316 + (80 - osuCurrObj.StrainTime) / 1000));
+                        acuteAngleBonus *= buffBase;
+
+                        // Buff distance exceeding 60 up to 100 (diameter).
+                        acuteAngleBonus *= Math.Pow(Math.Sin(Math.PI / 2 * (Math.Clamp(osuCurrObj.LazyJumpDistance, 60, 100) - 60) / 40), 2.4);
                     }
 
                     // Penalize wide angles if they're repeated, reducing the penalty as the lastAngle gets more acute.
