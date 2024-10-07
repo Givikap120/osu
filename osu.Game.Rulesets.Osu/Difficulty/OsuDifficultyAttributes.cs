@@ -46,6 +46,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         [JsonProperty("slider_factor")]
         public double SliderFactor { get; set; }
 
+        [JsonProperty("aim_difficult_strain_count")]
+        public double AimDifficultStrainCount { get; set; }
+
+        [JsonProperty("speed_difficult_strain_count")]
+        public double SpeedDifficultStrainCount { get; set; }
+
         /// <summary>
         /// The perceived approach rate inclusive of rate-adjusting mods (DT/HT/etc).
         /// </summary>
@@ -126,7 +132,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             AimDifficultStrainCount = values[ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT];
             SpeedDifficultStrainCount = values[ATTRIB_ID_SPEED_DIFFICULT_STRAIN_COUNT];
             SpeedNoteCount = values[ATTRIB_ID_SPEED_NOTE_COUNT];
-
             DrainRate = onlineInfo.DrainRate;
             HitCircleCount = onlineInfo.CircleCount;
             SliderCount = onlineInfo.SliderCount;

@@ -20,6 +20,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         public const double PERFORMANCE_BASE_MULTIPLIER = 1.15; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
 
+        private bool usingClassicSliderAccuracy;
+
         private double accuracy;
         private int scoreMaxCombo;
 
@@ -32,7 +34,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double effectiveMissCount;
 
-        private bool usingSliderAccuracy;
         private double hitWindow300, hitWindow100, hitWindow50;
         private double deviation, speedDeviation;
 
@@ -45,6 +46,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             var osuAttributes = (OsuDifficultyAttributes)attributes;
 
+            usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
+
             accuracy = score.Accuracy;
             scoreMaxCombo = score.MaxCombo;
             countGreat = score.Statistics.GetValueOrDefault(HitResult.Great);
@@ -53,9 +56,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             countMiss = score.Statistics.GetValueOrDefault(HitResult.Miss);
             countSliderBreaks = score.Statistics.GetValueOrDefault(HitResult.LargeTickMiss);
 
-            usingSliderAccuracy = !score.Mods.Any(h => h is OsuModClassic cl && cl.NoSliderHeadAccuracy.Value);
-
-            if (usingSliderAccuracy)
+            if (!usingClassicSliderAccuracy)
             {
                 effectiveMissCount = countMiss;
             }
@@ -248,7 +249,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double amountHitObjectsWithAccuracy;
 
-            if (usingSliderAccuracy)
+            if (!usingClassicSliderAccuracy)
             {
                 amountHitObjectsWithAccuracy = attributes.HitCircleCount + attributes.SliderCount;
             }
@@ -376,7 +377,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return double.PositiveInfinity;
 
             int accuracyObjectCount = attributes.HitCircleCount;
-            if (usingSliderAccuracy) accuracyObjectCount += attributes.SliderCount;
+            if (!usingClassicSliderAccuracy) accuracyObjectCount += attributes.SliderCount;
 
             // Assume worst case: all mistakes was on accuracy objects
             int relevantCountMiss = Math.Min(countMiss, accuracyObjectCount);
@@ -387,7 +388,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Calculate deviation on accuracy objects
             double deviation = calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
 
-            if (usingSliderAccuracy) return deviation;
+            if (!usingClassicSliderAccuracy) return deviation;
 
             // If score was set without slider accuracy - also compute deviation with sliders
             // Assume that all hits was 50s
@@ -422,7 +423,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double relevantCountGreat = Math.Max(0, speedNoteCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
 
             // Adjust amount of mistaps if score was set with slider accuracy
-            if (usingSliderAccuracy)
+            if (!usingClassicSliderAccuracy)
             {
                 double greatRatio = relevantCountGreat / speedNoteCount;
                 double mistapRatio = 1 - greatRatio;
