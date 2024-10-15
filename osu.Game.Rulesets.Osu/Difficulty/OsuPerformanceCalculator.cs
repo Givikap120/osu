@@ -482,7 +482,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         }
 
         // Calculates multiplier for speed accounting for rake based on the deviation and speed difficulty
-        // https://www.desmos.com/calculator/puc1mzdtfv
+        // https://www.desmos.com/calculator/dmogdhzofn
         private double calculateSpeedRakeNerf(OsuDifficultyAttributes attributes)
         {
             // Base speed value
