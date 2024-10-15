@@ -18,7 +18,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.14; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.16; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
 
         private double accuracy;
         private int scoreMaxCombo;
@@ -140,7 +140,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
 
-            double lengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
+            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
             aimValue *= lengthBonus;
 
@@ -198,7 +198,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
-            double lengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
+            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
             speedValue *= lengthBonus;
 
@@ -251,40 +251,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (deviation == double.PositiveInfinity || score.Mods.Any(h => h is OsuModRelax) || deviation == double.PositiveInfinity)
                 return 0.0;
 
-            double amountHitObjectsWithAccuracy;
-            if (usingSliderAccuracy)
-            {
-                amountHitObjectsWithAccuracy = attributes.HitCircleCount + attributes.SliderCount;
-            }
-            else
-            {
-                // Start with amount of hit circles
-                amountHitObjectsWithAccuracy = attributes.HitCircleCount;
-
-                // If amount of circles is too small - also add sliders, because UR is calculated according to sliders too
-                double circlesRatio = (double)attributes.HitCircleCount / (attributes.HitCircleCount + attributes.SliderCount);
-                if (circlesRatio < 0.25)
-                {
-                    amountHitObjectsWithAccuracy += attributes.SliderCount * (1 - circlesRatio / 0.25);
-                }
-            }
-
-            double liveLengthBonus = Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.3));
-            double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
-
-            // Some fancy stuff to make curve similar to live
-            double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
-
-            // Only apply penalty for AR>10 (for balancing sake)
-            double adjustedDeviation = deviation;// * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
-
-            // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * adjustedDeviation);
-
-            // Punish very low amount of hits additionally to prevent big pp values right at the start of the map
-            double amountOfHits = Math.Clamp(totalSuccessfulHits - attributes.SpinnerCount, 0, amountHitObjectsWithAccuracy);
-            if (amountOfHits < 30)
-                accuracyValue *= Math.Sqrt(amountOfHits / 30);
+            double accuracyValue = 150 * Math.Pow(7.5 / deviation, 2);
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
