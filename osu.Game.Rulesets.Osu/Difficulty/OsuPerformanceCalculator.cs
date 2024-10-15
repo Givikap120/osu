@@ -183,10 +183,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= sliderNerfFactor;
             }
 
-            // Apply antirake nerf
-            double totalAntiRakeMultiplier = calculateTotalRakeNerf(attributes);
-            aimValue *= totalAntiRakeMultiplier;
-
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
             aimValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
@@ -242,7 +238,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
             double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
-            speedValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation * Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 1))));
+            adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
+
+            speedValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
@@ -323,10 +321,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Account for shorter maps having a higher ratio of 0 combo/100 combo flashlight radius.
             flashlightValue *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
-
-            // Apply antirake nerf
-            double totalAntiRakeMultiplier = calculateTotalRakeNerf(attributes);
-            flashlightValue *= totalAntiRakeMultiplier;
 
             // Scale the flashlight value with adjusted deviation
             double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
@@ -495,7 +489,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             // Starting from this pp amount - penalty will be applied
-            double abusePoint = 100 + 260 * Math.Pow(22 / speedDeviation, 5.8);
+            double abusePoint = 100 + 220 * Math.Pow(22 / speedDeviation, 6.5);
 
             if (speedValue <= abusePoint)
                 return 1.0;
@@ -504,30 +498,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             const double scale = 50;
             double adjustedSpeedValue = scale * (Math.Log((speedValue - abusePoint) / scale + 1) + abusePoint / scale);
 
+            // 200 UR and less are considered not raked and will be punished only by normal acc scaling
+            double lerp = 1 - Math.Clamp((speedDeviation - 20) / (24 - 20), 0, 1);
+            adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
+
             return adjustedSpeedValue / speedValue;
-        }
-
-        // Calculates multiplier for total pp accounting for rake based on the deviation and sliderless aim and speed difficulty
-        private double calculateTotalRakeNerf(OsuDifficultyAttributes attributes)
-        {
-            // Use adjusted deviation to not nerf EZHT aim maps
-            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
-
-            // Base values
-            double aimNoSlidersValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty * attributes.SliderFactor);
-            double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
-            double totalValue = Math.Pow(Math.Pow(aimNoSlidersValue, 1.1) + Math.Pow(speedValue, 1.1), 1 / 1.1);
-
-            // Starting from this pp amount - penalty will be applied
-            double abusePoint = 200 + 600 * Math.Pow(22 / adjustedDeviation, 4.2);
-
-            if (totalValue <= abusePoint)
-                return 1.0;
-
-            // Use relax penalty after the point to make values grow slower but still noticeably
-            double adjustedTotalValue = abusePoint + Math.Pow(0.9, 3) * (totalValue - abusePoint);
-
-            return adjustedTotalValue / totalValue;
         }
 
         private static double calculateDeviationArAdjust(double AR) => 0.4 + 0.775 / (1.0 + Math.Pow(1.73, 7.9 - AR));
