@@ -34,6 +34,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         protected override PerformanceAttributes CreatePerformanceAttributes(ScoreInfo score, DifficultyAttributes attributes)
         {
+            if (score.Mods.Any(m => m is OsuModDoubleTime || m is OsuModNightcore))
+                return new OsuPerformanceAttributes();
+
             var osuAttributes = (OsuDifficultyAttributes)attributes;
 
             usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
