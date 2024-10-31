@@ -118,7 +118,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     public class ReadingHighAR : GraphSkill
     {
         public const double MECHANICAL_PP_POWER = 0.6;
-        private const double skill_multiplier = 41.2;
+        private const double skill_multiplier = 37;
         private const double component_default_value_multiplier = 280;
         public ReadingHighAR(Mod[] mods)
             : base(mods)

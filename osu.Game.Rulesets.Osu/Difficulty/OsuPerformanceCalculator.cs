@@ -4,7 +4,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics;
+using osu.Framework.Audio.Track;
+using osu.Framework.Extensions.IEnumerableExtensions;
 using osu.Game.Rulesets.Difficulty;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Scoring;
@@ -20,6 +24,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double accuracy;
         private int scoreMaxCombo;
+
         private int countGreat;
         private int countOk;
         private int countMeh;
@@ -39,6 +44,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// Estimated total amount of combo breaks
         /// </summary>
         private double effectiveMissCount;
+
+        private double hitWindow300, hitWindow100, hitWindow50;
+        private double deviation, speedDeviation;
 
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
@@ -76,13 +84,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 }
                 else
                 {
-                    double fullComboThreshold = attributes.MaxCombo - countSliderEndsDropped;
-
-                    if (scoreMaxCombo < fullComboThreshold)
-                        effectiveMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
-
-                    // Combine regular misses with tick misses since tick misses break combo as well
-                    effectiveMissCount = Math.Min(effectiveMissCount, countSliderTickMiss + countMiss);
+                    effectiveMissCount = countMiss;
                 }
             }
 
@@ -107,6 +109,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 // As we're adding Oks and Mehs to an approximated number of combo breaks the result can be higher than total hits in specific scenarios (which breaks some calculations) so we need to clamp it.
                 effectiveMissCount = Math.Min(effectiveMissCount + countOk * okMultiplier + countMeh * mehMultiplier, totalHits);
             }
+
+            var track = new TrackVirtual(1);
+            score.Mods.OfType<IApplicableToTrack>().ForEach(m => m.ApplyToTrack(track));
+            double clockRate = track.Rate;
+
+            hitWindow300 = 80 - 6 * osuAttributes.OverallDifficulty;
+            hitWindow100 = (140 - 8 * ((80 - hitWindow300 * clockRate) / 6)) / clockRate;
+            hitWindow50 = (200 - 10 * ((80 - hitWindow300 * clockRate) / 6)) / clockRate;
+
+            deviation = calculateTotalDeviation(score, osuAttributes);
+            speedDeviation = calculateSpeedDeviation(score, osuAttributes);
 
             OsuPerformanceAttributes performanceAttributes = calculatePerformanceAttributes(score, osuAttributes);
 
@@ -176,6 +189,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Flashlight = visualFlashlightValue,
                 Reading = visualCognitionValue,
                 EffectiveMissCount = effectiveMissCount,
+                Deviation = deviation,
+                SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
         }
@@ -184,6 +199,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
+            if (deviation == double.PositiveInfinity)
+                return 0.0;
+
             double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
 
             double lengthBonus = CalculateDefaultLengthBonus(totalHits);
@@ -196,8 +214,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
+                double hdBonus = Math.Max(0, 0.04 * (12.0 - attributes.ApproachRate));
+                if (attributes.ApproachRate > 10.33)
+                    hdBonus *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10.33);
+
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                aimValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                aimValue *= 1.0 + hdBonus;
             }
 
             // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
@@ -220,20 +242,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     estimateImproperlyFollowedDifficultSliders = Math.Min(countSliderEndsDropped + countSliderTickMiss, estimateDifficultSliders);
                 }
 
-                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / estimateDifficultSliders, 3) + attributes.SliderFactor;
-                aimValue *= sliderNerfFactor;
+                double sliderNerfFactor = (1 - attributes.SliderFactor) * (1 - estimateImproperlyFollowedDifficultSliders / estimateDifficultSliders) + attributes.SliderFactor;
+                aimValue *= Math.Pow(sliderNerfFactor, 3);
             }
 
-            aimValue *= accuracy;
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            aimValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
+            // Scale the aim value with adjusted deviation
+            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            aimValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
+            aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             return aimValue;
         }
 
         private double computeSpeedValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax))
+            if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == double.PositiveInfinity)
                 return 0.0;
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
@@ -251,53 +274,70 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
+                double hdBonus = Math.Max(0, 0.04 * (12.0 - attributes.ApproachRate));
+                if (attributes.ApproachRate > 10.33)
+                    hdBonus *= Math.Max(0, 11.5 - attributes.ApproachRate) / (11.5 - 10.33);
+
                 // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                speedValue *= 1.0 + 0.04 * (12.0 - attributes.ApproachRate);
+                speedValue *= 1.0 + hdBonus;
             }
 
-            // Calculate accuracy assuming the worst case scenario
-            double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
-            double relevantCountGreat = Math.Max(0, countGreat - relevantTotalDiff);
-            double relevantCountOk = Math.Max(0, countOk - Math.Max(0, relevantTotalDiff - countGreat));
-            double relevantCountMeh = Math.Max(0, countMeh - Math.Max(0, relevantTotalDiff - countGreat - countOk));
-            double relevantAccuracy = attributes.SpeedNoteCount == 0 ? 0 : (relevantCountGreat * 6.0 + relevantCountOk * 2.0 + relevantCountMeh) / (attributes.SpeedNoteCount * 6.0);
+            // Apply antirake nerf
+            double speedAntiRakeMultiplier = calculateSpeedRakeNerf(attributes);
+            speedValue *= speedAntiRakeMultiplier;
 
-            // Scale the speed value with accuracy and OD.
-            speedValue *= (0.95 + Math.Pow(attributes.OverallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - attributes.OverallDifficulty) / 2);
+            // Scale the speed value with speed deviation.
+            // Use additional bad UR penalty for high speed difficulty
+            // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
+            double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
+            double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
+            adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
 
-            // Scale the speed value with # of 50s to punish doubletapping.
-            speedValue *= Math.Pow(0.99, countMeh < totalHits / 500.0 ? 0 : countMeh - totalHits / 500.0);
+            speedValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation));
+            speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
         }
 
         private double computeAccuracyValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax))
+            if (deviation == double.PositiveInfinity || score.Mods.Any(h => h is OsuModRelax) || deviation == double.PositiveInfinity)
                 return 0.0;
 
-            // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window.
-            double betterAccuracyPercentage;
-            int amountHitObjectsWithAccuracy = attributes.HitCircleCount;
-
+            double amountHitObjectsWithAccuracy;
             if (!usingClassicSliderAccuracy)
-                amountHitObjectsWithAccuracy += attributes.SliderCount;
-
-            if (amountHitObjectsWithAccuracy > 0)
-                betterAccuracyPercentage = ((countGreat - (totalHits - amountHitObjectsWithAccuracy)) * 6 + countOk * 2 + countMeh) / (double)(amountHitObjectsWithAccuracy * 6);
+            {
+                amountHitObjectsWithAccuracy = attributes.HitCircleCount + attributes.SliderCount;
+            }
             else
-                betterAccuracyPercentage = 0;
+            {
+                // Start with amount of hit circles
+                amountHitObjectsWithAccuracy = attributes.HitCircleCount;
 
-            // It is possible to reach a negative accuracy with this formula. Cap it at zero - zero points.
-            if (betterAccuracyPercentage < 0)
-                betterAccuracyPercentage = 0;
+                // If amount of circles is too small - also add sliders, because UR is calculated according to sliders too
+                double circlesRatio = (double)attributes.HitCircleCount / (attributes.HitCircleCount + attributes.SliderCount);
+                if (circlesRatio < 0.25)
+                {
+                    amountHitObjectsWithAccuracy += attributes.SliderCount * (1 - circlesRatio / 0.25);
+                }
+            }
 
-            // Lots of arbitrary values from testing.
-            // Considering to use derivation from perfect accuracy in a probabilistic manner - assume normal distribution.
-            double accuracyValue = Math.Pow(1.52163, attributes.OverallDifficulty) * Math.Pow(betterAccuracyPercentage, 24) * 2.83;
+            double liveLengthBonus = Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.3));
+            double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
 
-            // Bonus for many hitcircles - it's harder to keep good accuracy up for longer.
-            accuracyValue *= Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.3));
+            // Some fancy stuff to make curve similar to live
+            double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
+
+            // Only apply penalty for AR>10 (for balancing sake)
+            double adjustedDeviation = deviation;// * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
+
+            // Accuracy pp formula that's roughly the same as live.
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * adjustedDeviation);
+
+            // Punish very low amount of hits additionally to prevent big pp values right at the start of the map
+            double amountOfHits = Math.Clamp(totalSuccessfulHits - attributes.SpinnerCount, 0, amountHitObjectsWithAccuracy);
+            if (amountOfHits < 30)
+                accuracyValue *= Math.Sqrt(amountOfHits / 30);
 
             // Increasing the accuracy value by object count for Blinds isn't ideal, so the minimum buff is given.
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -342,10 +382,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             flashlightValue *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
 
-            // Scale the flashlight value with accuracy _slightly_.
-            flashlightValue *= 0.5 + accuracy / 2.0;
-            // It is important to also consider accuracy difficulty when doing that.
-            flashlightValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
+            // Scale the flashlight value with adjusted deviation
+            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            flashlightValue *= SpecialFunctions.Erf(55 / (Math.Sqrt(2) * adjustedDeviation));
+            flashlightValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500;  // OD 11 SS stays the same.
 
             return flashlightValue;
         }
@@ -384,37 +424,53 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
                 if (attributes.SliderCount > 0)
                 {
-                    double estimateSliderEndsDropped = Math.Clamp(Math.Min(countOk + countMeh + countMiss, attributes.MaxCombo - scoreMaxCombo), 0, estimateDifficultSliders);
-                    double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateSliderEndsDropped / estimateDifficultSliders, 3) + attributes.SliderFactor;
-                    aimPartValue *= sliderNerfFactor;
+                    double estimateImproperlyFollowedDifficultSliders;
+
+                    if (usingClassicSliderAccuracy)
+                    {
+                        // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
+                        int maximumPossibleDroppedSliders = totalImperfectHits;
+                        estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, estimateDifficultSliders);
+                    }
+                    else
+                    {
+                        // We add tick misses here since they too mean that the player didn't follow the slider properly
+                        // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
+                        estimateImproperlyFollowedDifficultSliders = Math.Min(countSliderEndsDropped + countSliderTickMiss, estimateDifficultSliders);
+                    }
+
+                    double sliderNerfFactor = (1 - attributes.SliderFactor) * (1 - estimateImproperlyFollowedDifficultSliders / estimateDifficultSliders) + attributes.SliderFactor;
+                    aimPartValue *= Math.Pow(sliderNerfFactor, 3);
                 }
 
                 if (effectiveMissCount > 0)
                     aimPartValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
 
-                aimPartValue *= accuracy;
-                // It is important to consider accuracy difficulty when scaling with accuracy.
-                aimPartValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
+                // Scale the aim value with adjusted deviation
+                double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+                aimPartValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
+                aimPartValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
             }
 
             // Speed part calculation
             double speedPartValue = highARValue * (1 - aimRatio);
             {
-                // Calculate accuracy assuming the worst case scenario
-                double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
-                double relevantCountGreat = Math.Max(0, countGreat - relevantTotalDiff);
-                double relevantCountOk = Math.Max(0, countOk - Math.Max(0, relevantTotalDiff - countGreat));
-                double relevantCountMeh = Math.Max(0, countMeh - Math.Max(0, relevantTotalDiff - countGreat - countOk));
-                double relevantAccuracy = attributes.SpeedNoteCount == 0 ? 0 : (relevantCountGreat * 6.0 + relevantCountOk * 2.0 + relevantCountMeh) / (attributes.SpeedNoteCount * 6.0);
-
                 if (effectiveMissCount > 0)
                     speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
 
-                // Scale the speed value with accuracy and OD.
-                speedPartValue *= (0.95 + Math.Pow(attributes.OverallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - Math.Max(attributes.OverallDifficulty, 8)) / 2);
+                // Apply antirake nerf
+                double speedAntiRakeMultiplier = calculateSpeedRakeNerf(attributes);
+                speedPartValue *= speedAntiRakeMultiplier;
 
-                // Scale the speed value with # of 50s to punish doubletapping.
-                speedPartValue *= Math.Pow(0.99, countMeh < totalHits / 500.0 ? 0 : countMeh - totalHits / 500.0);
+                // Scale the speed value with speed deviation.
+                // Use additional bad UR penalty for high speed difficulty
+                // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
+                double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
+                double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
+                adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
+
+                speedPartValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation));
+                speedPartValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
             }
 
             return aimPartValue + speedPartValue;
@@ -445,11 +501,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             double totalValue = calculatePerformanceAttributes(score, osuAttributes).Total * PERFORMANCE_BASE_MULTIPLIER;
 
-            if (totalValue < 600)
+            if (totalValue < 800)
                 return 1;
 
-            double rescaledValue = (totalValue - 600) / 1000;
-            double result = Math.Min(0.06 * rescaledValue, 0.088 * Math.Pow(rescaledValue, 0.4));
+            double rescaledValue = (totalValue - 800) / 1000;
+            double result = Math.Min(0.08 * rescaledValue, 0.088 * Math.Pow(rescaledValue, 0.4));
             return 1 + result;
         }
 
@@ -468,18 +524,175 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return ratio * capPerformance;
         }
 
+        /// <summary>
+        /// Using <see cref="calculateDeviation"/> estimates player's deviation on accuracy objects.
+        /// Returns deviation for circles and sliders if score was set with slideracc.
+        /// Returns the min between deviation of circles and deviation on circles and sliders (assuming slider hits are 50s), if score was set without slideracc.
+        /// </summary>
+        private double calculateTotalDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
+        {
+            if (totalSuccessfulHits == 0)
+                return double.PositiveInfinity;
+
+            int accuracyObjectCount = attributes.HitCircleCount;
+            if (!usingClassicSliderAccuracy) accuracyObjectCount += attributes.SliderCount;
+
+            // Assume worst case: all mistakes was on accuracy objects
+            int relevantCountMiss = Math.Min(countMiss, accuracyObjectCount);
+            int relevantCountMeh = Math.Min(countMeh, accuracyObjectCount - relevantCountMiss);
+            int relevantCountOk = Math.Min(countOk, accuracyObjectCount - relevantCountMiss - relevantCountMeh);
+            int relevantCountGreat = Math.Max(0, accuracyObjectCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
+
+            // Calculate deviation on accuracy objects
+            double deviation = calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
+
+            if (!usingClassicSliderAccuracy) return deviation;
+
+            // If score was set without slider accuracy - also compute deviation with sliders
+            // Assume that all hits was 50s
+            int totalCountWithSliders = attributes.HitCircleCount + attributes.SliderCount;
+            int missCountWithSliders = Math.Min(totalCountWithSliders, countMiss);
+            int hitCountWithSliders = totalCountWithSliders - missCountWithSliders;
+
+            double hitProbabilityWithSliders = hitCountWithSliders / (totalCountWithSliders + 1.0);
+            double deviationWithSliders = hitWindow50 / (Math.Sqrt(2) * SpecialFunctions.ErfInv(hitProbabilityWithSliders));
+
+            // Min is needed for edgecase maps with 1 circle and 999 sliders, as deviation on sliders can be lower in this case
+            return Math.Min(deviation, deviationWithSliders);
+        }
+
+        /// <summary>
+        /// Using <see cref="calculateDeviation"/> estimates player's deviation on speed notes, assuming worst-case.
+        /// Treats all speed notes as hit circles. This is not good way to do this, but fixing this is impossible under the limitation of current speed pp.
+        /// If score was set with slideracc - tries to remove mistaps on sliders from total mistaps.
+        /// </summary>
+        private double calculateSpeedDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
+        {
+            if (totalSuccessfulHits == 0)
+                return double.PositiveInfinity;
+
+            // Calculate accuracy assuming close to the worst case scenario
+            double speedNoteCount = attributes.SpeedNoteCount + 0.1 * Math.Max(0, totalHits - attributes.SpeedNoteCount);
+
+            // Assume worst case: all mistakes was on speed notes
+            double relevantCountMiss = Math.Min(countMiss, speedNoteCount);
+            double relevantCountMeh = Math.Min(countMeh, speedNoteCount - relevantCountMiss);
+            double relevantCountOk = Math.Min(countOk, speedNoteCount - relevantCountMiss - relevantCountMeh);
+            double relevantCountGreat = Math.Max(0, speedNoteCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
+
+            // Adjust amount of mistaps if score was set with slider accuracy
+            if (!usingClassicSliderAccuracy)
+            {
+                double greatRatio = relevantCountGreat / speedNoteCount;
+                double mistapRatio = 1 - greatRatio;
+
+                // Assume sliders are 2 times easier to acc than streams
+                double hitcircleRatio = attributes.HitCircleCount / (attributes.HitCircleCount + attributes.SliderCount / 2.0);
+                mistapRatio *= hitcircleRatio;
+
+                // This can't get higher than normal great value
+                double accuracyObjectsCount = attributes.HitCircleCount + attributes.SliderCount;
+                double accuracyObjectsGreat = Math.Max(0, countGreat - (totalHits - accuracyObjectsCount));
+                double adjustedGreatRatio = Math.Min(1 - mistapRatio, accuracyObjectsGreat / accuracyObjectsCount);
+
+                double mistapsMultiplier = (greatRatio == 1) ? 0 : (1 - adjustedGreatRatio) / (1 - greatRatio);
+
+                relevantCountGreat = speedNoteCount * adjustedGreatRatio;
+                relevantCountOk *= mistapsMultiplier;
+                relevantCountMeh *= mistapsMultiplier;
+                relevantCountMiss *= mistapsMultiplier;
+            }
+
+            // Calculate and return deviation on speed notes
+            return calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
+        }
+
+        /// <summary>
+        /// Estimates the player's tap deviation based on the OD, given number of 300s, 100s, 50s and misses,
+        /// assuming the player's mean hit error is 0. The estimation is consistent in that two SS scores on the same map with the same settings
+        /// will always return the same deviation. Misses are ignored because they are usually due to misaiming.
+        /// 300s and 100s are assumed to follow a normal distribution, whereas 50s are assumed to follow a uniform distribution.
+        /// </summary>
+        private double calculateDeviation(double relevantCountGreat, double relevantCountOk, double relevantCountMeh, double relevantCountMiss)
+        {
+            if (relevantCountGreat + relevantCountOk + relevantCountMeh <= 0)
+                return double.PositiveInfinity;
+
+            double objectCount = relevantCountGreat + relevantCountOk + relevantCountMeh + relevantCountMiss;
+
+            //// The probability that a player hits a circle is unknown, but we can estimate it to be
+            //// the number of greats on circles divided by the number of circles, and then add one
+            //// to the number of circles as a bias correction.
+            double n = Math.Max(1, objectCount - relevantCountMiss - relevantCountMeh);
+            const double z = 2.32634787404; // 99% critical value for the normal distribution (one-tailed).
+
+            // Proportion of greats hit on circles, ignoring misses and 50s.
+            double p = relevantCountGreat / n;
+
+            // We can be 99% confident that p is at least this value.
+            double pLowerBound = (n * p + z * z / 2) / (n + z * z) - z / (n + z * z) * Math.Sqrt(n * p * (1 - p) + z * z / 4);
+
+            // Compute the deviation assuming 300s and 100s are normally distributed, and 50s are uniformly distributed.
+            // Begin with 300s and 100s first. Ignoring 50s, we can be 99% confident that the deviation is not higher than:
+            double deviation = hitWindow300 / (Math.Sqrt(2) * SpecialFunctions.ErfInv(pLowerBound));
+
+            double randomValue = Math.Sqrt(2 / Math.PI) * hitWindow100 * Math.Exp(-0.5 * Math.Pow(hitWindow100 / deviation, 2))
+                / (deviation * SpecialFunctions.Erf(hitWindow100 / (Math.Sqrt(2) * deviation)));
+
+            deviation *= Math.Sqrt(1 - randomValue);
+
+            // Value deviation approach as greatCount approaches 0
+            double limitValue = hitWindow100 / Math.Sqrt(3);
+
+            // If precision is not enough to compute true deviation - use limit value
+            if (pLowerBound == 0 || randomValue >= 1 || deviation > limitValue)
+                deviation = limitValue;
+
+            // Then compute the variance for 50s.
+            double mehVariance = (hitWindow50 * hitWindow50 + hitWindow100 * hitWindow50 + hitWindow100 * hitWindow100) / 3;
+
+            // Find the total deviation.
+            deviation = Math.Sqrt(((relevantCountGreat + relevantCountOk) * Math.Pow(deviation, 2) + relevantCountMeh * mehVariance) / (relevantCountGreat + relevantCountOk + relevantCountMeh));
+
+            return deviation;
+        }
+
+        // Calculates multiplier for speed accounting for rake based on the deviation and speed difficulty
+        // https://www.desmos.com/calculator/dmogdhzofn
+        private double calculateSpeedRakeNerf(OsuDifficultyAttributes attributes)
+        {
+            // Base speed value
+            double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
+
+            // Starting from this pp amount - penalty will be applied
+            double abusePoint = 100 + 220 * Math.Pow(22 / speedDeviation, 6.5);
+
+            if (speedValue <= abusePoint)
+                return 1.0;
+
+            // Use log curve to make additional rise in difficulty unimpactful. Rescale values to make curve have correct steepness
+            const double scale = 50;
+            double adjustedSpeedValue = scale * (Math.Log((speedValue - abusePoint) / scale + 1) + abusePoint / scale);
+
+            // 200 UR and less are considered not raked and will be punished only by normal acc scaling
+            double lerp = 1 - Math.Clamp((speedDeviation - 20) / (24 - 20), 0, 1);
+            adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
+
+            return adjustedSpeedValue / speedValue;
+        }
+
+        private static double calculateDeviationArAdjust(double AR) => 0.4 + 0.775 / (1.0 + Math.Pow(1.73, 7.9 - AR));
+        private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
+        private int totalHits => countGreat + countOk + countMeh + countMiss;
+        private int totalSuccessfulHits => countGreat + countOk + countMeh;
+        private int totalImperfectHits => countOk + countMeh + countMiss;
         // Miss penalty assumes that a player will miss on the hardest parts of a map,
         // so we use the amount of relatively difficult sections to adjust miss penalty
         // to make it more punishing on maps with lower amount of hard sections.
         private double calculateMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
 
-        private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
-
         private static double softmin(double a, double b, double power = Math.E) => a * b / Math.Log(Math.Pow(power, a) + Math.Pow(power, b), power);
 
         private static double logistic(double x) => 1 / (1 + Math.Exp(-x));
-
-        private int totalHits => countGreat + countOk + countMeh + countMiss;
-        private int totalImperfectHits => countOk + countMeh + countMiss;
     }
 }
