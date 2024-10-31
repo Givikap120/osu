@@ -16,6 +16,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Overlays;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Screens.Footer;
 using osu.Game.Screens.Menu;
 using osu.Game.Users;
 
@@ -37,6 +38,8 @@ namespace osu.Game.Screens
         public string Description => Title;
 
         public virtual bool AllowBackButton => true;
+
+        public virtual bool ShowFooter => false;
 
         public virtual bool AllowExternalScreenChange => false;
 
@@ -89,9 +92,9 @@ namespace osu.Game.Screens
 
         public virtual bool? AllowGlobalTrackControl => null;
 
-        public Bindable<WorkingBeatmap> Beatmap { get; private set; }
+        public Bindable<WorkingBeatmap> Beatmap { get; private set; } = null!;
 
-        public Bindable<RulesetInfo> Ruleset { get; private set; }
+        public Bindable<RulesetInfo> Ruleset { get; private set; } = null!;
 
         public Bindable<IReadOnlyList<Mod>> Mods { get; private set; }
 
@@ -140,6 +143,10 @@ namespace osu.Game.Screens
 
         [Resolved(canBeNull: true)]
         private OsuLogo logo { get; set; }
+
+        [Resolved(canBeNull: true)]
+        [CanBeNull]
+        protected ScreenFooter Footer { get; private set; }
 
         protected OsuScreen()
         {
@@ -223,7 +230,12 @@ namespace osu.Game.Screens
 
         public override bool OnExiting(ScreenExitEvent e)
         {
-            if (ValidForResume && PlayExitSound)
+            // Only play the exit sound if we are the last screen in the exit sequence.
+            // This stops many sample playbacks from stacking when a huge screen purge happens (ie. returning to menu via the home button
+            // from a deeply nested screen).
+            bool arrivingAtFinalDestination = e.Next == e.Destination;
+
+            if (ValidForResume && PlayExitSound && arrivingAtFinalDestination)
                 sampleExit?.Play();
 
             if (ValidForResume && logo != null)
@@ -245,9 +257,12 @@ namespace osu.Game.Screens
         {
             logo.Action = null;
             logo.FadeOut(300, Easing.OutQuint);
-            logo.Anchor = Anchor.TopLeft;
+
             logo.Origin = Anchor.Centre;
+
+            logo.ChangeAnchor(Anchor.TopLeft);
             logo.RelativePositionAxes = Axes.Both;
+
             logo.Triangles = true;
             logo.Ripple = true;
         }
@@ -289,6 +304,8 @@ namespace osu.Game.Screens
         /// Note that the instance created may not be the used instance if it matches the BackgroundMode equality clause.
         /// </summary>
         protected virtual BackgroundScreen CreateBackground() => null;
+
+        public virtual IReadOnlyList<ScreenFooterButton> CreateFooterButtons() => Array.Empty<ScreenFooterButton>();
 
         public virtual bool OnBackButton() => false;
     }
