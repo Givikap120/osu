@@ -47,7 +47,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private bool usingSliderAccuracy;
         private double hitWindow300, hitWindow100, hitWindow50;
-        private double deviation, speedDeviation;
+        private double? deviation, speedDeviation;
 
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
@@ -158,7 +158,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (deviation == double.PositiveInfinity)
+            if (deviation == null)
                 return 0.0;
 
             double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
@@ -218,7 +218,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             // Scale the aim value with adjusted deviation
-            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(attributes.ApproachRate);
             aimValue *= SpecialFunctions.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
@@ -227,7 +227,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeSpeedValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == double.PositiveInfinity)
+            if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == null)
                 return 0.0;
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
@@ -268,7 +268,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Use additional bad UR penalty for high speed difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(attributes.ApproachRate);
-            double adjustedSpeedDeviation = speedDeviation * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
+            double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
             adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
 
             speedValue *= SpecialFunctions.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation));
@@ -279,7 +279,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAccuracyValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (deviation == double.PositiveInfinity || score.Mods.Any(h => h is OsuModRelax) || deviation == double.PositiveInfinity)
+            if (score.Mods.Any(h => h is OsuModRelax) || deviation == null)
                 return 0.0;
 
             double amountHitObjectsWithAccuracy;
@@ -306,11 +306,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Some fancy stuff to make curve similar to live
             double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * SpecialFunctions.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
 
-            // Only apply penalty for AR>10 (for balancing sake)
-            double adjustedDeviation = deviation;// * Math.Max(1, calculateDeviationArAdjust(attributes.ApproachRate));
-
             // Accuracy pp formula that's roughly the same as live.
-            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * adjustedDeviation);
+            double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * deviation.Value);
 
             // Punish very low amount of hits additionally to prevent big pp values right at the start of the map
             double amountOfHits = Math.Clamp(totalSuccessfulHits - attributes.SpinnerCount, 0, amountHitObjectsWithAccuracy);
@@ -338,7 +335,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeFlashlightValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (!score.Mods.Any(h => h is OsuModFlashlight) || deviation == double.PositiveInfinity)
+            if (!score.Mods.Any(h => h is OsuModFlashlight) || deviation == null)
                 return 0.0;
 
             double flashlightValue = Flashlight.DifficultyToPerformance(attributes.FlashlightDifficulty);
@@ -354,7 +351,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
 
             // Scale the flashlight value with adjusted deviation
-            double adjustedDeviation = deviation * calculateDeviationArAdjust(attributes.ApproachRate);
+            double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(attributes.ApproachRate);
             flashlightValue *= SpecialFunctions.Erf(55 / (Math.Sqrt(2) * adjustedDeviation));
             flashlightValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500;  // OD 11 SS stays the same.
 
@@ -384,10 +381,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// Returns deviation for circles and sliders if score was set with slideracc.
         /// Returns the min between deviation of circles and deviation on circles and sliders (assuming slider hits are 50s), if score was set without slideracc.
         /// </summary>
-        private double calculateTotalDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
+        private double? calculateTotalDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
             if (totalSuccessfulHits == 0)
-                return double.PositiveInfinity;
+                return null;
 
             int accuracyObjectCount = attributes.HitCircleCount;
             if (usingSliderAccuracy) accuracyObjectCount += attributes.SliderCount;
@@ -399,7 +396,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             int relevantCountGreat = Math.Max(0, accuracyObjectCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
 
             // Calculate deviation on accuracy objects
-            double deviation = calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
+            double? deviation = calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
 
             if (usingSliderAccuracy) return deviation;
 
@@ -413,7 +410,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double deviationWithSliders = hitWindow50 / (Math.Sqrt(2) * SpecialFunctions.ErfInv(hitProbabilityWithSliders));
 
             // Min is needed for edgecase maps with 1 circle and 999 sliders, as deviation on sliders can be lower in this case
-            return Math.Min(deviation, deviationWithSliders);
+            return deviation == null ? deviationWithSliders : Math.Min(deviation.Value, deviationWithSliders);
         }
 
         /// <summary>
@@ -421,10 +418,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// Treats all speed notes as hit circles. This is not good way to do this, but fixing this is impossible under the limitation of current speed pp.
         /// If score was set with slideracc - tries to remove mistaps on sliders from total mistaps.
         /// </summary>
-        private double calculateSpeedDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
+        private double? calculateSpeedDeviation(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
             if (totalSuccessfulHits == 0)
-                return double.PositiveInfinity;
+                return null;
 
             // Calculate accuracy assuming close to the worst case scenario
             double speedNoteCount = attributes.SpeedNoteCount + 0.1 * Math.Max(0, totalHits - attributes.SpeedNoteCount);
@@ -468,10 +465,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// will always return the same deviation. Misses are ignored because they are usually due to misaiming.
         /// 300s and 100s are assumed to follow a normal distribution, whereas 50s are assumed to follow a uniform distribution.
         /// </summary>
-        private double calculateDeviation(double relevantCountGreat, double relevantCountOk, double relevantCountMeh, double relevantCountMiss)
+        private double? calculateDeviation(double relevantCountGreat, double relevantCountOk, double relevantCountMeh, double relevantCountMiss)
         {
             if (relevantCountGreat + relevantCountOk + relevantCountMeh <= 0)
-                return double.PositiveInfinity;
+                return null;
 
             double objectCount = relevantCountGreat + relevantCountOk + relevantCountMeh + relevantCountMiss;
 
@@ -516,11 +513,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         // https://www.desmos.com/calculator/dmogdhzofn
         private double calculateSpeedRakeNerf(OsuDifficultyAttributes attributes)
         {
+            if (speedDeviation == null)
+                return 0;
+
             // Base speed value
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             // Starting from this pp amount - penalty will be applied
-            double abusePoint = 100 + 220 * Math.Pow(22 / speedDeviation, 6.5);
+            double abusePoint = 100 + 220 * Math.Pow(22 / speedDeviation.Value, 6.5);
 
             if (speedValue <= abusePoint)
                 return 1.0;
@@ -530,7 +530,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double adjustedSpeedValue = scale * (Math.Log((speedValue - abusePoint) / scale + 1) + abusePoint / scale);
 
             // 200 UR and less are considered not raked and will be punished only by normal acc scaling
-            double lerp = 1 - Math.Clamp((speedDeviation - 20) / (24 - 20), 0, 1);
+            double lerp = 1 - Math.Clamp((speedDeviation.Value - 20) / (24 - 20), 0, 1);
             adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
 
             return adjustedSpeedValue / speedValue;

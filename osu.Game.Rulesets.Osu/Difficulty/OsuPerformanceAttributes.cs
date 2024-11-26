@@ -25,10 +25,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         public double EffectiveMissCount { get; set; }
 
         [JsonProperty("deviation")]
-        public double Deviation { get; set; }
+        public double? Deviation { get; set; }
 
         [JsonProperty("speed_deviation")]
-        public double SpeedDeviation { get; set; }
+        public double? SpeedDeviation { get; set; }
 
         public override IEnumerable<PerformanceDisplayAttribute> GetAttributesForDisplay()
         {
@@ -39,8 +39,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             yield return new PerformanceDisplayAttribute(nameof(Speed), "Speed", Speed);
             yield return new PerformanceDisplayAttribute(nameof(Accuracy), "Accuracy", Accuracy);
             yield return new PerformanceDisplayAttribute(nameof(Flashlight), "Flashlight Bonus", Flashlight);
-            yield return new PerformanceDisplayAttribute(nameof(Deviation), "Estimated UR", Deviation * 10);
-            yield return new PerformanceDisplayAttribute(nameof(SpeedDeviation), "Estimated UR (speed)", SpeedDeviation * 10);
         }
     }
 }
