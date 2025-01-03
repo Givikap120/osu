@@ -41,6 +41,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double aimRatingNoSliders = Math.Sqrt(skills[1].DifficultyValue()) * DIFFICULTY_MULTIPLIER;
             double speedRating = Math.Sqrt(skills.OfType<Speed>().First().DifficultyValue()) * DIFFICULTY_MULTIPLIER;
             double speedNotes = skills.OfType<Speed>().First().RelevantNoteCount();
+            double difficultSliders = ((Aim)skills[0]).GetDifficultSliders();
 
             double flashlightRating = Math.Sqrt(skills.OfType<Flashlight>().First().DifficultyValue()) * DIFFICULTY_MULTIPLIER;
 
@@ -81,6 +82,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 readingHighARRating *= 0.7;
                 hiddenRating *= 0.7;
                 flashlightRating *= 0.7;
+            }
+            else if (mods.Any(h => h is OsuModAutopilot))
+            {
+                speedRating *= 0.5;
+                aimRating = 0.0;
+                flashlightRating *= 0.4;
             }
 
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
@@ -126,6 +133,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 StarRating = starRating,
                 Mods = mods,
                 AimDifficulty = aimRating,
+                AimDifficultSliderCount = difficultSliders,
                 SpeedDifficulty = speedRating,
                 SpeedNoteCount = speedNotes,
                 ReadingDifficultyLowAR = readingLowARRating,
