@@ -127,6 +127,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
 
             double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
+            double hitWindowOk = hitWindows.WindowFor(HitResult.Ok) / clockRate;
+            double hitWindowMeh = hitWindows.WindowFor(HitResult.Meh) / clockRate;
 
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
             {
@@ -147,6 +149,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 HiddenDifficultStrainCount = hiddenDifficultyStrainCount,
                 ApproachRate = IBeatmapDifficultyInfo.InverseDifficultyRange(preempt, 1800, 1200, 450),
                 OverallDifficulty = (80 - hitWindowGreat) / 6,
+                GreatHitWindow = hitWindowGreat,
+                OkHitWindow = hitWindowOk,
+                MehHitWindow = hitWindowMeh,
                 DrainRate = drainRate,
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCirclesCount,
