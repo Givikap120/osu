@@ -32,8 +32,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         {
             double densityReadingDifficulty = ReadingEvaluator.EvaluateDifficultyOf(current);
             double densityAimingFactor = ReadingEvaluator.EvaluateAimingDensityFactorOf(current);
+
             double aimDifficulty = AimEvaluator.EvaluateDifficultyOf(current, true);
-            // aimDifficulty = Math.Min(aimDifficulty, 1.5 * AimEvaluator.EvaluateDifficultyOf(current, false)); // Reward sliders, but cap at 1.5x
+            aimDifficulty = Math.Min(aimDifficulty, 2 * AimEvaluator.EvaluateDifficultyOf(current, false)); // Reward sliders, but cap at 2x
 
             currentDensityAimStrain *= strainDecay(current.DeltaTime);
             currentDensityAimStrain += densityAimingFactor * aimDifficulty * aimComponentMultiplier;
