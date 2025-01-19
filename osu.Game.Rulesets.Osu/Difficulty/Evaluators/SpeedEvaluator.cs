@@ -67,8 +67,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double sliderStreamFactor = 0.25;
 
                 // If slider was slower than notes before - punish it
-                if (osuCurrObj.StrainTime > osuPrevObj.StrainTime)
-                    sliderStreamFactor *= DifficultyCalculationUtils.ReverseLerp(osuPrevObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
+                sliderStreamFactor *= DifficultyCalculationUtils.ReverseLerp(osuPrevObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
 
                 // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
                 double sliderLength = slider.Velocity * slider.SpanDuration;
