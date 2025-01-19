@@ -100,6 +100,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                                        DifficultyCalculationUtils.Smootherstep(DifficultyCalculationUtils.MillisecondsToBPM(osuCurrObj.StrainTime, 2), 300, 400) *
                                        DifficultyCalculationUtils.Smootherstep(osuCurrObj.JumpDistance, diameter, diameter * 2);
 
+                    // Sliderjumps are extra hard on high BPM
+                    acuteAngleBonus *= 1 + sliderJumpBonus;
+
                     // Apply wiggle bonus for jumps that are [radius, 3*diameter] in distance, with < 110 angle
                     // https://www.desmos.com/calculator/dp0v0nvowc
                     wiggleBonus = angleBonus
