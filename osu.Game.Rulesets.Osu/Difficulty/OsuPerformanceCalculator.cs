@@ -5,11 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Difficulty;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
-using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -364,10 +364,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Compute the deviation assuming greats and oks are normally distributed, and mehs are uniformly distributed.
             // Begin with greats and oks first. Ignoring mehs, we can be 99% confident that the deviation is not higher than:
-            double deviation = hitWindowGreat / (Math.Sqrt(2) * SpecialFunctions.ErfInv(pLowerBound));
+            double deviation = hitWindowGreat / (Math.Sqrt(2) * DifficultyCalculationUtils.ErfInv(pLowerBound));
 
             double randomValue = Math.Sqrt(2 / Math.PI) * hitWindowOk * Math.Exp(-0.5 * Math.Pow(hitWindowOk / deviation, 2))
-                                 / (deviation * SpecialFunctions.Erf(hitWindowOk / (Math.Sqrt(2) * deviation)));
+                                 / (deviation * DifficultyCalculationUtils.Erf(hitWindowOk / (Math.Sqrt(2) * deviation)));
 
             deviation *= Math.Sqrt(1 - randomValue);
 
@@ -406,8 +406,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             const double scale = 50;
             double adjustedSpeedValue = scale * (Math.Log((speedValue - excessSpeedDifficultyCutoff) / scale + 1) + excessSpeedDifficultyCutoff / scale);
 
-            // 200 UR and less are considered tapped correctly to ensure that normal scores will be punished as little as possible
-            double lerp = 1 - Math.Clamp((speedDeviation.Value - 20) / (24 - 20), 0, 1);
+            // 220 UR and less are considered tapped correctly to ensure that normal scores will be punished as little as possible
+            double lerp = 1 - DifficultyCalculationUtils.ReverseLerp(speedDeviation.Value, 22.0, 27.0);
             adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
 
             return adjustedSpeedValue / speedValue;
