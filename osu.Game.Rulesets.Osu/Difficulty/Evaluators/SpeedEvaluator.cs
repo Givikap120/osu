@@ -68,7 +68,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
                 // If slider was slower than notes before - punish it
                 if (osuCurrObj.StrainTime > osuPrevObj.StrainTime)
-                    sliderStreamFactor *= AimEvaluator.CalcRhythmDifferenceMultiplier(osuCurrObj.StrainTime, osuPrevObj.StrainTime);
+                    sliderStreamFactor *= DifficultyCalculationUtils.ReverseLerp(osuPrevObj.StrainTime, osuPrevObj.StrainTime * 0.55, osuPrevObj.StrainTime * 0.75);
 
                 // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
                 double sliderLength = slider.Velocity * slider.SpanDuration;
@@ -77,7 +77,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
                 sliderStreamBonus += sliderStreamFactor;
             }
-            
+
             if (mods.OfType<OsuModAutopilot>().Any())
                 distanceBonus = 0;
 

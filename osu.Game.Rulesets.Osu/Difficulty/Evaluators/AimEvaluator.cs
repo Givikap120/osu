@@ -144,33 +144,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Add in acute angle bonus or wide angle bonus + velocity change bonus, whichever is larger.
             aimStrain += Math.Max(acuteAngleBonus * acute_angle_multiplier, wideAngleBonus * wide_angle_multiplier + velocityChangeBonus * velocity_change_multiplier);
 
-            double sliderJumpBonus = 0;
-
-            Slider? slider = osuLastObj.BaseObject as Slider;
-            Slider? sliderLast = osuLastLastObj.BaseObject as Slider;
-
-            if (slider.IsNotNull() || sliderLast.IsNotNull())
-            {
-                // Take the sliderless difficulty as a base
-                sliderJumpBonus = aimStrain * sliderJumpNerfFactor;
-
-                // Punish the cases where 1/2 slider going into 1/2 note
-                if (osuCurrObj.StrainTime > osuLastObj.StrainTime)
-                    sliderJumpBonus *= CalcRhythmDifferenceMultiplier(osuCurrObj.StrainTime, osuLastObj.StrainTime);
-
-                // Punish the cases where 1/2 slider going into two 1/2 notes
-                if (slider.IsNull() && osuLastObj.StrainTime > osuCurrObj.StrainTime)
-                    sliderJumpBonus *= CalcRhythmDifferenceMultiplier(osuCurrObj.StrainTime, osuLastObj.StrainTime);
-
-                // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
-                static double length(Slider? slider) => slider.IsNotNull() ? slider.Velocity * slider.SpanDuration : 0;
-                double sliderLength = Math.Max(length(slider), length(sliderLast));
-
-                Slider sliderAny = slider.IsNotNull() ? slider : sliderLast!;
-                if (sliderLength < sliderAny.Radius)
-                    sliderJumpBonus *= sliderLength / sliderAny.Radius;
-            }
-
+            double sliderJumpBonus = getSliderJumpBonus(osuCurrObj, osuLastObj, osuLastLastObj) * aimStrain * sliderJumpNerfFactor;
             aimStrain += sliderJumpBonus * slider_jump_multiplier;
 
             // Add in additional slider velocity bonus.
@@ -187,20 +161,36 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             return aimStrain;
         }
 
+        private static double getSliderJumpBonus(OsuDifficultyHitObject osuCurrObj, OsuDifficultyHitObject osuLastObj, OsuDifficultyHitObject osuLastLastObj)
+        {
+            Slider? slider = osuLastObj.BaseObject as Slider;
+            Slider? sliderLast = osuLastLastObj.BaseObject as Slider;
+
+            if (slider == null && sliderLast == null)
+                return 0.0;
+
+            // Take the sliderless difficulty as a base
+            double sliderJumpBonus = 1.0;
+
+            // Punish the cases where 1/2 slider going into 1/2 note
+            sliderJumpBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
+
+            // Punish the cases where 1/2 slider going into two 1/2 notes
+            if (slider == null)
+                sliderJumpBonus *= DifficultyCalculationUtils.ReverseLerp(osuCurrObj.StrainTime, osuLastObj.StrainTime * 0.55, osuLastObj.StrainTime * 0.75);
+
+            // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
+            static double length(Slider? slider) => slider.IsNotNull() ? slider.Velocity * slider.SpanDuration : 0;
+            double sliderLength = Math.Max(length(slider), length(sliderLast));
+
+            Slider sliderAny = slider.IsNotNull() ? slider : sliderLast!;
+            if (sliderLength < sliderAny.Radius)
+                sliderJumpBonus *= sliderLength / sliderAny.Radius;
+
+            return sliderJumpBonus;
+        }
+
         private static double calcWideAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(40), double.DegreesToRadians(140));
         private static double calcAcuteAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(140), double.DegreesToRadians(40));
-
-        public static double CalcRhythmDifferenceMultiplier(double time1, double time2)
-        {
-            const double point1 = 0.5, point2 = 0.75;
-
-            double similarity = Math.Min(time1, time2) / Math.Max(time1, time2);
-            if (Math.Max(time1, time2) == 0) similarity = 1;
-
-            if (similarity < point1) return 0.0;
-            if (similarity > point2) return 1.0;
-
-            return (1 - Math.Cos((similarity - point1) * Math.PI / (point2 - point1))) / 2; // grows from 0 to 1 as similarity increase from point1 to point2
-        }
     }
 }
