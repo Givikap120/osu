@@ -19,6 +19,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private const double min_speed_bonus = 200; // 200 BPM 1/4th
         private const double speed_balancing_factor = 40;
         private const double distance_multiplier = 0.9;
+        private const double sliderstream_multiplier = 0.25;
 
         /// <summary>
         /// Evaluates the difficulty of tapping the current object, based on:
@@ -60,31 +61,38 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Max distance bonus is 1 * `distance_multiplier` at single_spacing_threshold
             double distanceBonus = Math.Pow(distance / single_spacing_threshold, 3.95) * distance_multiplier;
 
-            double sliderStreamBonus = 1;
-
-            if (osuCurrObj.BaseObject is Slider slider && osuPrevObj?.BaseObject is Slider)
-            {
-                double sliderStreamFactor = 0.25;
-
-                // If slider was slower than notes before - punish it
-                sliderStreamFactor *= DifficultyCalculationUtils.ReverseLerp(osuPrevObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
-
-                // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
-                double sliderLength = slider.Velocity * slider.SpanDuration;
-                if (sliderLength < slider.Radius)
-                    sliderStreamFactor *= sliderLength / slider.Radius;
-
-                sliderStreamBonus += sliderStreamFactor;
-            }
+            double sliderStreamBonus = getSliderStreamBonus(current) * sliderstream_multiplier;
 
             if (mods.OfType<OsuModAutopilot>().Any())
                 distanceBonus = 0;
 
             // Base difficulty with all bonuses
-            double difficulty = (1 + speedBonus + distanceBonus) * sliderStreamBonus * 1000 / strainTime;
+            double difficulty = (1 + speedBonus + distanceBonus) * (1 + sliderStreamBonus) * 1000 / strainTime;
 
             // Apply penalty if there's doubletappable doubles
             return difficulty * doubletapness;
+        }
+
+        private static double getSliderStreamBonus(DifficultyHitObject current)
+        {
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            var osuLastObj = (OsuDifficultyHitObject)current.Previous(0);
+            var osuLastLastObj = (OsuDifficultyHitObject)current.Previous(1);
+
+            if (osuCurrObj.BaseObject is not Slider slider || osuLastObj?.BaseObject is not Slider || osuLastLastObj == null)
+                return 0;
+
+            double sliderStreamBonus = 1.0;
+
+            // Don't buff burst into 2 sliders case
+            sliderStreamBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
+
+            // Punish too short sliders to prevent cheesing
+            double sliderLength = slider.Velocity * slider.SpanDuration;
+            if (sliderLength < slider.Radius / 2)
+                sliderStreamBonus *= sliderLength / (slider.Radius / 2);
+
+            return sliderStreamBonus;
         }
     }
 }
