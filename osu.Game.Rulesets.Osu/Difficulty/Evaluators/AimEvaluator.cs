@@ -167,11 +167,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double sliderJumpBonus = 1.0;
 
             // Punish the cases where 1/2 slider going into 1/2 note
-            if (osuCurrObj.BaseObject is not Slider)
-                sliderJumpBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
+            sliderJumpBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
 
             // Punish the cases where 1/2 slider going into two 1/2 notes
-            if (osuCurrObj.BaseObject is not Slider && sliderCurr == null)
+            if (sliderCurr == null)
                 sliderJumpBonus *= DifficultyCalculationUtils.ReverseLerp(osuCurrObj.StrainTime, osuLastObj.StrainTime * 0.55, osuLastObj.StrainTime * 0.75);
 
             // Punish too short sliders to prevent cheesing (cheesing is still possible, but it's very rare)
