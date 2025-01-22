@@ -3,7 +3,6 @@
 
 using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
-using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -11,10 +10,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 {
     public static class SpeedEvaluator
     {
-        private const double single_spacing_threshold = OsuDifficultyHitObject.NORMALISED_DIAMETER * 1.25; // 1.25 circles distance between centers
-        private const double min_speed_bonus = 200; // 200 BPM 1/4th
+        private const double single_spacing_threshold = 125;
+
+        private const double angle_bonus_begin = 5 * Math.PI / 6;
+        private const double pi_over_4 = Math.PI / 4;
+        private const double pi_over_2 = Math.PI / 2;
+
+        private const double min_speed_bonus = 75; // ~200BPM
+        private const double max_speed_bonus = 45; // ~330BPM
         private const double speed_balancing_factor = 40;
-        private const double distance_multiplier = 0.94;
 
         /// <summary>
         /// Evaluates the difficulty of tapping the current object, based on:
@@ -29,38 +33,32 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (current.BaseObject is Spinner)
                 return 0;
 
-            // derive strainTime for calculation
-            var osuCurrObj = (OsuDifficultyHitObject)current;
-            var osuPrevObj = current.Index > 0 ? (OsuDifficultyHitObject)current.Previous(0) : null;
+            var osuCurrent = (OsuDifficultyHitObject)current;
 
-            double strainTime = osuCurrObj.StrainTime;
-            double doubletapness = 1.0 - osuCurrObj.GetDoubletapness((OsuDifficultyHitObject?)osuCurrObj.Next(0));
+            double distance = Math.Min(single_spacing_threshold, osuCurrent.TravelDistance + osuCurrent.JumpDistance);
+            double deltaTime = Math.Max(max_speed_bonus, current.DeltaTime);
 
-            // Cap deltatime to the OD 300 hitwindow.
-            // 0.93 is derived from making sure 260bpm OD8 streams aren't nerfed harshly, whilst 0.92 limits the effect of the cap.
-            strainTime /= Math.Clamp((strainTime / osuCurrObj.HitWindowGreat) / 0.93, 0.92, 1);
+            double speedBonus = 1.0;
+            if (deltaTime < min_speed_bonus)
+                speedBonus = 1 + Math.Pow((min_speed_bonus - deltaTime) / speed_balancing_factor, 2);
 
-            // speedBonus will be 0.0 for BPM < 200
-            double speedBonus = 0.0;
+            double angleBonus = 1.0;
 
-            // Add additional scaling bonus for streams/bursts higher than 200bpm
-            if (DifficultyCalculationUtils.MillisecondsToBPM(strainTime) > min_speed_bonus)
-                speedBonus = 0.75 * Math.Pow((DifficultyCalculationUtils.BPMToMilliseconds(min_speed_bonus) - strainTime) / speed_balancing_factor, 2);
+            if (osuCurrent.Angle != null && osuCurrent.Angle.Value < angle_bonus_begin)
+            {
+                angleBonus = 1 + Math.Pow(Math.Sin(1.5 * (angle_bonus_begin - osuCurrent.Angle.Value)), 2) / 3.57;
 
-            double travelDistance = osuPrevObj?.TravelDistance ?? 0;
-            double distance = travelDistance + osuCurrObj.MinimumJumpDistance;
+                if (osuCurrent.Angle.Value < pi_over_2)
+                {
+                    angleBonus = 1.28;
+                    if (distance < 90 && osuCurrent.Angle.Value < pi_over_4)
+                        angleBonus += (1 - angleBonus) * Math.Min((90 - distance) / 10, 1);
+                    else if (distance < 90)
+                        angleBonus += (1 - angleBonus) * Math.Min((90 - distance) / 10, 1) * Math.Sin((pi_over_2 - osuCurrent.Angle.Value) / pi_over_4);
+                }
+            }
 
-            // Cap distance at single_spacing_threshold
-            distance = Math.Min(distance, single_spacing_threshold);
-
-            // Max distance bonus is 1 * `distance_multiplier` at single_spacing_threshold
-            double distanceBonus = Math.Pow(distance / single_spacing_threshold, 3.95) * distance_multiplier;
-
-            // Base difficulty with all bonuses
-            double difficulty = (1 + speedBonus + distanceBonus) * 1000 / strainTime;
-
-            // Apply penalty if there's doubletappable doubles
-            return difficulty * doubletapness;
+            return 1000 * (1 + (speedBonus - 1) * 0.75) * angleBonus * (0.95 + speedBonus * Math.Pow(distance / single_spacing_threshold, 3.5)) / osuCurrent.StrainTime;
         }
     }
 }

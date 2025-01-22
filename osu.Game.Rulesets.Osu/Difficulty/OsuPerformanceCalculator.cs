@@ -14,8 +14,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        private bool enableLazerAcc => true;
-        private bool enableCSR => true;
+        private bool enableLazerAcc => false;
+        private bool enableCSR => false;
 
         private bool usingClassicSliderAccuracy;
 

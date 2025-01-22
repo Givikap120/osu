@@ -15,13 +15,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     /// </summary>
     public class Speed : OsuStrainSkill
     {
-        private double skillMultiplier => 1.430;
+        private double skillMultiplier => 1.456;
         private double strainDecayBase => 0.3;
 
-        private double currentStrain;
-        private double currentRhythm;
-
         protected override int ReducedSectionCount => 5;
+
+        private double currentStrain;
 
         public Speed(Mod[] mods)
             : base(mods)
@@ -30,18 +29,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
-        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => (currentStrain * currentRhythm) * strainDecay(time - current.Previous(0).StartTime);
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => currentStrain * strainDecay(time - current.Previous(0).StartTime);
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
             currentStrain *= strainDecay(((OsuDifficultyHitObject)current).StrainTime);
             currentStrain += SpeedEvaluator.EvaluateDifficultyOf(current) * skillMultiplier;
 
-            currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
-
-            double totalStrain = currentStrain * currentRhythm;
-
-            return totalStrain;
+            return currentStrain;
         }
 
         public double RelevantNoteCount()

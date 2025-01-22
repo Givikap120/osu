@@ -96,7 +96,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             var skills = new List<Skill>
             {
-                new Aim(mods, false),
+                new Aim(mods),
                 new Speed(mods)
             };
 
