@@ -79,12 +79,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue()
         {
-            double rawAim = attributes.AimDifficulty;
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                rawAim = Math.Pow(rawAim, 0.8);
-
-            double aimValue = Math.Pow(5.0f * Math.Max(1.0f, rawAim / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
+            double aimValue = Math.Pow(5.0f * Math.Max(1.0f, attributes.AimDifficulty / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
 
             // Longer maps are worth more
             double lengthBonus = 0.95f + 0.4f * Math.Min(1.0f, totalHits / 2000.0f) +
@@ -107,17 +102,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double approachRateFactor = 1.0f;
             if (attributes.ApproachRate > 10.33f)
-                approachRateFactor += 0.3f * (attributes.ApproachRate - 10.33f);
+                approachRateFactor += 0.45f * (attributes.ApproachRate - 10.33f);
             else if (attributes.ApproachRate < 8.0f)
             {
-                approachRateFactor += 0.01f * (8.0f - attributes.ApproachRate);
+                // HD is worth more with lower ar!
+                if (mods.Any(h => h is OsuModHidden))
+                    approachRateFactor += 0.02f * (8.0f - attributes.ApproachRate);
+                else
+                    approachRateFactor += 0.01f * (8.0f - attributes.ApproachRate);
             }
 
             aimValue *= approachRateFactor;
 
             // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
             if (mods.Any(h => h is OsuModHidden))
-                aimValue *= 1.0f + 0.04f * (12.0f - attributes.ApproachRate);
+                aimValue *= 1.02 + (11.0f - attributes.ApproachRate) / 50.0; // Gives a 1.04 bonus for AR10, a 1.06 bonus for AR9, a 1.02 bonus for AR11.
 
             if (mods.Any(h => h is OsuModFlashlight))
             {
@@ -125,10 +124,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double comboScale = attributes.MaxCombo > 0 ? Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0) : 0;
                 double csrAdjust = enableCSR ? comboScale : 1.0;
 
-                // Apply object-based bonus for flashlight.
-                aimValue *= 1.0f + 0.35f * csrAdjust * Math.Min(1.0f, totalHits / 200.0f) +
-                        (totalHits > 200 ? 0.3f * Math.Min(1.0f, (totalHits - 200) / 300.0f) +
-                        (totalHits > 500 ? (totalHits - 500) / 1200.0f : 0.0f) : 0.0f);
+                // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
+                aimValue *= 1.0f + 0.45f * lengthBonus * csrAdjust;
             }
 
             // Scale the aim value with accuracy _slightly_
@@ -160,19 +157,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (!enableCSR && attributes.MaxCombo > 0)
                 speedValue *= Math.Min(Math.Pow(scoreMaxCombo, 0.8f) / Math.Pow(attributes.MaxCombo, 0.8f), 1.0f);
 
-            double approachRateFactor = 1.0f;
-            if (attributes.ApproachRate > 10.33f)
-                approachRateFactor += 0.3f * (attributes.ApproachRate - 10.33f);
-
-            speedValue *= approachRateFactor;
-
             if (mods.Any(m => m is OsuModHidden))
-                speedValue *= 1.0f + 0.04f * (12.0f - attributes.ApproachRate);
+                speedValue *= 1.18f;
 
             // Scale the speed value with accuracy _slightly_
-            speedValue *= 0.02f + accuracy;
+            speedValue *= 0.5f + accuracy / 2.0f;
             // It is important to also consider accuracy difficulty when doing that
-            speedValue *= 0.96f + Math.Pow(attributes.OverallDifficulty, 2) / 1600;
+            speedValue *= 0.98f + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
 
             return speedValue;
         }
