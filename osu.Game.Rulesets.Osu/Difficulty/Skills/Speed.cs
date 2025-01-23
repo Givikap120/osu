@@ -19,7 +19,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         protected override int ReducedSectionCount => 5;
 
-        private double currentStrain;
+        private double currentStrain = 1;
 
         public Speed(Mod[] mods)
             : base(mods)
