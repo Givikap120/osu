@@ -39,7 +39,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             this.attributes = (OsuDifficultyAttributes)attributes;
 
-            usingClassicSliderAccuracy = enableLazerAcc && score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
+            usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
 
             mods = score.Mods;
             accuracy = score.Accuracy;
@@ -192,7 +192,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window
             double betterAccuracyPercentage;
             int amountHitObjectsWithAccuracy = attributes.HitCircleCount;
-            if (!usingClassicSliderAccuracy)
+            if (enableLazerAcc && !usingClassicSliderAccuracy)
                 amountHitObjectsWithAccuracy += attributes.SliderCount;
 
             if (amountHitObjectsWithAccuracy > 0)

@@ -52,7 +52,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Todo: These int casts are temporary to achieve 1:1 results with osu!stable, and should be removed in the future
             double hitWindowGreat = (int)(hitWindows.WindowFor(HitResult.Great)) / clockRate;
 
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
+            double preempt = (int)IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
             double drainRate = beatmap.Difficulty.DrainRate;
 
             int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
