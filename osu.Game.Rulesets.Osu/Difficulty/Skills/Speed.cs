@@ -6,7 +6,6 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
-using System.Linq;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -37,18 +36,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentStrain += SpeedEvaluator.EvaluateDifficultyOf(current) * skillMultiplier;
 
             return currentStrain;
-        }
-
-        public double RelevantNoteCount()
-        {
-            if (ObjectStrains.Count == 0)
-                return 0;
-
-            double maxStrain = ObjectStrains.Max();
-            if (maxStrain == 0)
-                return 0;
-
-            return ObjectStrains.Sum(strain => 1.0 / (1.0 + Math.Exp(-(strain / maxStrain * 12.0 - 6.0))));
         }
     }
 }
