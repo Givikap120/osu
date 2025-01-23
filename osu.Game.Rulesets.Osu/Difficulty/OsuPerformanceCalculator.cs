@@ -193,7 +193,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             accuracyValue *= Math.Min(1.15f, Math.Pow(amountHitObjectsWithAccuracy / 1000.0f, 0.3f));
 
             if (mods.Any(m => m is OsuModHidden))
-                accuracyValue *= 1.08f;
+                accuracyValue *= 1.02f;
             if (mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02f;
 
