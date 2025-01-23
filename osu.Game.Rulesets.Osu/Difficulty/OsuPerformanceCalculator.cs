@@ -114,9 +114,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             aimValue *= approachRateFactor;
 
-            // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
             if (mods.Any(h => h is OsuModHidden))
-                aimValue *= 1.02 + (11.0f - attributes.ApproachRate) / 50.0; // Gives a 1.04 bonus for AR10, a 1.06 bonus for AR9, a 1.02 bonus for AR11.
+                aimValue *= 1.18f;
 
             if (mods.Any(h => h is OsuModFlashlight))
             {
@@ -157,9 +156,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (!enableCSR && attributes.MaxCombo > 0)
                 speedValue *= Math.Min(Math.Pow(scoreMaxCombo, 0.8f) / Math.Pow(attributes.MaxCombo, 0.8f), 1.0f);
 
-            if (mods.Any(m => m is OsuModHidden))
-                speedValue *= 1.18f;
-
             // Scale the speed value with accuracy _slightly_
             speedValue *= 0.5f + accuracy / 2.0f;
             // It is important to also consider accuracy difficulty when doing that
@@ -193,7 +189,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             accuracyValue *= Math.Min(1.15f, Math.Pow(amountHitObjectsWithAccuracy / 1000.0f, 0.3f));
 
             if (mods.Any(m => m is OsuModHidden))
-                accuracyValue *= 1.08f;
+                accuracyValue *= 1.02f;
             if (mods.Any(m => m is OsuModFlashlight))
                 accuracyValue *= 1.02f;
 
