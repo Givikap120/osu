@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
+        private bool removeRelaxAutopilotPp => true;
         private bool enableLazerAcc => false;
         private bool enableCSR => false;
 
@@ -49,6 +50,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             countMeh = score.Statistics.GetValueOrDefault(HitResult.Meh);
             countMiss = score.Statistics.GetValueOrDefault(HitResult.Miss);
 
+            if (removeRelaxAutopilotPp && score.Mods.Any(m => m is OsuModRelax || m is OsuModAutopilot))
+                return new OsuPerformanceAttributes
+                {
+                    EffectiveMissCount = countMiss
+                };
+
             // Custom multipliers for NoFail and SpunOut.
             double multiplier = 1.12; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things
 
@@ -73,6 +80,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Aim = aimValue,
                 Speed = speedValue,
                 Accuracy = accuracyValue,
+                EffectiveMissCount = countMiss,
                 Total = totalValue
             };
         }
