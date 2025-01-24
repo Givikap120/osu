@@ -3,11 +3,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
-using osuTK;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 {
@@ -34,7 +32,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             this.lastObject = (OsuHitObject)lastObject;
 
             setDistances();
-            // Calculate angle here
         }
 
         private void setDistances()
@@ -47,47 +44,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            Vector2 lastCursorPosition = lastObject.StackedPosition;
-            float lastTravelDistance = 0;
-
-            if (lastObject is Slider lastSlider)
-            {
-                computeSliderCursorPosition(lastSlider);
-                lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
-                lastTravelDistance = lastSlider.LazyTravelDistance;
-            }
-
-            Distance = (lastTravelDistance + (BaseObject.StackedPosition - lastCursorPosition).Length) * scalingFactor;
-        }
-
-        private void computeSliderCursorPosition(Slider slider)
-        {
-            if (slider.LazyEndPosition != null)
-                return;
-            slider.LazyEndPosition = slider.StackedPosition;
-
-            float approxFollowCircleRadius = (float)(slider.Radius * 3);
-            var computeVertex = new Action<double>(t =>
-            {
-                // ReSharper disable once PossibleInvalidOperationException (bugged in current r# version)
-                var diff = slider.StackedPositionAt(t) - slider.LazyEndPosition.Value;
-                float dist = diff.Length;
-
-                if (dist > approxFollowCircleRadius)
-                {
-                    // The cursor would be outside the follow circle, we need to move it
-                    diff.Normalize(); // Obtain direction of diff
-                    dist -= approxFollowCircleRadius;
-                    slider.LazyEndPosition = slider.LazyEndPosition + diff * dist;
-                    slider.LazyTravelDistance += dist;
-                }
-            });
-
-            // Skip the head circle
-            var scoringTimes = slider.NestedHitObjects.Skip(1).Select(t => t.StartTime);
-            foreach (double time in scoringTimes)
-                computeVertex(time);
-            computeVertex(slider.EndTime);
+            Distance = (BaseObject.StackedPosition - lastObject.StackedPosition).Length * scalingFactor;
         }
     }
 }
