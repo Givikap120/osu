@@ -7,6 +7,7 @@ using System.Linq;
 using osu.Framework.Utils;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
@@ -217,7 +218,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 aimDifficulty *= highARDifficulty;
                 CurrentStrain += aimDifficulty;
 
-                return CurrentStrain + component_default_value_multiplier * highARDifficulty;
+                return CurrentStrain + component_default_value_multiplier * highARDifficulty * DifficultyCalculationUtils.ReverseLerp(current.Index, 0, 200);
             }
         }
 
@@ -242,7 +243,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
                 CurrentRhythm = currObj.RhythmDifficulty;
                 double totalStrain = CurrentStrain * CurrentRhythm;
-                return totalStrain + component_default_value_multiplier * highARDifficulty;
+                return totalStrain + component_default_value_multiplier * highARDifficulty * DifficultyCalculationUtils.ReverseLerp(current.Index, 0, 200);
             }
         }
     }
