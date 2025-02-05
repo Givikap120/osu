@@ -210,16 +210,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 // Previous angle because order is reversed;
                 double angle = (double)prevObject.Angle;
 
-                // Overlapness between current and prev to make streams have 0 buff
+                // Overlapness between current and prev object
                 double instantOverlapness = 0;
                 prevObject.OverlapValues?.TryGetValue(loopObj.Index, out instantOverlapness);
 
-                // Nerf overlaps on wide angles
-                double angleFactor = 1;
-                angleFactor += (-Math.Cos(angle) + 1) / 2; // =2 for wide angles, =1 for acute angles
-                instantOverlapness = Math.Min(1, (0.5 + instantOverlapness) * angleFactor); // wide angles are more predictable
+                // Use default value of 1
+                double previousNoteNerf = 0.5 + instantOverlapness;
 
-                currentOverlapness *= (1 - instantOverlapness) * 2; // wide angles will have close-to-zero buff
+                // 2 times harsher curve for wide angles to nerf streams
+                double angleFactor = 1 + DifficultyCalculationUtils.Smoothstep(angle, 0, Math.PI);
+                previousNoteNerf *= angleFactor;
+
+                // Remove previously added 0.5 value and rescale accordingly
+                previousNoteNerf = Math.Clamp((previousNoteNerf - 0.5) * 2, 0, 1);
+                currentOverlapness *= 1 - previousNoteNerf;
 
                 // Control overlap repetitivness
                 if (currentOverlapness > 0)
@@ -306,21 +310,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private static double getTimeDifference(double timeA, double timeB)
         {
             double similarity = Math.Min(timeA, timeB) / Math.Max(timeA, timeB);
-            if (Math.Max(timeA, timeB) == 0) similarity = 1;
-
-            if (similarity < 0.75) return 1.0;
-            if (similarity > 0.9) return 0.0;
-
-            return (Math.Cos((similarity - 0.75) * Math.PI / 0.15) + 1) / 2; // drops from 1 to 0 as similarity increase from 0.75 to 0.9
+            return DifficultyCalculationUtils.Smootherstep(similarity, 0.9, 0.75); // drops from 1 to 0 as similarity increase from 0.75 to 0.9
         }
 
         private static double getAngleSimilarity(double angle1, double angle2)
         {
             double difference = Math.Abs(angle1 - angle2);
-            double threeshold = Math.PI / 12;
-
-            if (difference > threeshold) return 0;
-            return 1 - difference / threeshold;
+            return DifficultyCalculationUtils.ReverseLerp(difference, Math.PI / 12, 0);
         }
 
         private static double calculateOverlapness(OsuDifficultyHitObject odho1, OsuDifficultyHitObject odho2)
