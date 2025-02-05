@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Extensions.ObjectExtensions;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Mods;
@@ -252,10 +253,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                             if (cumulativeTimeWithoutCurrent >= cumulativeTimeWithCurrent)
                                 break;
                         }
+
                         cumulativeTimeWithCurrent += historicTimes[i];
                     }
 
                     currentOverlapness = currentMinOverlapness;
+
+                    // This is not very good anti-cheese, but I don't know how to make it more general without nerfing everything
+                    // Nerf back and forth jump overlaps
+                    if (readingObjects.Count >= 2)
+                    {
+                        var prevPrevObj = readingObjects[^2];
+                        currentOverlapness -= prevPrevObj.CurrentOverlapness * DifficultyCalculationUtils.Smoothstep(prevPrevObj.HitObject.Angle ?? 0, 0.3, 0.05);
+                        currentOverlapness = Math.Max(0, currentOverlapness);
+                    }
 
                     historicTimes.Add(currentTime);
                     historicAngles.Add(angle);
@@ -269,7 +280,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
                 totalOverlapnessDifficulty += currentOverlapness;
 
-                ReadingObject newObj = new ReadingObject(loopObj, totalOverlapnessDifficulty);
+                ReadingObject newObj = new ReadingObject(loopObj, currentOverlapness, totalOverlapnessDifficulty);
                 readingObjects.Add(newObj);
                 prevObject = loopObj;
             }
@@ -720,12 +731,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public struct ReadingObject
         {
             public OsuDifficultyHitObject HitObject;
-            public double Overlapness;
+            public double CurrentOverlapness;
+            public double TotalOverlapness;
 
-            public ReadingObject(OsuDifficultyHitObject hitObject, double overlapness)
+            public ReadingObject(OsuDifficultyHitObject hitObject, double currentOverlapness, double totalOverlapness)
             {
                 HitObject = hitObject;
-                Overlapness = overlapness;
+                CurrentOverlapness = currentOverlapness;
+                TotalOverlapness = totalOverlapness;
             }
         }
     }
