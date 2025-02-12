@@ -362,19 +362,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 accuracyValue *= 1.02;
 
             // Visual indication bonus
-            double visualBonus = 0.1 * logistic(8.0 - attributes.ApproachRate);
+            double visualBonus = 0.1 * logistic(8.0 - approachRate);
 
             // Buff if OD is way lower than AR
-            double ARODDelta = Math.Max(0, attributes.OverallDifficulty - attributes.ApproachRate);
+            double ARODDelta = Math.Max(0, overallDifficulty - approachRate);
 
             // This one is goes from 0.0 on delta=0 to 1.0 somewhere around delta=3.4
             double deltaBonus = (1 - Math.Pow(0.95, Math.Pow(ARODDelta, 4)));
 
             // Nerf delta bonus on OD lower than 10 and 9
-            if (attributes.OverallDifficulty < 10)
-                deltaBonus *= Math.Pow(attributes.OverallDifficulty / 10, 2);
-            if (attributes.OverallDifficulty < 9)
-                deltaBonus *= Math.Pow(attributes.OverallDifficulty / 9, 4);
+            if (overallDifficulty < 10)
+                deltaBonus *= Math.Pow(overallDifficulty / 10, 2);
+            if (overallDifficulty < 9)
+                deltaBonus *= Math.Pow(overallDifficulty / 9, 4);
 
             accuracyValue *= 1 + visualBonus * (1 + 2 * deltaBonus);
             if (score.Mods.Any(h => h is OsuModHidden || h is OsuModTraceable))
@@ -416,7 +416,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             readingValue *= accuracy * accuracy;
             // It is important to also consider accuracy difficulty when doing that.
-            readingValue *= Math.Pow(0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500, 2);
+            readingValue *= Math.Pow(0.98 + Math.Pow(overallDifficulty, 2) / 2500, 2);
 
             return readingValue;
         }
@@ -449,7 +449,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
                 aimPartValue *= accuracy;
                 // It is important to consider accuracy difficulty when scaling with accuracy.
-                aimPartValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
+                aimPartValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
             }
 
             // Speed part calculation
@@ -466,7 +466,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
 
                 // Scale the speed value with accuracy and OD.
-                speedPartValue *= (0.95 + Math.Pow(attributes.OverallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - Math.Max(attributes.OverallDifficulty, 8)) / 2);
+                speedPartValue *= (0.95 + Math.Pow(overallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - Math.Max(overallDifficulty, 8)) / 2);
 
                 // Scale the speed value with # of 50s to punish doubletapping.
                 speedPartValue *= Math.Pow(0.99, countMeh < totalHits / 500.0 ? 0 : countMeh - totalHits / 500.0);
@@ -493,7 +493,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             hiddenValue *= accuracy * accuracy;
             // It is important to also consider accuracy difficulty when doing that.
-            hiddenValue *= 0.98 + Math.Pow(attributes.OverallDifficulty, 2) / 2500;
+            hiddenValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
 
             return hiddenValue;
         }
