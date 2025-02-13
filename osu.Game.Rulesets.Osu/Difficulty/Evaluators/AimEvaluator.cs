@@ -15,6 +15,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>cursor velocity to the current object,</description></item>
         /// </list>
         /// </summary>
-        public static double EvaluateDifficultyOf(DifficultyHitObject current) => Math.Pow(((OsuDifficultyHitObject)current).Distance, 0.99) / current.DeltaTime;
+        public static double EvaluateDifficultyOf(DifficultyHitObject current, bool _ = false) => Math.Pow(((OsuDifficultyHitObject)current).Distance, 0.99) / current.DeltaTime;
     }
 }

@@ -34,6 +34,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             this.lastObject = (OsuHitObject)lastObject;
 
             setDistances();
+            DeltaTime = Math.Max(50, DeltaTime);
             // Calculate angle here
         }
 
@@ -89,5 +90,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 computeVertex(time);
             computeVertex(slider.EndTime);
         }
+
+        // To avoid compile errors with osu-tools
+        public double StrainTime => DeltaTime;
+        public double LazyJumpDistance => Distance;
+        public double MinimumJumpDistance => Distance;
+        public double MinimumJumpTime => DeltaTime;
+        public double TravelTime => 0;
+        public double TravelDistance => 0;
+        public double? Angle => null;
     }
 }
