@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Difficulty.Preprocessing
         /// <summary>
         /// Amount of time elapsed between <see cref="BaseObject"/> and <see cref="LastObject"/>, adjusted by clockrate.
         /// </summary>
-        public readonly double DeltaTime;
+        public double DeltaTime { get; protected set; }
 
         /// <summary>
         /// Clockrate adjusted start time of <see cref="BaseObject"/>.
