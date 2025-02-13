@@ -32,6 +32,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             this.lastObject = (OsuHitObject)lastObject;
 
             setDistances();
+            DeltaTime = Math.Max(40, DeltaTime);
         }
 
         private void setDistances()
@@ -46,5 +47,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             Distance = (BaseObject.StackedPosition - lastObject.StackedPosition).Length * scalingFactor;
         }
+
+        // To avoid compile errors with osu-tools
+        public double StrainTime => DeltaTime;
+        public double LazyJumpDistance => Distance;
+        public double MinimumJumpDistance => Distance;
+        public double MinimumJumpTime => DeltaTime;
+        public double TravelTime => 0;
+        public double TravelDistance => 0;
+        public double? Angle => null;
     }
 }
