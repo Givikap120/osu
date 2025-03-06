@@ -174,33 +174,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModAutopilot))
-                return 0.0;
-
-            double aimDifficulty = attributes.AimDifficulty;
-
-            if (attributes.SliderCount > 0 && attributes.AimDifficultSliderCount > 0)
-            {
-                double estimateImproperlyFollowedDifficultSliders;
-
-                if (usingClassicSliderAccuracy)
-                {
-                    // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
-                    int maximumPossibleDroppedSliders = totalImperfectHits;
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, attributes.AimDifficultSliderCount);
-                }
-                else
-                {
-                    // We add tick misses here since they too mean that the player didn't follow the slider properly
-                    // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(countSliderEndsDropped + countSliderTickMiss, 0, attributes.AimDifficultSliderCount);
-                }
-
-                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / attributes.AimDifficultSliderCount, 3) + attributes.SliderFactor;
-                aimDifficulty *= sliderNerfFactor;
-            }
-
-            double aimValue = OsuStrainSkill.DifficultyToPerformance(aimDifficulty);
+            double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
 
             double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
@@ -228,16 +202,40 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.0 + 0.04 * (12.0 - approachRate);
             }
 
+            // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
+            double estimateDifficultSliders = attributes.SliderCount * 0.15;
+
+            if (attributes.SliderCount > 0)
+            {
+                double estimateImproperlyFollowedDifficultSliders;
+
+                if (usingClassicSliderAccuracy)
+                {
+                    // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
+                    int maximumPossibleDroppedSliders = totalImperfectHits;
+                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, estimateDifficultSliders);
+                }
+                else
+                {
+                    // We add tick misses here since they too mean that the player didn't follow the slider properly
+                    // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
+                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(countSliderEndsDropped + countSliderTickMiss, 0, estimateDifficultSliders);
+                }
+
+                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / estimateDifficultSliders, 3) + attributes.SliderFactor;
+                aimValue *= sliderNerfFactor;
+            }
+
             aimValue *= accuracy;
             // It is important to consider accuracy difficulty when scaling with accuracy.
-            aimValue *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
+            aimValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
 
             return aimValue;
         }
 
         private double computeSpeedValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == null)
+            if (score.Mods.Any(h => h is OsuModRelax))
                 return 0.0;
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
@@ -253,9 +251,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (approachRate > 10.33)
                 approachRateFactor = 0.3 * (approachRate - 10.33);
 
-            if (score.Mods.Any(h => h is OsuModAutopilot))
-                approachRateFactor = 0.0;
-
             speedValue *= 1.0 + approachRateFactor * lengthBonus; // Buff for longer maps with high AR.
 
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -269,18 +264,18 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 speedValue *= 1.0 + 0.04 * (12.0 - approachRate);
             }
 
-            double speedHighDeviationMultiplier = calculateSpeedHighDeviationNerf(attributes);
-            speedValue *= speedHighDeviationMultiplier;
-
             // Calculate accuracy assuming the worst case scenario
-            double relevantTotalDiff = Math.Max(0, totalHits - attributes.SpeedNoteCount);
+            double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
             double relevantCountGreat = Math.Max(0, countGreat - relevantTotalDiff);
             double relevantCountOk = Math.Max(0, countOk - Math.Max(0, relevantTotalDiff - countGreat));
             double relevantCountMeh = Math.Max(0, countMeh - Math.Max(0, relevantTotalDiff - countGreat - countOk));
             double relevantAccuracy = attributes.SpeedNoteCount == 0 ? 0 : (relevantCountGreat * 6.0 + relevantCountOk * 2.0 + relevantCountMeh) / (attributes.SpeedNoteCount * 6.0);
 
             // Scale the speed value with accuracy and OD.
-            speedValue *= (0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - overallDifficulty) / 2);
+            speedValue *= (0.95 + Math.Pow(overallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - overallDifficulty) / 2);
+
+            // Scale the speed value with # of 50s to punish doubletapping.
+            speedValue *= Math.Pow(0.99, countMeh < totalHits / 500.0 ? 0 : countMeh - totalHits / 500.0);
 
             return speedValue;
         }
@@ -297,7 +292,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 amountHitObjectsWithAccuracy += attributes.SliderCount;
 
             if (amountHitObjectsWithAccuracy > 0)
-                betterAccuracyPercentage = ((countGreat - Math.Max(totalHits - amountHitObjectsWithAccuracy, 0)) * 6 + countOk * 2 + countMeh) / (double)(amountHitObjectsWithAccuracy * 6);
+                betterAccuracyPercentage = ((countGreat - (totalHits - amountHitObjectsWithAccuracy)) * 6 + countOk * 2 + countMeh) / (double)(amountHitObjectsWithAccuracy * 6);
             else
                 betterAccuracyPercentage = 0;
 
@@ -344,7 +339,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Scale the flashlight value with accuracy _slightly_.
             flashlightValue *= 0.5 + accuracy / 2.0;
             // It is important to also consider accuracy difficulty when doing that.
-            flashlightValue *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
+            flashlightValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
 
             return flashlightValue;
         }

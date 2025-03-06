@@ -37,7 +37,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             var aim = skills.OfType<Aim>().Single(a => a.IncludeSliders);
             double aimRating = Math.Sqrt(aim.DifficultyValue()) * difficulty_multiplier;
             double aimDifficultyStrainCount = aim.CountTopWeightedStrains();
-            double difficultSliders = aim.GetDifficultSliders();
 
             var aimWithoutSliders = skills.OfType<Aim>().Single(a => !a.IncludeSliders);
             double aimRatingNoSliders = Math.Sqrt(aimWithoutSliders.DifficultyValue()) * difficulty_multiplier;
@@ -99,7 +98,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 StarRating = starRating,
                 Mods = mods,
                 AimDifficulty = aimRating,
-                AimDifficultSliderCount = difficultSliders,
                 SpeedDifficulty = speedRating,
                 SpeedNoteCount = speedNotes,
                 FlashlightDifficulty = flashlightRating,
