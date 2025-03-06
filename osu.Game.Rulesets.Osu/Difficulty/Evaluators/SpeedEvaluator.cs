@@ -30,7 +30,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// <item><description>and how easily they can be cheesed.</description></item>
         /// </list>
         /// </summary>
-        public static double EvaluateDifficultyOf(DifficultyHitObject current, IReadOnlyList<Mod> _)
+        public static double EvaluateDifficultyOf(DifficultyHitObject current, IReadOnlyList<Mod>? _ = null)
         {
             if (current.BaseObject is Spinner)
                 return 0;

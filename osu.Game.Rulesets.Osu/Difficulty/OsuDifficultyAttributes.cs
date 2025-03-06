@@ -33,24 +33,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         public double SpeedDifficultStrainCount { get; set; }
 
         /// <summary>
-        /// The perceived approach rate inclusive of rate-adjusting mods (DT/HT/etc).
-        /// </summary>
-        /// <remarks>
-        /// Rate-adjusting mods don't directly affect the approach rate difficulty value, but have a perceived effect as a result of adjusting audio timing.
-        /// </remarks>
-        [JsonProperty("approach_rate")]
-        public double ApproachRate { get; set; }
-
-        /// <summary>
-        /// The perceived overall difficulty inclusive of rate-adjusting mods (DT/HT/etc).
-        /// </summary>
-        /// <remarks>
-        /// Rate-adjusting mods don't directly affect the overall difficulty value, but have a perceived effect as a result of adjusting audio timing.
-        /// </remarks>
-        [JsonProperty("overall_difficulty")]
-        public double OverallDifficulty { get; set; }
-
-        /// <summary>
         /// The beatmap's drain rate. This doesn't scale with rate-adjusting mods.
         /// </summary>
         public double DrainRate { get; set; }
