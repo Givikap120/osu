@@ -99,5 +99,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double TravelTime => 0;
         public double TravelDistance => 0;
         public double? Angle => null;
+        public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
