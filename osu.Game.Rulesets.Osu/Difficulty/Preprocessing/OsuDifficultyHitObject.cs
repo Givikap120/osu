@@ -138,5 +138,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             return pos;
         }
+
+        // To avoid compile errors with osu-tools
+        public double LazyJumpDistance => JumpDistance;
+        public double MinimumJumpDistance => JumpDistance;
+        public double MinimumJumpTime => DeltaTime;
+        public double TravelTime => 0;
+        public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
