@@ -43,7 +43,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double aimDifficultyStrainCount = aim.CountTopWeightedStrains();
             double speedDifficultyStrainCount = speed.CountTopWeightedStrains();
-            
+
             double drainRate = beatmap.Difficulty.DrainRate;
 
             int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
@@ -55,7 +55,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 StarRating = starRating,
                 Mods = mods,
                 AimDifficulty = aimRating,
-                AimDifficultSliderCount = difficultSliders,
                 SpeedDifficulty = speedRating,
                 AimDifficultStrainCount = aimDifficultyStrainCount,
                 SpeedDifficultStrainCount = speedDifficultyStrainCount,
