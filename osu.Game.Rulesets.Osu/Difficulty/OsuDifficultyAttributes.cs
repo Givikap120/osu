@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -18,6 +19,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// </summary>
         [JsonProperty("aim_difficulty")]
         public double AimDifficulty { get; set; }
+
+        /// <summary>
+        /// The number of <see cref="Slider"/>s weighted by difficulty.
+        /// </summary>
+        [JsonProperty("aim_difficult_slider_count")]
+        public double AimDifficultSliderCount { get; set; }
 
         /// <summary>
         /// The difficulty corresponding to the speed skill.
@@ -31,24 +38,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         [JsonProperty("speed_difficult_strain_count")]
         public double SpeedDifficultStrainCount { get; set; }
-
-        /// <summary>
-        /// The perceived approach rate inclusive of rate-adjusting mods (DT/HT/etc).
-        /// </summary>
-        /// <remarks>
-        /// Rate-adjusting mods don't directly affect the approach rate difficulty value, but have a perceived effect as a result of adjusting audio timing.
-        /// </remarks>
-        [JsonProperty("approach_rate")]
-        public double ApproachRate { get; set; }
-
-        /// <summary>
-        /// The perceived overall difficulty inclusive of rate-adjusting mods (DT/HT/etc).
-        /// </summary>
-        /// <remarks>
-        /// Rate-adjusting mods don't directly affect the overall difficulty value, but have a perceived effect as a result of adjusting audio timing.
-        /// </remarks>
-        [JsonProperty("overall_difficulty")]
-        public double OverallDifficulty { get; set; }
 
         /// <summary>
         /// The beatmap's drain rate. This doesn't scale with rate-adjusting mods.
@@ -77,8 +66,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             yield return (ATTRIB_ID_AIM, AimDifficulty);
             yield return (ATTRIB_ID_SPEED, SpeedDifficulty);
-            yield return (ATTRIB_ID_OVERALL_DIFFICULTY, OverallDifficulty);
-            yield return (ATTRIB_ID_APPROACH_RATE, ApproachRate);
             yield return (ATTRIB_ID_DIFFICULTY, StarRating);
 
             yield return (ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT, AimDifficultStrainCount);
@@ -91,8 +78,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             AimDifficulty = values[ATTRIB_ID_AIM];
             SpeedDifficulty = values[ATTRIB_ID_SPEED];
-            OverallDifficulty = values[ATTRIB_ID_OVERALL_DIFFICULTY];
-            ApproachRate = values[ATTRIB_ID_APPROACH_RATE];
             StarRating = values[ATTRIB_ID_DIFFICULTY];
             AimDifficultStrainCount = values[ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT];
             SpeedDifficultStrainCount = values[ATTRIB_ID_SPEED_DIFFICULT_STRAIN_COUNT];

@@ -2,9 +2,12 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -22,6 +25,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private double skillMultiplier => 26.25;
         private double strainDecayBase => 0.15;
+
+        private readonly List<double> sliderStrains = new List<double>();
 
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
