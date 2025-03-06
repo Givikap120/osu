@@ -77,8 +77,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             yield return (ATTRIB_ID_AIM, AimDifficulty);
             yield return (ATTRIB_ID_SPEED, SpeedDifficulty);
-            yield return (ATTRIB_ID_OVERALL_DIFFICULTY, OverallDifficulty);
-            yield return (ATTRIB_ID_APPROACH_RATE, ApproachRate);
             yield return (ATTRIB_ID_DIFFICULTY, StarRating);
 
             yield return (ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT, AimDifficultStrainCount);
@@ -91,8 +89,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             AimDifficulty = values[ATTRIB_ID_AIM];
             SpeedDifficulty = values[ATTRIB_ID_SPEED];
-            OverallDifficulty = values[ATTRIB_ID_OVERALL_DIFFICULTY];
-            ApproachRate = values[ATTRIB_ID_APPROACH_RATE];
             StarRating = values[ATTRIB_ID_DIFFICULTY];
             AimDifficultStrainCount = values[ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT];
             SpeedDifficultStrainCount = values[ATTRIB_ID_SPEED_DIFFICULT_STRAIN_COUNT];
