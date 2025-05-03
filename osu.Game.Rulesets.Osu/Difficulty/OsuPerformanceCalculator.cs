@@ -239,27 +239,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return 0.0;
 
             double aimDifficulty = attributes.AimDifficulty;
-
-            if (attributes.SliderCount > 0 && attributes.AimDifficultSliderCount > 0)
-            {
-                double estimateImproperlyFollowedDifficultSliders;
-
-                if (usingClassicSliderAccuracy)
-                {
-                    // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
-                    int maximumPossibleDroppedSliders = totalImperfectHits;
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, attributes.AimDifficultSliderCount);
-                }
-                else
-                {
-                    // We add tick misses here since they too mean that the player didn't follow the slider properly
-                    // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(countSliderEndsDropped + countSliderTickMiss, 0, attributes.AimDifficultSliderCount);
-                }
-
-                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / attributes.AimDifficultSliderCount, 3) + attributes.SliderFactor;
-                aimDifficulty *= sliderNerfFactor;
-            }
+            aimDifficulty = adjustAimDifficultyFromMissedSliders(aimDifficulty, score, attributes);
 
             double aimValue = OsuStrainSkill.DifficultyToPerformance(aimDifficulty);
 
@@ -281,6 +261,31 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimValue *= accuracy;
 
             return aimValue;
+        }
+
+        private double adjustAimDifficultyFromMissedSliders(double aimDifficulty, ScoreInfo score, OsuDifficultyAttributes attributes)
+        {
+            if (attributes.SliderCount > 0 && attributes.AimDifficultSliderCount > 0)
+            {
+                double estimateImproperlyFollowedDifficultSliders;
+
+                if (usingClassicSliderAccuracy)
+                {
+                    // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
+                    int maximumPossibleDroppedSliders = totalImperfectHits;
+                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, attributes.AimDifficultSliderCount);
+                }
+                else
+                {
+                    // We add tick misses here since they too mean that the player didn't follow the slider properly
+                    // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
+                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(countSliderEndsDropped + countSliderTickMiss, 0, attributes.AimDifficultSliderCount);
+                }
+                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / attributes.AimDifficultSliderCount, 3) + attributes.SliderFactor;
+                aimDifficulty *= sliderNerfFactor;
+            }
+
+            return aimDifficulty;
         }
 
         private double computeSpeedValue(ScoreInfo score, OsuDifficultyAttributes attributes)
@@ -415,7 +420,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double highARValue = OsuStrainSkill.DifficultyToPerformance(attributes.ReadingDifficultyHighAR);
 
             // Approximate how much of high AR difficulty is aim
-            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
+            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(adjustAimDifficultyFromMissedSliders(attributes.AimDifficulty, score, attributes));
             double speedPerformance = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             double aimRatio = aimPerformance / (aimPerformance + speedPerformance);
@@ -423,16 +428,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Aim part calculation
             double aimPartValue = highARValue * aimRatio;
             {
-                // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
-                double estimateDifficultSliders = attributes.SliderCount * 0.15;
-
-                if (attributes.SliderCount > 0)
-                {
-                    double estimateSliderEndsDropped = Math.Clamp(Math.Min(countOk + countMeh + countMiss, attributes.MaxCombo - scoreMaxCombo), 0, estimateDifficultSliders);
-                    double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateSliderEndsDropped / estimateDifficultSliders, 3) + attributes.SliderFactor;
-                    aimPartValue *= sliderNerfFactor;
-                }
-
                 if (effectiveMissCount > 0)
                     aimPartValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
 
