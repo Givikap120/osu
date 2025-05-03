@@ -49,7 +49,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                     double sliderBodyLength = Math.Max(1, slider.Velocity * slider.SpanDuration / slider.Radius);
 
                     // Bandaid to fix abuze
-                    sliderBodyLength = Math.Min(sliderBodyLength, 1 + slider.LazyTravelDistance / 8);
+                    sliderBodyLength = Math.Min(sliderBodyLength, 1 + loopObj.LazyTravelDistance / 8);
 
                     // The maximum is 3x buff
                     double sliderBodyBuff = Math.Log10(sliderBodyLength);
