@@ -171,7 +171,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             StackedPosition = currObject.StackedPosition;
             Preempt = BaseObject.TimePreempt / clockRate;
             FollowLineTime = 800 / clockRate; // 800ms is follow line appear time
-            FollowLineTime *= (currObject.NewCombo ? 0 : 1); // no follow lines when NC
+            FollowLineTime *= currObject.NewCombo ? 0 : 1; // no follow lines when NC
             ClockRate = clockRate;
 
             // Capped to 25ms to prevent difficulty calculation breaking from simultaneous objects.
