@@ -272,31 +272,25 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             double highArRating = Math.Sqrt(readingHighArDifficultyValue) * DIFFICULTY_MULTIPLIER;
 
-            //// Approximate how much of high AR difficulty is aim
-            //double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
-            //double speedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
+            // Approximate how much of high AR difficulty is aim
+            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
+            double speedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
 
-            //double aimRatio = aimPerformance / (aimPerformance + speedPerformance);
+            double aimRatio = aimPerformance / (aimPerformance + speedPerformance);
+            double aimRatingMultiplier = 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
+            double speedRatingMultiplier = 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
+            double ratingMultiplier = aimRatingMultiplier * aimRatio + speedRatingMultiplier * (1 - aimRatio);
 
-            //// Aim part calculation
-            //double aimPartRating = highArRating * aimRatio;
-            //{
-            //    double aimRatingMultiplier = 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
-            //}
-
-            //// Speed part calculation
-            //double speedPartRating = highArRating * (1 - aimRatio);
-            //{
-            //    double speedRatingMultiplier = 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
-            //}
-
-            return highArRating;
+            return highArRating * Math.Cbrt(ratingMultiplier);
         }
 
         private double computeReadingHiddenRating(double readingHiddenDifficultyValue, double overallDifficulty)
         {
             double hiddenRating = Math.Sqrt(readingHiddenDifficultyValue) * DIFFICULTY_MULTIPLIER;
-            return hiddenRating;
+
+            double ratingMultiplier = 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
+
+            return hiddenRating * Math.Cbrt(ratingMultiplier);
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)

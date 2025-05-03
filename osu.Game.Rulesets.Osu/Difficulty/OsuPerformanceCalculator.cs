@@ -437,13 +437,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     aimPartValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
 
                 aimPartValue *= accuracy;
-                // It is important to consider accuracy difficulty when scaling with accuracy.
-                aimPartValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
             }
 
             // Speed part calculation
             double speedPartValue = highARValue * (1 - aimRatio);
             {
+                if (effectiveMissCount > 0)
+                    speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+
                 // Calculate accuracy assuming the worst case scenario
                 double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
                 double relevantCountGreat = Math.Max(0, countGreat - relevantTotalDiff);
@@ -451,14 +452,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantCountMeh = Math.Max(0, countMeh - Math.Max(0, relevantTotalDiff - countGreat - countOk));
                 double relevantAccuracy = attributes.SpeedNoteCount == 0 ? 0 : (relevantCountGreat * 6.0 + relevantCountOk * 2.0 + relevantCountMeh) / (attributes.SpeedNoteCount * 6.0);
 
-                if (effectiveMissCount > 0)
-                    speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
-
                 // Scale the speed value with accuracy and OD.
-                speedPartValue *= (0.95 + Math.Pow(overallDifficulty, 2) / 750) * Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - Math.Max(overallDifficulty, 8)) / 2);
-
-                // Scale the speed value with # of 50s to punish doubletapping.
-                speedPartValue *= Math.Pow(0.99, countMeh < totalHits / 500.0 ? 0 : countMeh - totalHits / 500.0);
+                speedPartValue *= Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - overallDifficulty) / 2);
             }
 
             double lengthBonus = Math.Pow(CalculateDefaultLengthBonus(totalHits), 0.5);
@@ -481,8 +476,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             hiddenValue *= accuracy * accuracy;
-            // It is important to also consider accuracy difficulty when doing that.
-            hiddenValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
 
             return hiddenValue;
         }
