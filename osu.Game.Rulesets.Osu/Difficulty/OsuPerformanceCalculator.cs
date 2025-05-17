@@ -299,8 +299,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return 0.0;
 
             // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window.
-            double betterAccuracyPercentage;
-            int amountHitObjectsWithAccuracy = attributes.HitCircleCount;
+            double amountHitObjectsWithAccuracy = attributes.HitCircleCount;
             if (!usingClassicSliderAccuracy || usingScoreV2)
                 amountHitObjectsWithAccuracy += attributes.SliderCount;
             else
