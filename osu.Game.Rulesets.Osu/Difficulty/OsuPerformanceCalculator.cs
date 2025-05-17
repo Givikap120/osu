@@ -4,18 +4,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using osu.Framework.Audio.Track;
 using osu.Framework.Extensions.IEnumerableExtensions;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
-using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Osu.Scoring;
+using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
-using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
+using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -81,9 +81,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             score.Mods.OfType<IApplicableToDifficulty>().ForEach(m => m.ApplyToDifficulty(difficulty));
 
-            var track = new TrackVirtual(10000);
-            score.Mods.OfType<IApplicableToTrack>().ForEach(m => m.ApplyToTrack(track));
-            clockRate = track.Rate;
+            clockRate = ModUtils.CalculateRateWithMods(score.Mods);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(difficulty.OverallDifficulty);
@@ -97,30 +95,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             overallDifficulty = (80 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
 
-            if (osuAttributes.SliderCount > 0)
+            double comboBasedEstimatedMissCount = calculateComboBasedEstimatedMissCount(osuAttributes);
+            double? scoreBasedEstimatedMissCount = null;
+
+            if (usingClassicSliderAccuracy && score.LegacyTotalScore != null)
             {
-                if (usingClassicSliderAccuracy)
-                {
-                    // Consider that full combo is maximum combo minus dropped slider tails since they don't contribute to combo but also don't break it
-                    // In classic scores we can't know the amount of dropped sliders so we estimate to 10% of all sliders on the map
-                    double fullComboThreshold = attributes.MaxCombo - 0.1 * osuAttributes.SliderCount;
+                var legacyScoreMissCalculator = new OsuLegacyScoreMissCalculator(score, osuAttributes);
+                scoreBasedEstimatedMissCount = legacyScoreMissCalculator.Calculate();
 
-                    if (scoreMaxCombo < fullComboThreshold)
-                        effectiveMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
-
-                    // In classic scores there can't be more misses than a sum of all non-perfect judgements
-                    effectiveMissCount = Math.Min(effectiveMissCount, totalImperfectHits);
-                }
-                else
-                {
-                    double fullComboThreshold = attributes.MaxCombo - countSliderEndsDropped;
-
-                    if (scoreMaxCombo < fullComboThreshold)
-                        effectiveMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
-
-                    // Combine regular misses with tick misses since tick misses break combo as well
-                    effectiveMissCount = Math.Min(effectiveMissCount, countSliderTickMiss + countMiss);
-                }
+                effectiveMissCount = scoreBasedEstimatedMissCount.Value;
+            }
+            else
+            {
+                // Use combo-based miss count if this isn't a legacy score
+                effectiveMissCount = comboBasedEstimatedMissCount;
             }
 
             effectiveMissCount = Math.Max(countMiss, effectiveMissCount);
@@ -212,6 +200,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Flashlight = visualFlashlightValue,
                 Reading = visualCognitionValue,
                 EffectiveMissCount = effectiveMissCount,
+                ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount,
+                ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount,
                 SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
@@ -247,7 +237,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimValue *= lengthBonus;
 
             if (effectiveMissCount > 0)
-                aimValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+            {
+                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.AimTopWeightedSliderFactor, attributes);
+                aimValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.AimDifficultStrainCount);
+            }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -299,7 +292,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             speedValue *= lengthBonus;
 
             if (effectiveMissCount > 0)
-                speedValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+            {
+                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
+                speedValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.SpeedDifficultStrainCount);
+            }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
             if (score.Mods.Any(m => m is OsuModBlinds))
@@ -417,7 +413,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeReadingHighARValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            double highARValue = OsuStrainSkill.DifficultyToPerformance(attributes.ReadingDifficultyHighAR);
+            double highARValue = OsuStrainSkill.DifficultyToPerformance(atstributes.ReadingDifficultyHighAR);
 
             // Approximate how much of high AR difficulty is aim
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(adjustAimDifficultyFromMissedSliders(attributes.AimDifficulty, score, attributes));
@@ -500,6 +496,56 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             ratio = softmin(ratio * 10, 10, 5) / 10;
             return ratio * capPerformance;
+        }
+
+        private double calculateComboBasedEstimatedMissCount(OsuDifficultyAttributes attributes)
+        {
+            if (attributes.SliderCount <= 0)
+                return countMiss;
+
+            double missCount = countMiss;
+
+            if (usingClassicSliderAccuracy)
+            {
+                // Consider that full combo is maximum combo minus dropped slider tails since they don't contribute to combo but also don't break it
+                // In classic scores we can't know the amount of dropped sliders so we estimate to 10% of all sliders on the map
+                double fullComboThreshold = attributes.MaxCombo - 0.1 * attributes.SliderCount;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // In classic scores there can't be more misses than a sum of all non-perfect judgements
+                missCount = Math.Min(missCount, totalImperfectHits);
+            }
+            else
+            {
+                double fullComboThreshold = attributes.MaxCombo - countSliderEndsDropped;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // Combine regular misses with tick misses since tick misses break combo as well
+                missCount = Math.Min(missCount, countSliderTickMiss + countMiss);
+            }
+
+            return missCount;
+        }
+
+        private double calculateEstimatedSliderbreaks(double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
+        {
+            if (!usingClassicSliderAccuracy || countOk == 0)
+                return 0;
+
+            double missedComboPercent = 1.0 - (double)scoreMaxCombo / attributes.MaxCombo;
+            double estimatedSliderbreaks = Math.Min(countOk, effectiveMissCount * topWeightedSliderFactor);
+
+            // scores with more oks are more likely to have sliderbreaks
+            double okAdjustment = ((countOk - estimatedSliderbreaks) + 0.5) / countOk;
+
+            // There is a low probability of extra slider breaks on effective miss counts close to 1, as score based calculations are good at indicating if only a single break occurred.
+            estimatedSliderbreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
+
+            return estimatedSliderbreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
         }
 
         /// <summary>

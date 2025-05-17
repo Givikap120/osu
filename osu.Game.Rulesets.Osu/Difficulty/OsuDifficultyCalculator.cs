@@ -11,6 +11,7 @@ using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.Scoring;
@@ -59,7 +60,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             var hidden = skills.OfType<ReadingHidden>().FirstOrDefault();
 
             // Map data
-
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
 
@@ -108,17 +108,25 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 flashlightRating *= 0.4;
             }
 
-            // Factors
-            double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
+            // Top weighted strains
             double aimDifficultyStrainCount = aim.CountTopWeightedStrains();
-            double difficultSliders = aim.GetDifficultSliders();
-            double speedNotes = speed.RelevantNoteCount();
             double speedDifficultyStrainCount = speed.CountTopWeightedStrains();
             double lowArDifficultyStrainCount = skills.OfType<ReadingLowAR>().First().CountTopWeightedStrains();
             double hiddenDifficultyStrainCount = hidden == null ? 0 : hidden.CountTopWeightedStrains();
 
-            // Star Rating
+            // Top weighted slider factors
+            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
+            double aimTopWeightedSliderFactor = aimNoSlidersTopWeightedSliderCount / Math.Max(1, aimNoSlidersDifficultStrainCount - aimNoSlidersTopWeightedSliderCount);
 
+            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
+            double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
+
+            // Other
+            double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
+            double difficultSliders = aim.GetDifficultSliders();
+            double speedNotes = speed.RelevantNoteCount();
+
+            // Star Rating
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
             double speedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
 
@@ -148,6 +156,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ? Math.Cbrt(multiplier) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
+            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateSliderNestedScorePerObject(beatmap, totalHits);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
+
+            var simulator = new OsuLegacyScoreSimulator();
+            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
+
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
             {
                 StarRating = starRating,
@@ -165,11 +179,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SpeedDifficultStrainCount = speedDifficultyStrainCount,
                 LowArDifficultStrainCount = lowArDifficultyStrainCount,
                 HiddenDifficultStrainCount = hiddenDifficultyStrainCount,
+                AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
+                SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 DrainRate = drainRate,
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount
+                SpinnerCount = spinnerCount,
+                SliderNestedScorePerObject = sliderNestedScorePerObject,
+                LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
+                MaximumLegacyComboScore = scoreAttributes.ComboScore
             };
 
             return attributes;
