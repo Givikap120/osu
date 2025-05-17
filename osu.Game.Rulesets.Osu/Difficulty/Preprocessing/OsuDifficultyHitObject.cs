@@ -204,7 +204,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            JumpDistance = (lastObject.StackedPosition - BaseObject.StackedPosition).Length * scalingFactor;
+            JumpDistance = (LastObject.StackedPosition - BaseObject.StackedPosition).Length * scalingFactor;
 
             Vector2 lastCursorPosition = lastDifficultyObject != null ? getEndCursorPosition(lastDifficultyObject) : LastObject.StackedPosition;
 
