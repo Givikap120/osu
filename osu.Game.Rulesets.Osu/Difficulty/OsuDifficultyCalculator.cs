@@ -109,10 +109,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             // Top weighted strains
-            double aimDifficultyStrainCount = aim.CountTopWeightedStrains();
-            double speedDifficultyStrainCount = speed.CountTopWeightedStrains();
-            double lowArDifficultyStrainCount = skills.OfType<ReadingLowAR>().First().CountTopWeightedStrains();
-            double hiddenDifficultyStrainCount = hidden == null ? 0 : hidden.CountTopWeightedStrains();
+            double aimDifficultStrainCount = aim.CountTopWeightedStrains();
+            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains();
+            double speedDifficultStrainCount = speed.CountTopWeightedStrains();
+            double lowArDifficultStrainCount = skills.OfType<ReadingLowAR>().First().CountTopWeightedStrains();
+            double hiddenDifficultStrainCount = 0;
 
             // Top weighted slider factors
             double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
@@ -121,10 +122,22 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
             double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
 
+            double lowArTopWeightedSliderCount = readingLowAr.CountTopWeightedSliders();
+            double lowArTopWeightedSliderFactor = lowArTopWeightedSliderCount / Math.Max(1, lowArDifficultStrainCount - lowArTopWeightedSliderCount);
+
+            double hiddenTopWeightedSliderFactor = 0;
+
             // Other
             double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
             double difficultSliders = aim.GetDifficultSliders();
             double speedNotes = speed.RelevantNoteCount();
+
+            if (hidden != null)
+            {
+                hiddenDifficultStrainCount = hidden == null ? 0 : hidden.CountTopWeightedStrains();
+                double hiddenTopWeightedSliderCount = hidden.CountTopWeightedSliders();
+                hiddenTopWeightedSliderFactor = hiddenTopWeightedSliderCount / Math.Max(1, hiddenDifficultStrainCount - hiddenTopWeightedSliderCount);
+            }
 
             // Star Rating
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
@@ -175,17 +188,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 HiddenDifficulty = hiddenRating,
                 FlashlightDifficulty = flashlightRating,
                 SliderFactor = sliderFactor,
-                AimDifficultStrainCount = aimDifficultyStrainCount,
-                SpeedDifficultStrainCount = speedDifficultyStrainCount,
-                LowArDifficultStrainCount = lowArDifficultyStrainCount,
-                HiddenDifficultStrainCount = hiddenDifficultyStrainCount,
+                AimDifficultStrainCount = aimDifficultStrainCount,
+                SpeedDifficultStrainCount = speedDifficultStrainCount,
+                LowArDifficultStrainCount = lowArDifficultStrainCount,
+                HiddenDifficultStrainCount = hiddenDifficultStrainCount,
                 AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
                 SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 DrainRate = drainRate,
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
-                SpinnerCount = spinnerCount
                 SpinnerCount = spinnerCount,
                 SliderNestedScorePerObject = sliderNestedScorePerObject,
                 LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,

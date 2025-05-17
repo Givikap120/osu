@@ -11,6 +11,8 @@ using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -29,6 +31,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private double currentDensityAimStrain = 0;
 
+        private readonly List<double> sliderStrains = new List<double>();
+
         public override void Process(DifficultyHitObject current)
         {
             double densityReadingDifficulty = ReadingEvaluator.EvaluateDifficultyOf(current);
@@ -44,6 +48,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             ObjectStrains.Add(totalDensityDifficulty);
 
+            if (current.BaseObject is Slider)
+                sliderStrains.Add(totalDensityDifficulty);
+
+            // Strain display support, visual-only
             if (current.Index == 0)
                 CurrentSectionEnd = Math.Ceiling(current.StartTime / SectionLength) * SectionLength;
 
@@ -86,6 +94,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             return difficulty;
         }
+
+        public double CountTopWeightedSliders() => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, DifficultyValue());
+
         public static double DifficultyToPerformance(double difficulty) => Math.Max(
             Math.Max(Math.Pow(difficulty, 1.5) * 20, Math.Pow(difficulty, 2) * 17.0),
             Math.Max(Math.Pow(difficulty, 3) * 10.5, Math.Pow(difficulty, 4) * 6.00));

@@ -144,6 +144,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             performanceAttributes.Total *= multiplier;
 
+            performanceAttributes.ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount;
+            performanceAttributes.ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount;
+
             return visualAdjust(performanceAttributes);
         }
 
@@ -200,8 +203,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Flashlight = visualFlashlightValue,
                 Reading = visualCognitionValue,
                 EffectiveMissCount = effectiveMissCount,
-                ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount,
-                ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount,
                 SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
@@ -403,7 +404,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
             if (effectiveMissCount > 0)
-                readingValue *= calculateMissPenalty(effectiveMissCount, attributes.LowArDifficultStrainCount);
+            {
+                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.LowArTopWeightedSliderFactor, attributes);
+                readingValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.LowArDifficultStrainCount);
+            }
 
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             readingValue *= accuracy * accuracy;
@@ -413,7 +417,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeReadingHighARValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            double highARValue = OsuStrainSkill.DifficultyToPerformance(atstributes.ReadingDifficultyHighAR);
+            double highARValue = OsuStrainSkill.DifficultyToPerformance(attributes.ReadingDifficultyHighAR);
 
             // Approximate how much of high AR difficulty is aim
             double aimPerformance = OsuStrainSkill.DifficultyToPerformance(adjustAimDifficultyFromMissedSliders(attributes.AimDifficulty, score, attributes));
@@ -425,7 +429,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double aimPartValue = highARValue * aimRatio;
             {
                 if (effectiveMissCount > 0)
-                    aimPartValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+                {
+                    double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.AimTopWeightedSliderFactor, attributes);
+                    aimPartValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.AimDifficultStrainCount);
+                }
 
                 aimPartValue *= accuracy;
             }
@@ -434,7 +441,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedPartValue = highARValue * (1 - aimRatio);
             {
                 if (effectiveMissCount > 0)
-                    speedPartValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+                {
+                    double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
+                    speedPartValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.SpeedDifficultStrainCount);
+                }
 
                 // Calculate accuracy assuming the worst case scenario
                 double relevantTotalDiff = totalHits - attributes.SpeedNoteCount;
@@ -463,7 +473,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             hiddenValue *= lengthBonus;
 
             if (effectiveMissCount > 0)
-                hiddenValue *= calculateMissPenalty(effectiveMissCount, attributes.HiddenDifficultStrainCount);
+            {
+                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.HiddenTopWeightedSliderFactor, attributes);
+                hiddenValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.HiddenDifficultStrainCount);
+            }
 
             // Scale the reading value with accuracy _harshly_. Additional note: it would have it's own curve in Statistical Accuracy rework.
             hiddenValue *= accuracy * accuracy;

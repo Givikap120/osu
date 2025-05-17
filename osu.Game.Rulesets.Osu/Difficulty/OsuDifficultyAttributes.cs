@@ -87,6 +87,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         [JsonProperty("speed_top_weighted_slider_factor")]
         public double SpeedTopWeightedSliderFactor { get; set; }
 
+        [JsonProperty("low_ar_top_weighted_slider_factor")]
+        public double LowArTopWeightedSliderFactor { get; set; }
+
+        [JsonProperty("hidden_top_weighted_slider_factor")]
+        public double HiddenTopWeightedSliderFactor { get; set; }
+
         [JsonProperty("aim_difficult_strain_count")]
         public double AimDifficultStrainCount { get; set; }
 
@@ -98,7 +104,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         [JsonProperty("hidden_difficult_strain_count")]
         public double HiddenDifficultStrainCount { get; set; }
-        
+
         [JsonProperty("slider_nested_score_per_object")]
         public double SliderNestedScorePerObject { get; set; }
 
