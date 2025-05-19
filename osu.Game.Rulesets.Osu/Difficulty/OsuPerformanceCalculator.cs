@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using osu.Framework.Audio.Track;
 using osu.Framework.Extensions.IEnumerableExtensions;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
@@ -14,6 +13,7 @@ using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
+using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -34,6 +34,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private int countOk;
         private int countMeh;
         private int countMiss;
+
+        private double effectiveMissCount;
 
         private double overallDifficulty;
         private double approachRate;
@@ -57,20 +59,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             countOk = score.Statistics.GetValueOrDefault(HitResult.Ok);
             countMeh = score.Statistics.GetValueOrDefault(HitResult.Meh);
             countMiss = score.Statistics.GetValueOrDefault(HitResult.Miss);
+            effectiveMissCount = countMiss;
 
             var difficulty = score.BeatmapInfo!.Difficulty.Clone();
 
             score.Mods.OfType<IApplicableToDifficulty>().ForEach(m => m.ApplyToDifficulty(difficulty));
 
-            var track = new TrackVirtual(10000);
-            score.Mods.OfType<IApplicableToTrack>().ForEach(m => m.ApplyToTrack(track));
-            double clockRate = track.Rate;
+            double clockRate = ModUtils.CalculateRateWithMods(score.Mods);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(difficulty.OverallDifficulty);
 
-            double greatHitWindow = hitWindows.WindowFor(HitResult.Great) / clockRate;
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
+            double greatHitWindow = (int)hitWindows.WindowFor(HitResult.Great) / clockRate;
+            double preempt = (int)IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
 
             overallDifficulty = (80 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
@@ -80,6 +81,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 {
                     EffectiveMissCount = countMiss
                 };
+
+            if (enableCSR && (usingClassicSliderAccuracy || !enableLazerAcc) && this.attributes.SliderCount > 0)
+            {
+                double fullComboThreshold = attributes.MaxCombo - 0.1 * this.attributes.SliderCount;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    effectiveMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                effectiveMissCount = Math.Min(effectiveMissCount, countOk + countMeh + countMiss);
+                effectiveMissCount = Math.Max(effectiveMissCount, countMiss);
+            }
 
             // Custom multipliers for NoFail and SpunOut.
             double multiplier = 1.12; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things
@@ -105,7 +117,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Aim = aimValue,
                 Speed = speedValue,
                 Accuracy = accuracyValue,
-                EffectiveMissCount = countMiss,
+                EffectiveMissCount = effectiveMissCount,
                 Total = totalValue
             };
         }
@@ -126,12 +138,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimValue *= lengthBonus;
 
             // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
-            if (countMiss > 0)
+            if (effectiveMissCount > 0)
             {
                 if (enableCSR)
-                    aimValue *= calculateCSRMissPenalty(countMiss, attributes.AimDifficultStrainCount);
+                    aimValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
                 else
-                    aimValue *= 0.97 * Math.Pow(1 - Math.Pow((double)countMiss / totalHits, 0.775), countMiss);
+                    aimValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), effectiveMissCount);
             }
 
             // Combo scaling
@@ -182,12 +194,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             speedValue *= lengthBonus;
 
             // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
-            if (countMiss > 0)
+            if (effectiveMissCount > 0)
             {
                 if (enableCSR)
-                    speedValue *= calculateCSRMissPenalty(countMiss, attributes.SpeedDifficultStrainCount);
+                    speedValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
                 else
-                    speedValue *= 0.97 * Math.Pow(1 - Math.Pow((double)countMiss / totalHits, 0.775), Math.Pow(countMiss, .875));
+                    speedValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), Math.Pow(effectiveMissCount, .875));
             }
 
             // Combo scaling
