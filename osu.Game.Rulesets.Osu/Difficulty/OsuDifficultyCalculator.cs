@@ -15,8 +15,6 @@ using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
-using osu.Game.Rulesets.Osu.Scoring;
-using osu.Game.Rulesets.Scoring;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -36,10 +34,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (beatmap.HitObjects.Count == 0)
                 return new OsuDifficultyAttributes { Mods = mods };
 
-            double aimRating = Math.Sqrt(skills[0].DifficultyValue()) * difficulty_multiplier;
-            double aimRatingNoSliders = Math.Sqrt(skills[1].DifficultyValue()) * difficulty_multiplier;
-            double speedRating = Math.Sqrt(skills[2].DifficultyValue()) * difficulty_multiplier;
-            double speedNotes = ((Speed)skills[2]).RelevantNoteCount();
+            var aim = skills.OfType<Aim>().First();
+            var aimNoSliders = skills.OfType<Aim>().Last();
+            var speed = skills.OfType<Speed>().Single();
+
+            double aimRating = Math.Sqrt(aim.DifficultyValue()) * difficulty_multiplier;
+            double aimRatingNoSliders = Math.Sqrt(aimNoSliders.DifficultyValue()) * difficulty_multiplier;
+            double speedRating = Math.Sqrt(speed.DifficultyValue()) * difficulty_multiplier;
+            double speedNotes = speed.RelevantNoteCount();
+
+            double aimDifficultStrainCount = aim.CountTopWeightedStrains();
+            double speedDifficultStrainCount = speed.CountTopWeightedStrains();
 
             double flashlightRating = 0.0;
 
@@ -100,6 +105,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 HitCircleCount = hitCirclesCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
+                AimDifficultStrainCount = aimDifficultStrainCount,
+                SpeedDifficultStrainCount = speedDifficultStrainCount
             };
 
             return attributes;

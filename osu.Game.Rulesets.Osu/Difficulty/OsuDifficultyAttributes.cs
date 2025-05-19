@@ -25,6 +25,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         [JsonProperty("speed_difficulty")]
         public double SpeedDifficulty { get; set; }
 
+        [JsonProperty("aim_difficult_strain_count")]
+        public double AimDifficultStrainCount { get; set; }
+
+        [JsonProperty("speed_difficult_strain_count")]
+        public double SpeedDifficultStrainCount { get; set; }
+
         /// <summary>
         /// The number of clickable objects weighted by difficulty.
         /// Related to <see cref="SpeedDifficulty"/>

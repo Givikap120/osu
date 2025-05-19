@@ -19,6 +19,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
+        private bool enableLazerAcc => false;
+        private bool enableCSR => false;
+
         public const double PERFORMANCE_BASE_MULTIPLIER = 1.14; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
 
         private double accuracy;
@@ -33,6 +36,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double overallDifficulty;
         private double approachRate;
 
+        private bool usingClassicSliderAccuracy;
+
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
         {
@@ -41,6 +46,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         protected override PerformanceAttributes CreatePerformanceAttributes(ScoreInfo score, DifficultyAttributes attributes)
         {
             var osuAttributes = (OsuDifficultyAttributes)attributes;
+
+            usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
 
             accuracy = score.Accuracy;
             scoreMaxCombo = score.MaxCombo;
@@ -118,9 +125,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
             if (effectiveMissCount > 0)
-                aimValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), effectiveMissCount);
+            {
+                if (enableCSR)
+                    aimValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+                else
+                    aimValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), effectiveMissCount);
+            }
 
-            aimValue *= getComboScalingFactor(attributes);
+            if (!enableCSR) aimValue *= getComboScalingFactor(attributes);
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
@@ -169,11 +181,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                                  (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
             speedValue *= lengthBonus;
 
-            // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
+            // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.=
             if (effectiveMissCount > 0)
-                speedValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), Math.Pow(effectiveMissCount, .875));
+            {
+                if (enableCSR)
+                    speedValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+                else
+                    speedValue *= 0.97 * Math.Pow(1 - Math.Pow(effectiveMissCount / totalHits, 0.775), Math.Pow(effectiveMissCount, .875));
+            }
 
-            speedValue *= getComboScalingFactor(attributes);
+            if (!enableCSR) speedValue *= getComboScalingFactor(attributes);
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
@@ -216,6 +233,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window.
             double betterAccuracyPercentage;
             int amountHitObjectsWithAccuracy = attributes.HitCircleCount;
+            if (enableLazerAcc && !usingClassicSliderAccuracy)
+                amountHitObjectsWithAccuracy += attributes.SliderCount;
 
             if (amountHitObjectsWithAccuracy > 0)
                 betterAccuracyPercentage = ((countGreat - (totalHits - amountHitObjectsWithAccuracy)) * 6 + countOk * 2 + countMeh) / (double)(amountHitObjectsWithAccuracy * 6);
@@ -288,6 +307,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return Math.Max(countMiss, comboBasedMissCount);
         }
 
+        private double calculateCSRMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
         private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
         private int totalHits => countGreat + countOk + countMeh + countMiss;
     }
