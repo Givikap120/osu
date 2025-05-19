@@ -24,7 +24,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         private const double difficulty_multiplier = 0.0675;
 
-        public override int Version => 20220902;
+        public override int Version => 20250306;
 
         public OsuDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
             : base(ruleset, beatmap)
@@ -79,18 +79,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
             double drainRate = beatmap.Difficulty.DrainRate;
             int maxCombo = beatmap.GetMaxCombo();
 
             int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
-
-            HitWindows hitWindows = new OsuHitWindows();
-            hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
-
-            double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
 
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
             {
@@ -101,8 +95,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SpeedNoteCount = speedNotes,
                 FlashlightDifficulty = flashlightRating,
                 SliderFactor = sliderFactor,
-                ApproachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5,
-                OverallDifficulty = (80 - hitWindowGreat) / 6,
                 DrainRate = drainRate,
                 MaxCombo = maxCombo,
                 HitCircleCount = hitCirclesCount,

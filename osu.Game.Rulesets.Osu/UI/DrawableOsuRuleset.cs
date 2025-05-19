@@ -44,7 +44,9 @@ namespace osu.Game.Rulesets.Osu.UI
         {
             if (replayPlayer != null)
             {
-                PlayfieldAdjustmentContainer.Add(new ReplayAnalysisOverlay(replayPlayer.Score.Replay));
+                ReplayAnalysisOverlay analysisOverlay;
+                PlayfieldAdjustmentContainer.Add(analysisOverlay = new ReplayAnalysisOverlay(replayPlayer.Score.Replay));
+                Overlays.Add(analysisOverlay.CreateProxy().With(p => p.Depth = float.NegativeInfinity));
                 replayPlayer.AddSettings(new ReplayAnalysisSettings(Config));
 
                 cursorHideEnabled = Config.GetBindable<bool>(OsuRulesetSetting.ReplayCursorHideEnabled);
@@ -67,7 +69,7 @@ namespace osu.Game.Rulesets.Osu.UI
 
         protected override ResumeOverlay CreateResumeOverlay()
         {
-            if (Mods.Any(m => m is OsuModAutopilot))
+            if (Mods.Any(m => m is OsuModAutopilot or OsuModTouchDevice))
                 return new DelayedResumeOverlay { Scale = new Vector2(0.65f) };
 
             return new OsuResumeOverlay();

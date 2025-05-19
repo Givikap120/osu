@@ -5,17 +5,26 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using NUnit.Framework;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Cursor;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Testing;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
+using osu.Game.Graphics.UserInterface;
 using osu.Game.Online;
+using osu.Game.Online.API;
+using osu.Game.Online.API.Requests;
+using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Difficulty;
+using osu.Game.Rulesets.Mania;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Scoring;
@@ -23,6 +32,7 @@ using osu.Game.Screens.Ranking.Statistics;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.UI;
+using osu.Game.Screens.Ranking.Statistics.User;
 using osu.Game.Tests.Resources;
 using osu.Game.Users;
 using osuTK;
@@ -31,6 +41,8 @@ namespace osu.Game.Tests.Visual.Ranking
 {
     public partial class TestSceneStatisticsPanel : OsuTestScene
     {
+        private DummyAPIAccess dummyAPI => (DummyAPIAccess)API;
+
         [Test]
         public void TestScoreWithPositionStatistics()
         {
@@ -80,16 +92,19 @@ namespace osu.Game.Tests.Visual.Ranking
             loadPanel(null);
         }
 
-        private void loadPanel(ScoreInfo score) => AddStep("load panel", () =>
+        [Test]
+        public void TestStatisticsShownCorrectlyIfUpdateDeliveredBeforeLoad()
         {
-            Child = new UserStatisticsPanel(score)
+            UserStatisticsWatcher userStatisticsWatcher = null!;
+            ScoreInfo score = null!;
+
+            AddStep("create user statistics watcher", () => Add(userStatisticsWatcher = new UserStatisticsWatcher(new LocalUserStatisticsProvider())));
+            AddStep("set user statistics update", () =>
             {
-                RelativeSizeAxes = Axes.Both,
-                State = { Value = Visibility.Visible },
-                Score = { Value = score },
-                DisplayedUserStatisticsUpdate =
-                {
-                    Value = new UserStatisticsUpdate(score, new UserStatistics
+                score = TestResources.CreateTestScoreInfo();
+                score.OnlineID = 1234;
+                ((Bindable<ScoreBasedUserStatisticsUpdate>)userStatisticsWatcher.LatestUpdate).Value = new ScoreBasedUserStatisticsUpdate(score,
+                    new UserStatistics
                     {
                         Level = new UserStatistics.LevelInfo
                         {
@@ -123,8 +138,142 @@ namespace osu.Game.Tests.Visual.Ranking
                         TotalScore = 132218497,
                         TotalHits = 0,
                         MaxCombo = 1233,
-                    })
+                    });
+            });
+            AddStep("load user statistics panel", () => Child = new DependencyProvidingContainer
+            {
+                CachedDependencies = [(typeof(UserStatisticsWatcher), userStatisticsWatcher)],
+                RelativeSizeAxes = Axes.Both,
+                Child = new StatisticsPanel
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    State = { Value = Visibility.Visible },
+                    Score = { Value = score, },
+                    AchievedScore = score,
                 }
+            });
+            AddUntilStep("overall ranking present", () => this.ChildrenOfType<OverallRanking>().Any());
+            AddUntilStep("loading spinner not visible",
+                () => this.ChildrenOfType<OverallRanking>().Single()
+                          .ChildrenOfType<LoadingLayer>().All(l => l.State.Value == Visibility.Hidden));
+        }
+
+        [Test]
+        public void TestTagging()
+        {
+            var score = TestResources.CreateTestScoreInfo();
+
+            AddStep("set up network requests", () =>
+            {
+                dummyAPI.HandleRequest = request =>
+                {
+                    switch (request)
+                    {
+                        case ListTagsRequest listTagsRequest:
+                        {
+                            Scheduler.AddDelayed(() => listTagsRequest.TriggerSuccess(new APITagCollection
+                            {
+                                Tags =
+                                [
+                                    new APITag { Id = 1, Name = "tech", Description = "Tests uncommon skills.", },
+                                    new APITag { Id = 2, Name = "alt", Description = "Colloquial term for maps which use rhythms that encourage the player to alternate notes. Typically distinct from burst or stream maps.", },
+                                    new APITag { Id = 3, Name = "aim", Description = "Category for difficulty relating to cursor movement.", },
+                                    new APITag { Id = 4, Name = "tap", Description = "Category for difficulty relating to tapping input.", },
+                                ]
+                            }), 500);
+                            return true;
+                        }
+
+                        case GetBeatmapSetRequest getBeatmapSetRequest:
+                        {
+                            var beatmapSet = CreateAPIBeatmapSet(score.BeatmapInfo);
+                            beatmapSet.Beatmaps.Single().TopTags =
+                            [
+                                new APIBeatmapTag { TagId = 3, VoteCount = 9 },
+                            ];
+                            Scheduler.AddDelayed(() => getBeatmapSetRequest.TriggerSuccess(beatmapSet), 500);
+                            return true;
+                        }
+
+                        case AddBeatmapTagRequest:
+                        case RemoveBeatmapTagRequest:
+                        {
+                            Scheduler.AddDelayed(request.TriggerSuccess, 500);
+                            return true;
+                        }
+                    }
+
+                    return false;
+                };
+            });
+            AddStep("load panel", () =>
+            {
+                Child = new PopoverContainer
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Child = new StatisticsPanel
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        State = { Value = Visibility.Visible },
+                        Score = { Value = score },
+                        AchievedScore = score,
+                    }
+                };
+            });
+        }
+
+        [Test]
+        public void TestTaggingWhenRankTooLow()
+        {
+            var score = TestResources.CreateTestScoreInfo();
+            score.Rank = ScoreRank.D;
+
+            AddStep("load panel", () =>
+            {
+                Child = new PopoverContainer
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Child = new StatisticsPanel
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        State = { Value = Visibility.Visible },
+                        Score = { Value = score },
+                        AchievedScore = score,
+                    }
+                };
+            });
+        }
+
+        [Test]
+        public void TestTaggingConvert()
+        {
+            var score = TestResources.CreateTestScoreInfo();
+            score.Ruleset = new ManiaRuleset().RulesetInfo;
+
+            AddStep("load panel", () =>
+            {
+                Child = new PopoverContainer
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Child = new StatisticsPanel
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        State = { Value = Visibility.Visible },
+                        Score = { Value = score },
+                        AchievedScore = score,
+                    }
+                };
+            });
+        }
+
+        private void loadPanel(ScoreInfo score) => AddStep("load panel", () =>
+        {
+            Child = new StatisticsPanel
+            {
+                RelativeSizeAxes = Axes.Both,
+                State = { Value = Visibility.Visible },
+                Score = { Value = score },
+                AchievedScore = score,
             };
         });
 

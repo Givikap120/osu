@@ -7,17 +7,23 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Shapes;
 using osu.Framework.Input.Events;
 using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Graphics;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Graphics.UserInterfaceV2;
+using osu.Game.Overlays;
 using osuTK;
 
 namespace osu.Game.Screens.Edit.Timing
 {
     public partial class ControlPointList : CompositeDrawable
     {
+        public Action? SelectClosestTimingPoint { get; init; }
+
+        private ControlPointTable table = null!;
+        private Container controls = null!;
         private OsuButton deleteButton = null!;
         private RoundedButton addButton = null!;
 
@@ -30,68 +36,88 @@ namespace osu.Game.Screens.Edit.Timing
         [Resolved]
         private Bindable<ControlPointGroup?> selectedGroup { get; set; } = null!;
 
+        [Resolved]
+        private IEditorChangeHandler? editorChangeHandler { get; set; }
+
         [BackgroundDependencyLoader]
-        private void load(OsuColour colours)
+        private void load(OsuColour colours, OverlayColourProvider colourProvider)
         {
             RelativeSizeAxes = Axes.Both;
 
             const float margins = 10;
             InternalChildren = new Drawable[]
             {
-                new ControlPointTable
+                table = new ControlPointTable
                 {
                     RelativeSizeAxes = Axes.Both,
                     Groups = { BindTarget = Beatmap.ControlPointInfo.Groups, },
                 },
-                new FillFlowContainer
+                controls = new Container
                 {
-                    AutoSizeAxes = Axes.Both,
-                    Anchor = Anchor.BottomLeft,
-                    Origin = Anchor.BottomLeft,
-                    Direction = FillDirection.Horizontal,
-                    Margin = new MarginPadding(margins),
-                    Spacing = new Vector2(5),
+                    AutoSizeAxes = Axes.Y,
+                    RelativeSizeAxes = Axes.X,
+                    Anchor = Anchor.BottomCentre,
+                    Origin = Anchor.BottomCentre,
                     Children = new Drawable[]
                     {
-                        new RoundedButton
+                        new Box
                         {
-                            Text = "Select closest to current time",
-                            Action = goToCurrentGroup,
-                            Size = new Vector2(220, 30),
-                            Anchor = Anchor.BottomRight,
-                            Origin = Anchor.BottomRight,
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = colourProvider.Background2,
                         },
-                    }
-                },
-                new FillFlowContainer
-                {
-                    AutoSizeAxes = Axes.Both,
-                    Anchor = Anchor.BottomRight,
-                    Origin = Anchor.BottomRight,
-                    Direction = FillDirection.Horizontal,
-                    Margin = new MarginPadding(margins),
-                    Spacing = new Vector2(5),
-                    Children = new Drawable[]
-                    {
-                        deleteButton = new RoundedButton
+                        new FillFlowContainer
                         {
-                            Text = "-",
-                            Size = new Vector2(30, 30),
-                            Action = delete,
-                            Anchor = Anchor.BottomRight,
-                            Origin = Anchor.BottomRight,
-                            BackgroundColour = colours.Red3,
+                            AutoSizeAxes = Axes.Both,
+                            Direction = FillDirection.Horizontal,
+                            Anchor = Anchor.CentreLeft,
+                            Origin = Anchor.CentreLeft,
+                            Padding = new MarginPadding { Left = margins, Vertical = margins, },
+                            Children = new Drawable[]
+                            {
+                                new RoundedButton
+                                {
+                                    Text = "Select closest to current time",
+                                    Action = SelectClosestTimingPoint,
+                                    Size = new Vector2(220, 30),
+                                    Anchor = Anchor.CentreLeft,
+                                    Origin = Anchor.CentreLeft,
+                                },
+                            }
                         },
-                        addButton = new RoundedButton
+                        new FillFlowContainer
                         {
-                            Action = addNew,
-                            Size = new Vector2(160, 30),
-                            Anchor = Anchor.BottomRight,
-                            Origin = Anchor.BottomRight,
+                            AutoSizeAxes = Axes.Both,
+                            Direction = FillDirection.Horizontal,
+                            Anchor = Anchor.CentreRight,
+                            Origin = Anchor.CentreRight,
+                            Spacing = new Vector2(5),
+                            Padding = new MarginPadding { Right = margins, Vertical = margins, },
+                            Children = new Drawable[]
+                            {
+                                deleteButton = new RoundedButton
+                                {
+                                    Text = "-",
+                                    Size = new Vector2(30, 30),
+                                    Action = delete,
+                                    Anchor = Anchor.CentreRight,
+                                    Origin = Anchor.CentreRight,
+                                    BackgroundColour = colours.Red3,
+                                },
+                                addButton = new RoundedButton
+                                {
+                                    Action = addNew,
+                                    Size = new Vector2(160, 30),
+                                    Anchor = Anchor.CentreRight,
+                                    Origin = Anchor.CentreRight,
+                                },
+                            }
                         },
                     }
                 },
             };
+
+            if (editorChangeHandler != null)
+                editorChangeHandler.OnStateChange += onUndoRedo;
         }
 
         protected override void LoadComplete()
@@ -119,17 +145,7 @@ namespace osu.Game.Screens.Edit.Timing
             base.Update();
 
             addButton.Enabled.Value = clock.CurrentTimeAccurate != selectedGroup.Value?.Time;
-        }
-
-        private void goToCurrentGroup()
-        {
-            double accurateTime = clock.CurrentTimeAccurate;
-
-            var activeTimingPoint = Beatmap.ControlPointInfo.TimingPointAt(accurateTime);
-            var activeEffectPoint = Beatmap.ControlPointInfo.EffectPointAt(accurateTime);
-
-            double latestActiveTime = Math.Max(activeTimingPoint.Time, activeEffectPoint.Time);
-            selectedGroup.Value = Beatmap.ControlPointInfo.GroupAt(latestActiveTime);
+            table.Padding = new MarginPadding { Bottom = controls.DrawHeight };
         }
 
         private void delete()
@@ -165,6 +181,22 @@ namespace osu.Game.Screens.Edit.Timing
             }
 
             selectedGroup.Value = group;
+        }
+
+        private void onUndoRedo()
+        {
+            // Best effort. We have no tracking of control points through undo/redo changes.
+            // If we don't deselect, things like offset changes could spawn groups to be added from previous states (see https://github.com/ppy/osu/issues/31098).
+            if (selectedGroup.Value != null && !Beatmap.ControlPointInfo.Groups.Contains(selectedGroup.Value))
+                selectedGroup.Value = null;
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            base.Dispose(isDisposing);
+
+            if (editorChangeHandler != null)
+                editorChangeHandler.OnStateChange -= onUndoRedo;
         }
     }
 }

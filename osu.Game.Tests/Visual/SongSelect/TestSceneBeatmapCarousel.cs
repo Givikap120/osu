@@ -16,6 +16,7 @@ using osu.Framework.Testing;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
 using osu.Game.Configuration;
+using osu.Game.Database;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Catch;
 using osu.Game.Rulesets.Osu;
@@ -23,6 +24,7 @@ using osu.Game.Rulesets.Taiko;
 using osu.Game.Screens.Select;
 using osu.Game.Screens.Select.Carousel;
 using osu.Game.Screens.Select.Filter;
+using osu.Game.Tests.Beatmaps;
 using osu.Game.Tests.Resources;
 using osuTK.Input;
 
@@ -41,6 +43,9 @@ namespace osu.Game.Tests.Visual.SongSelect
 
         private const int set_count = 5;
         private const int diff_count = 3;
+
+        [Cached(typeof(BeatmapStore))]
+        private TestBeatmapStore beatmaps = new TestBeatmapStore();
 
         [BackgroundDependencyLoader]
         private void load(RulesetStore rulesets)
@@ -520,7 +525,6 @@ namespace osu.Game.Tests.Visual.SongSelect
             waitForSelection(set_count);
         }
 
-        [Solo]
         [Test]
         public void TestDifficultiesSplitOutOnLoad()
         {
@@ -1133,6 +1137,32 @@ namespace osu.Game.Tests.Visual.SongSelect
         }
 
         [Test]
+        public void TestCarouselRetainsSelectionFromDifficultySort()
+        {
+            List<BeatmapSetInfo> manySets = new List<BeatmapSetInfo>();
+
+            AddStep("Populate beatmap sets", () =>
+            {
+                manySets.Clear();
+
+                for (int i = 1; i <= 50; i++)
+                    manySets.Add(TestResources.CreateTestBeatmapSetInfo(diff_count));
+            });
+
+            loadBeatmaps(manySets);
+
+            BeatmapInfo chosenBeatmap = null!;
+            AddStep("select given beatmap", () => carousel.SelectBeatmap(chosenBeatmap = manySets[20].Beatmaps[0]));
+            AddUntilStep("selection changed", () => carousel.SelectedBeatmapInfo, () => Is.EqualTo(chosenBeatmap));
+
+            AddStep("sort by difficulty", () => carousel.FilterImmediately(new FilterCriteria { Sort = SortMode.Difficulty }));
+            AddAssert("selection retained", () => carousel.SelectedBeatmapInfo, () => Is.EqualTo(chosenBeatmap));
+
+            AddStep("sort by title", () => carousel.FilterImmediately(new FilterCriteria { Sort = SortMode.Title }));
+            AddAssert("selection retained", () => carousel.SelectedBeatmapInfo, () => Is.EqualTo(chosenBeatmap));
+        }
+
+        [Test]
         public void TestFilteringByUserStarDifficulty()
         {
             BeatmapSetInfo set = null;
@@ -1304,7 +1334,8 @@ namespace osu.Game.Tests.Visual.SongSelect
 
                 carouselAdjust?.Invoke(carousel);
 
-                carousel.BeatmapSets = beatmapSets;
+                beatmaps.BeatmapSets.Clear();
+                beatmaps.BeatmapSets.AddRange(beatmapSets);
 
                 (target ?? this).Child = carousel;
             });

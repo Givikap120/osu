@@ -98,7 +98,7 @@ namespace osu.Game.Overlays.BeatmapSet
                         {
                             Vertical = BeatmapSetOverlay.Y_PADDING,
                             Left = WaveOverlayContainer.HORIZONTAL_PADDING,
-                            Right = WaveOverlayContainer.HORIZONTAL_PADDING + BeatmapSetOverlay.RIGHT_WIDTH,
+                            Right = WaveOverlayContainer.HORIZONTAL_PADDING + BeatmapSetOverlay.RIGHT_WIDTH + 10,
                         },
                         Children = new Drawable[]
                         {
@@ -242,7 +242,7 @@ namespace osu.Game.Overlays.BeatmapSet
                     title.Clear();
                     artist.Clear();
 
-                    title.AddLink(titleText, LinkAction.SearchBeatmapSet, $@"title=""""{titleText}""""");
+                    title.AddLink(titleText, LinkAction.SearchBeatmapSet, LocalisableString.Interpolate($@"title=""""{titleText}"""""));
 
                     title.AddArbitraryDrawable(Empty().With(d => d.Width = 5));
                     title.AddArbitraryDrawable(externalLink = new ExternalLinkButton());
@@ -259,7 +259,7 @@ namespace osu.Game.Overlays.BeatmapSet
                         title.AddArbitraryDrawable(new SpotlightBeatmapBadge());
                     }
 
-                    artist.AddLink(artistText, LinkAction.SearchBeatmapSet, $@"artist=""""{artistText}""""");
+                    artist.AddLink(artistText, LinkAction.SearchBeatmapSet, LocalisableString.Interpolate($@"artist=""""{artistText}"""""));
 
                     if (setInfo.NewValue.TrackId != null)
                     {

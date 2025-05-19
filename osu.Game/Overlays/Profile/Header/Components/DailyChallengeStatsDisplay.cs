@@ -9,12 +9,14 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Cursor;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Graphics.Sprites;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Localisation;
+using osu.Game.Online.API;
 using osu.Game.Online.API.Requests.Responses;
-using osu.Game.Scoring;
+using osuTK;
 
 namespace osu.Game.Overlays.Profile.Header.Components
 {
@@ -25,6 +27,11 @@ namespace osu.Game.Overlays.Profile.Header.Components
         public DailyChallengeTooltipData? TooltipContent { get; private set; }
 
         private OsuSpriteText dailyPlayCount = null!;
+        private Container content = null!;
+        private CircularContainer completionMark = null!;
+
+        [Resolved]
+        private IAPIProvider api { get; set; } = null!;
 
         [Resolved]
         private OsuColour colours { get; set; } = null!;
@@ -36,56 +43,89 @@ namespace osu.Game.Overlays.Profile.Header.Components
         private void load()
         {
             AutoSizeAxes = Axes.Both;
-            CornerRadius = 5;
-            Masking = true;
 
             InternalChildren = new Drawable[]
             {
-                new Box
+                content = new Container
                 {
-                    RelativeSizeAxes = Axes.Both,
-                    Colour = colourProvider.Background4,
-                },
-                new FillFlowContainer
-                {
-                    Anchor = Anchor.Centre,
-                    Origin = Anchor.Centre,
-                    Padding = new MarginPadding(5f),
                     AutoSizeAxes = Axes.Both,
-                    Direction = FillDirection.Horizontal,
+                    CornerRadius = 6,
+                    BorderThickness = 2,
+                    BorderColour = colourProvider.Background4,
+                    Masking = true,
                     Children = new Drawable[]
                     {
-                        new OsuTextFlowContainer(s => s.Font = OsuFont.GetFont(size: 12))
+                        new Box
                         {
-                            AutoSizeAxes = Axes.Both,
-                            // can't use this because osu-web does weird stuff with \\n.
-                            // Text = UsersStrings.ShowDailyChallengeTitle.,
-                            Text = "Daily\nChallenge",
-                            Margin = new MarginPadding { Horizontal = 5f, Bottom = 2f },
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = colourProvider.Background4,
                         },
-                        new Container
+                        new FillFlowContainer
                         {
-                            AutoSizeAxes = Axes.X,
-                            RelativeSizeAxes = Axes.Y,
-                            CornerRadius = 5f,
-                            Masking = true,
+                            Anchor = Anchor.Centre,
+                            Origin = Anchor.Centre,
+                            Padding = new MarginPadding(3f),
+                            AutoSizeAxes = Axes.Both,
+                            Direction = FillDirection.Horizontal,
                             Children = new Drawable[]
                             {
-                                new Box
+                                new OsuTextFlowContainer(s => s.Font = OsuFont.GetFont(size: 12))
                                 {
-                                    RelativeSizeAxes = Axes.Both,
-                                    Colour = colourProvider.Background6,
+                                    AutoSizeAxes = Axes.Both,
+                                    // can't use this because osu-web does weird stuff with \\n.
+                                    // Text = UsersStrings.ShowDailyChallengeTitle.,
+                                    Text = "Daily\nChallenge",
+                                    Margin = new MarginPadding { Horizontal = 5f, Bottom = 2f },
                                 },
-                                dailyPlayCount = new OsuSpriteText
+                                new Container
                                 {
-                                    Anchor = Anchor.Centre,
-                                    Origin = Anchor.Centre,
-                                    UseFullGlyphHeight = false,
-                                    Colour = colourProvider.Content2,
-                                    Margin = new MarginPadding { Horizontal = 10f, Vertical = 5f },
+                                    AutoSizeAxes = Axes.X,
+                                    RelativeSizeAxes = Axes.Y,
+                                    CornerRadius = 3,
+                                    Masking = true,
+                                    Children = new Drawable[]
+                                    {
+                                        new Box
+                                        {
+                                            RelativeSizeAxes = Axes.Both,
+                                            Colour = colourProvider.Background6,
+                                        },
+                                        dailyPlayCount = new OsuSpriteText
+                                        {
+                                            Anchor = Anchor.Centre,
+                                            Origin = Anchor.Centre,
+                                            UseFullGlyphHeight = false,
+                                            Colour = colourProvider.Content2,
+                                            Margin = new MarginPadding { Horizontal = 10f, Vertical = 5f },
+                                        },
+                                    }
                                 },
                             }
                         },
+                    }
+                },
+                completionMark = new CircularContainer
+                {
+                    Alpha = 0,
+                    Size = new Vector2(16),
+                    Anchor = Anchor.TopRight,
+                    Origin = Anchor.Centre,
+                    Masking = true,
+                    Children = new Drawable[]
+                    {
+                        new Box
+                        {
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = colours.Lime1,
+                        },
+                        new SpriteIcon
+                        {
+                            Size = new Vector2(8),
+                            Colour = colourProvider.Background6,
+                            Anchor = Anchor.Centre,
+                            Origin = Anchor.Centre,
+                            Icon = FontAwesome.Solid.Check,
+                        }
                     }
                 },
             };
@@ -99,7 +139,7 @@ namespace osu.Game.Overlays.Profile.Header.Components
 
         private void updateDisplay()
         {
-            if (User.Value == null || User.Value.Ruleset.OnlineID != 0)
+            if (User.Value == null)
             {
                 Hide();
                 return;
@@ -107,18 +147,42 @@ namespace osu.Game.Overlays.Profile.Header.Components
 
             APIUserDailyChallengeStatistics stats = User.Value.User.DailyChallengeStatistics;
 
+            if (stats.PlayCount == 0)
+            {
+                Hide();
+                return;
+            }
+
             dailyPlayCount.Text = DailyChallengeStatsDisplayStrings.UnitDay(stats.PlayCount.ToLocalisableString("N0"));
-            dailyPlayCount.Colour = colours.ForRankingTier(TierForPlayCount(stats.PlayCount));
+            dailyPlayCount.Colour = colours.ForRankingTier(DailyChallengeStatsTooltip.TierForPlayCount(stats.PlayCount));
+
+            bool playedToday = stats.LastUpdate?.Date == DateTimeOffset.UtcNow.Date;
+            bool userIsOnOwnProfile = stats.UserID == api.LocalUser.Value.Id;
+
+            if (playedToday && userIsOnOwnProfile)
+            {
+                if (completionMark.Alpha > 0.8f)
+                {
+                    completionMark.ScaleTo(1.2f).ScaleTo(1, 800, Easing.OutElastic);
+                }
+                else
+                {
+                    completionMark.FadeIn(500, Easing.OutExpo);
+                    completionMark.ScaleTo(1.6f).ScaleTo(1, 500, Easing.OutExpo);
+                }
+
+                content.BorderColour = colours.Lime1;
+            }
+            else
+            {
+                completionMark.FadeOut(50);
+                content.BorderColour = colourProvider.Background4;
+            }
 
             TooltipContent = new DailyChallengeTooltipData(colourProvider, stats);
 
             Show();
         }
-
-        // Rounding up is needed here to ensure the overlay shows the same colour as osu-web for the play count.
-        // This is because, for example, 31 / 3 > 10 in JavaScript because floats are used, while here it would
-        // get truncated to 10 with an integer division and show a lower tier.
-        public static RankingTier TierForPlayCount(int playCount) => DailyChallengeStatsTooltip.TierForDaily((int)Math.Ceiling(playCount / 3.0d));
 
         public ITooltip<DailyChallengeTooltipData> GetCustomTooltip() => new DailyChallengeStatsTooltip();
     }

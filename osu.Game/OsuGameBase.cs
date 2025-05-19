@@ -41,6 +41,7 @@ using osu.Game.Database;
 using osu.Game.Extensions;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Cursor;
+using osu.Game.Graphics.UserInterface;
 using osu.Game.Input;
 using osu.Game.Input.Bindings;
 using osu.Game.IO;
@@ -73,8 +74,6 @@ namespace osu.Game
     [Cached(typeof(OsuGameBase))]
     public partial class OsuGameBase : Framework.Game, ICanAcceptFiles, IBeatSyncProvider
     {
-        public static readonly string[] VIDEO_EXTENSIONS = { ".mp4", ".mov", ".avi", ".flv", ".mpg", ".wmv", ".m4v" };
-
 #if DEBUG
         public const string GAME_NAME = "osu! (development)";
 #else
@@ -108,6 +107,8 @@ namespace osu.Game
 
         public virtual EndpointConfiguration CreateEndpoints() =>
             UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ProductionEndpointConfiguration();
+
+        protected override OnlineStore CreateOnlineStore() => new TrustedDomainOnlineStore();
 
         public virtual Version AssemblyVersion => Assembly.GetEntryAssembly()?.GetName().Version ?? new Version();
 
@@ -198,7 +199,7 @@ namespace osu.Game
         public readonly Bindable<Dictionary<ModType, IReadOnlyList<Mod>>> AvailableMods = new Bindable<Dictionary<ModType, IReadOnlyList<Mod>>>(new Dictionary<ModType, IReadOnlyList<Mod>>());
 
         private BeatmapDifficultyCache difficultyCache;
-        private BeatmapUpdater beatmapUpdater;
+        private IBeatmapUpdater beatmapUpdater;
 
         private UserLookupCache userCache;
         private BeatmapLookupCache beatmapCache;
@@ -279,7 +280,7 @@ namespace osu.Game
             dependencies.CacheAs(Storage);
 
             var largeStore = new LargeTextureStore(Host.Renderer, Host.CreateTextureLoaderStore(new NamespacedResourceStore<byte[]>(Resources, @"Textures")));
-            largeStore.AddTextureSource(Host.CreateTextureLoaderStore(new OnlineStore()));
+            largeStore.AddTextureSource(Host.CreateTextureLoaderStore(CreateOnlineStore()));
             dependencies.Cache(largeStore);
 
             dependencies.CacheAs(LocalConfig);
@@ -296,7 +297,7 @@ namespace osu.Game
 
             EndpointConfiguration endpoints = CreateEndpoints();
 
-            MessageFormatter.WebsiteRootUrl = endpoints.WebsiteRootUrl;
+            MessageFormatter.WebsiteRootUrl = endpoints.WebsiteUrl;
 
             frameworkLocale = frameworkConfig.GetBindable<string>(FrameworkSetting.Locale);
             frameworkLocale.BindValueChanged(_ => updateLanguage());
@@ -316,6 +317,7 @@ namespace osu.Game
             dependencies.Cache(ScoreManager = new ScoreManager(RulesetStore, () => BeatmapManager, Storage, realm, API, LocalConfig));
 
             dependencies.Cache(BeatmapManager = new BeatmapManager(Storage, realm, API, Audio, Resources, Host, defaultBeatmap, difficultyCache, performOnlineLookups: true));
+            dependencies.CacheAs<IWorkingBeatmapCache>(BeatmapManager);
 
             dependencies.Cache(BeatmapDownloader = new BeatmapModelDownloader(BeatmapManager, API));
             dependencies.Cache(ScoreDownloader = new ScoreModelDownloader(ScoreManager, API));
@@ -324,7 +326,7 @@ namespace osu.Game
             base.Content.Add(difficultyCache);
 
             // TODO: OsuGame or OsuGameBase?
-            dependencies.CacheAs(beatmapUpdater = new BeatmapUpdater(BeatmapManager, difficultyCache, API, Storage));
+            dependencies.CacheAs(beatmapUpdater = CreateBeatmapUpdater());
             dependencies.CacheAs(SpectatorClient = new OnlineSpectatorClient(endpoints));
             dependencies.CacheAs(MultiplayerClient = new OnlineMultiplayerClient(endpoints));
             dependencies.CacheAs(metadataClient = new OnlineMetadataClient(endpoints));
@@ -385,6 +387,10 @@ namespace osu.Game
 
             GlobalActionContainer globalBindings;
 
+            OsuMenuSamples menuSamples;
+            dependencies.Cache(menuSamples = new OsuMenuSamples());
+            base.Content.Add(menuSamples);
+
             base.Content.Add(SafeAreaContainer = new SafeAreaContainer
             {
                 SafeAreaOverrideEdges = SafeAreaOverrideEdges,
@@ -409,6 +415,7 @@ namespace osu.Game
 
             KeyBindingStore = new RealmKeyBindingStore(realm, keyCombinationProvider);
             KeyBindingStore.Register(globalBindings, RulesetStore.AvailableRulesets);
+            dependencies.Cache(KeyBindingStore);
 
             dependencies.Cache(globalBindings);
 
@@ -540,7 +547,10 @@ namespace osu.Game
                         realmBlocker = realm.BlockAllOperations("migration");
                         success = true;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Attempting to block all operations failed: {ex}", LoggingTarget.Database);
+                    }
 
                     readyToRun.Set();
                 }, false);
@@ -558,6 +568,8 @@ namespace osu.Game
                 realmBlocker?.Dispose();
             }
         }
+
+        protected virtual IBeatmapUpdater CreateBeatmapUpdater() => new BeatmapUpdater(BeatmapManager, difficultyCache, API, Storage);
 
         protected override UserInputManager CreateUserInputManager() => new OsuUserInputManager();
 
