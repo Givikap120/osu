@@ -41,7 +41,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double aimRating = Math.Sqrt(aim.DifficultyValue()) * difficulty_multiplier;
             double aimRatingNoSliders = Math.Sqrt(aimNoSliders.DifficultyValue()) * difficulty_multiplier;
             double speedRating = Math.Sqrt(speed.DifficultyValue()) * difficulty_multiplier;
-            double speedNotes = speed.RelevantNoteCount();
 
             double aimDifficultStrainCount = aim.CountTopWeightedStrains();
             double speedDifficultStrainCount = speed.CountTopWeightedStrains();
@@ -60,11 +59,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
 
             if (mods.Any(h => h is OsuModRelax))
-            {
-                aimRating *= 0.9;
                 speedRating = 0.0;
-                flashlightRating *= 0.7;
-            }
 
             double baseAimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
             double baseSpeedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
@@ -81,7 +76,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 );
 
             double starRating = basePerformance > 0.00001
-                ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
+                ? Math.Cbrt(1.12) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
             double drainRate = beatmap.Difficulty.DrainRate;
@@ -97,7 +92,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Mods = mods,
                 AimDifficulty = aimRating,
                 SpeedDifficulty = speedRating,
-                SpeedNoteCount = speedNotes,
                 FlashlightDifficulty = flashlightRating,
                 SliderFactor = sliderFactor,
                 DrainRate = drainRate,

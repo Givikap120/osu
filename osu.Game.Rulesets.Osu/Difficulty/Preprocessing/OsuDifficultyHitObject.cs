@@ -18,11 +18,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// <summary>
         /// A distance by which all distances should be scaled in order to assume a uniform circle size.
         /// </summary>
-        public const int NORMALISED_RADIUS = 50; // Change radius to 50 to make 100 the diameter. Easier for mental maths.
+        private const int normalised_radius = 50; // Change radius to 50 to make 100 the diameter. Easier for mental maths.
 
         private const int min_delta_time = 25;
-        private const float maximum_slider_radius = NORMALISED_RADIUS * 2.4f;
-        private const float assumed_slider_radius = NORMALISED_RADIUS * 1.8f;
+        private const float maximum_slider_radius = normalised_radius * 2.4f;
+        private const float assumed_slider_radius = normalised_radius * 1.8f;
 
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
 
@@ -142,7 +142,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             {
                 computeSliderCursorPosition(currentSlider);
                 // Bonus for repeat sliders until a better per nested object strain system can be achieved.
-                TravelDistance = currentSlider.LazyTravelDistance * (float)Math.Pow(1 + currentSlider.RepeatCount / 2.5, 1.0 / 2.5);
+                TravelDistance = currentSlider.LazyTravelDistance;
                 TravelTime = Math.Max(currentSlider.LazyTravelTime / clockRate, min_delta_time);
             }
 
@@ -151,7 +151,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 return;
 
             // We will scale distances by this factor, so we can assume a uniform CircleSize among beatmaps.
-            float scalingFactor = NORMALISED_RADIUS / (float)BaseObject.Radius;
+            float scalingFactor = normalised_radius / (float)BaseObject.Radius;
 
             if (BaseObject.Radius < 30)
             {
@@ -271,7 +271,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             Vector2 currCursorPosition = slider.StackedPosition;
 
-            double scalingFactor = NORMALISED_RADIUS / slider.Radius; // lazySliderDistance is coded to be sensitive to scaling, this makes the maths easier with the thresholds being used.
+            double scalingFactor = normalised_radius / slider.Radius; // lazySliderDistance is coded to be sensitive to scaling, this makes the maths easier with the thresholds being used.
 
             for (int i = 1; i < nestedObjects.Count; i++)
             {
@@ -299,7 +299,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 else if (currMovementObj is SliderRepeat)
                 {
                     // For a slider repeat, assume a tighter movement threshold to better assess repeat sliders.
-                    requiredMovement = NORMALISED_RADIUS;
+                    requiredMovement = normalised_radius;
                 }
 
                 if (currMovementLength > requiredMovement)
@@ -313,6 +313,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 if (i == nestedObjects.Count - 1)
                     slider.LazyEndPosition = currCursorPosition;
             }
+
+            slider.LazyTravelDistance *= (float)Math.Pow(1 + slider.RepeatCount / 2.5, 1.0 / 2.5); // Bonus for repeat sliders until a better per nested object strain system can be achieved.
         }
 
         private Vector2 getEndCursorPosition(OsuHitObject hitObject)
