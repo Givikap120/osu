@@ -68,10 +68,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             slider.LazyEndPosition = slider.StackedPosition;
 
             float approxFollowCircleRadius = (float)(slider.Radius * 3);
-            var computeVertex = new Action<double>(t =>
+
+            foreach (var nestedHitObject in slider.NestedHitObjects)
             {
-                // ReSharper disable once PossibleInvalidOperationException (bugged in current r# version)
-                var diff = slider.StackedPositionAt(t) - slider.LazyEndPosition.Value;
+                double progress = (nestedHitObject.StartTime - slider.StartTime) / slider.Duration;
+                var diff = slider.StackedPositionAt(progress) - slider.LazyEndPosition.Value;
                 float dist = diff.Length;
 
                 if (dist > approxFollowCircleRadius)
@@ -79,16 +80,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                     // The cursor would be outside the follow circle, we need to move it
                     diff.Normalize(); // Obtain direction of diff
                     dist -= approxFollowCircleRadius;
-                    slider.LazyEndPosition = slider.LazyEndPosition + diff * dist;
+                    slider.LazyEndPosition += diff * dist;
                     slider.LazyTravelDistance += dist;
                 }
-            });
-
-            // Skip the head circle
-            var scoringTimes = slider.NestedHitObjects.Skip(1).Select(t => t.StartTime);
-            foreach (double time in scoringTimes)
-                computeVertex(time);
-            computeVertex(slider.EndTime);
+            }
         }
 
         // To avoid compile errors with osu-tools
