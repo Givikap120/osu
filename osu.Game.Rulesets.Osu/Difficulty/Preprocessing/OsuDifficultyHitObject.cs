@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
+using osuTK;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 {
@@ -45,7 +46,42 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            Distance = (BaseObject.StackedPosition - lastObject.StackedPosition).Length * scalingFactor;
+            Vector2 lastCursorPosition = lastObject.StackedPosition;
+            float lastTravelDistance = 0;
+
+            if (lastObject is Slider lastSlider)
+            {
+                computeSliderCursorPosition(lastSlider);
+                lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
+                lastTravelDistance = lastSlider.LazyTravelDistance;
+            }
+
+            Distance = (lastTravelDistance + (BaseObject.StackedPosition - lastCursorPosition).Length) * scalingFactor;
+        }
+
+        private void computeSliderCursorPosition(Slider slider)
+        {
+            if (slider.LazyEndPosition != null)
+                return;
+            slider.LazyEndPosition = slider.StackedPosition;
+
+            float approxFollowCircleRadius = (float)(slider.Radius * 3);
+
+            foreach (var nestedHitObject in slider.NestedHitObjects)
+            {
+                double progress = (nestedHitObject.StartTime - slider.StartTime) / slider.Duration;
+                var diff = slider.StackedPositionAt(progress) - slider.LazyEndPosition.Value;
+                float dist = diff.Length;
+
+                if (dist > approxFollowCircleRadius)
+                {
+                    // The cursor would be outside the follow circle, we need to move it
+                    diff.Normalize(); // Obtain direction of diff
+                    dist -= approxFollowCircleRadius;
+                    slider.LazyEndPosition += diff * dist;
+                    slider.LazyTravelDistance += dist;
+                }
+            }
         }
 
         // To avoid compile errors with osu-tools
