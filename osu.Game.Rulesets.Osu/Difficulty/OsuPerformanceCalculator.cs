@@ -133,8 +133,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= Math.Min(Math.Pow(scoreMaxCombo, 0.8f) / Math.Pow(attributes.MaxCombo, 0.8f), 1.0f);
 
             double approachRateFactor = 1.0f;
-            if (approachRate > 10.33f)
-                approachRateFactor += 0.45f * (approachRate - 10.33f);
+            if (approachRate > 10f)
+                approachRateFactor += 0.2f * (approachRate - 10f);
             else if (approachRate < 8.0f)
             {
                 // HD is worth more with lower ar!
@@ -156,7 +156,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double csrAdjust = enableCSR ? comboScale : 1.0;
 
                 // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
-                aimValue *= 1.0f + 0.45f * lengthBonus * csrAdjust;
+                aimValue *= 1.0f + 0.36f * csrAdjust;
             }
 
             // Scale the aim value with accuracy _slightly_
