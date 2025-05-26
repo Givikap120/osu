@@ -15,6 +15,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private const int normalized_radius = 52;
 
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
+        protected new OsuHitObject LastObject => (OsuHitObject)base.LastObject;
 
         /// <summary>
         /// Normalized distance from the <see cref="OsuHitObject.StackedPosition"/> of the previous <see cref="OsuDifficultyHitObject"/>.
