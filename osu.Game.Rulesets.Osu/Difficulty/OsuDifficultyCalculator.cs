@@ -134,7 +134,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (hidden != null)
             {
-                hiddenDifficultStrainCount = hidden == null ? 0 : hidden.CountTopWeightedStrains();
+                hiddenDifficultStrainCount = hidden.CountTopWeightedStrains();
                 double hiddenTopWeightedSliderCount = hidden.CountTopWeightedSliders();
                 hiddenTopWeightedSliderFactor = hiddenTopWeightedSliderCount / Math.Max(1, hiddenDifficultStrainCount - hiddenTopWeightedSliderCount);
             }
@@ -260,9 +260,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeFlashlightRating(double flashlightDifficultyValue, Mod[] mods, int totalHits, double overallDifficulty)
         {
-            if (!mods.Any(m => m is OsuModFlashlight))
-                return 0;
-
             double flashlightRating = Math.Sqrt(flashlightDifficultyValue) * DIFFICULTY_MULTIPLIER;
 
             if (mods.Any(m => m is OsuModTouchDevice))
