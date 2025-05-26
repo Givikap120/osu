@@ -206,8 +206,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Flashlight = visualFlashlightValue,
                 Reading = visualCognitionValue,
                 EffectiveMissCount = effectiveMissCount,
-                ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount,
-                ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount,
                 AimEstimatedSliderBreaks = aimEstimatedSliderBreaks,
                 SpeedEstimatedSliderBreaks = speedEstimatedSliderBreaks,
                 SpeedDeviation = speedDeviation,
@@ -410,7 +408,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Penalize misses by assessing # of misses relative to the total # of objects. Default a 3% reduction for any # of misses.
             if (effectiveMissCount > 0)
             {
-                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.LowArTopWeightedSliderFactor, attributes);
+                double estimatedSliderbreaks = calculateEstimatedSliderBreaks(attributes.LowArTopWeightedSliderFactor, attributes);
                 readingValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.LowArDifficultStrainCount);
             }
 
@@ -435,7 +433,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 if (effectiveMissCount > 0)
                 {
-                    double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.AimTopWeightedSliderFactor, attributes);
+                    double estimatedSliderbreaks = calculateEstimatedSliderBreaks(attributes.AimTopWeightedSliderFactor, attributes);
                     aimPartValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.AimDifficultStrainCount);
                 }
 
@@ -447,7 +445,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 if (effectiveMissCount > 0)
                 {
-                    double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
+                    double estimatedSliderbreaks = calculateEstimatedSliderBreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
                     speedPartValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.SpeedDifficultStrainCount);
                 }
 
@@ -479,7 +477,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (effectiveMissCount > 0)
             {
-                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.HiddenTopWeightedSliderFactor, attributes);
+                double estimatedSliderbreaks = calculateEstimatedSliderBreaks(attributes.HiddenTopWeightedSliderFactor, attributes);
                 hiddenValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.HiddenDifficultStrainCount);
             }
 

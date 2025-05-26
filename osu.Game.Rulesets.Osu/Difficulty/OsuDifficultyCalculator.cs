@@ -346,6 +346,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return hiddenRating * Math.Cbrt(ratingMultiplier);
         }
 
+        private static double calculateStarRating(double basePerformance, double multiplier)
+        {
+            if (basePerformance <= 0.00001)
+                return 0;
+
+            return Math.Cbrt(multiplier) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
+        }
+
+        private static double calculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * DIFFICULTY_MULTIPLIER;
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
         {
             List<DifficultyHitObject> objects = new List<DifficultyHitObject>();
