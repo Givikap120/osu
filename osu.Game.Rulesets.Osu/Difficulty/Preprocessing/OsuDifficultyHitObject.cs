@@ -21,17 +21,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double Distance { get; private set; }
 
-
-        private readonly OsuHitObject lastObject;
-
         /// <summary>
         /// Initializes the object calculating extra data required for difficulty calculation.
         /// </summary>
-        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, HitObject? lastLastObject, double clockRate, List<DifficultyHitObject> objects, int index)
+        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, double clockRate, List<DifficultyHitObject> objects, int index)
             : base(hitObject, lastObject, clockRate, objects, index)
         {
-            this.lastObject = (OsuHitObject)lastObject;
-
             setDistances();
             DeltaTime = Math.Max(40, DeltaTime);
         }
@@ -46,10 +41,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            Vector2 lastCursorPosition = lastObject.StackedPosition;
+            Vector2 lastCursorPosition = LastObject.StackedPosition;
             float lastTravelDistance = 0;
 
-            if (lastObject is Slider lastSlider)
+            if (LastObject is Slider lastSlider)
             {
                 computeSliderCursorPosition(lastSlider);
                 lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
