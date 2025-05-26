@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         /// Evaluates the difficulty of aiming the current object, based on:
         /// <list type="bullet">
         /// <item><description>cursor velocity to the current object,</description></item>
-        /// </list>
+        /// </list>z
         /// </summary>
         public static double EvaluateDifficultyOf(DifficultyHitObject current, bool _ = false) => Math.Pow(((OsuDifficultyHitObject)current).Distance, 0.99) / current.DeltaTime;
     }

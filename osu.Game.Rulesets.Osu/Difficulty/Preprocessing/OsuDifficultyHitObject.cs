@@ -15,6 +15,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private const int normalized_radius = 52;
 
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
+        protected new OsuHitObject LastObject => (OsuHitObject)base.LastObject;
 
         /// <summary>
         /// Normalized distance from the <see cref="OsuHitObject.StackedPosition"/> of the previous <see cref="OsuDifficultyHitObject"/>.
@@ -49,7 +50,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Vector2 lastCursorPosition = lastObject.StackedPosition;
             float lastTravelDistance = 0;
 
-            if (lastObject is Slider lastSlider)
+            if (LastObject is Slider lastSlider && lastDifficultyObject != null)
             {
                 computeSliderCursorPosition(lastSlider);
                 lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
@@ -59,9 +60,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Distance = (lastTravelDistance + (BaseObject.StackedPosition - lastCursorPosition).Length) * scalingFactor;
         }
 
-        private void computeSliderCursorPosition(Slider slider)
+        private void computeSliderCursorPosition()
         {
-            if (slider.LazyEndPosition != null)
+            if (BaseObject is not Slider slider)
+                return;
+
+            if (LazyEndPosition != null)
                 return;
             slider.LazyEndPosition = slider.StackedPosition;
 

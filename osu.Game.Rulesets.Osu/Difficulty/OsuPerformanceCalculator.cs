@@ -5,11 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Extensions.IEnumerableExtensions;
+using osu.Framework.Utils;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Mods;
-using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
 using osu.Game.Utils;
@@ -23,6 +23,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private bool enableCSR => false;
 
         private bool usingClassicSliderAccuracy;
+        private bool usingScoreV2;
 
         private OsuDifficultyAttributes attributes = null!;
         private Mod[] mods = null!;
@@ -50,6 +51,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             this.attributes = (OsuDifficultyAttributes)attributes;
 
             usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
+            usingScoreV2 = score.Mods.Any(m => m is ModScoreV2);
 
             mods = score.Mods;
             accuracy = score.Accuracy;
