@@ -55,6 +55,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double? speedDeviation;
 
+        private double aimEstimatedSliderBreaks;
+        private double speedEstimatedSliderBreaks;
+
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
         {
@@ -203,6 +206,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Flashlight = visualFlashlightValue,
                 Reading = visualCognitionValue,
                 EffectiveMissCount = effectiveMissCount,
+                ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount,
+                ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount,
+                AimEstimatedSliderBreaks = aimEstimatedSliderBreaks,
+                SpeedEstimatedSliderBreaks = speedEstimatedSliderBreaks,
                 SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
@@ -239,8 +246,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (effectiveMissCount > 0)
             {
-                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.AimTopWeightedSliderFactor, attributes);
-                aimValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.AimDifficultStrainCount);
+                aimEstimatedSliderBreaks = calculateEstimatedSliderBreaks(attributes.AimTopWeightedSliderFactor, attributes);
+                aimValue *= calculateMissPenalty(effectiveMissCount + aimEstimatedSliderBreaks, attributes.AimDifficultStrainCount);
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
@@ -248,8 +255,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                aimValue *= 1.0 + 0.04 * (12.0 - approachRate);
+                aimValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
             }
 
             aimValue *= accuracy;
@@ -294,8 +300,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (effectiveMissCount > 0)
             {
-                double estimatedSliderbreaks = calculateEstimatedSliderbreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
-                speedValue *= calculateMissPenalty(effectiveMissCount + estimatedSliderbreaks, attributes.SpeedDifficultStrainCount);
+                speedEstimatedSliderBreaks = calculateEstimatedSliderBreaks(attributes.SpeedTopWeightedSliderFactor, attributes);
+                speedValue *= calculateMissPenalty(effectiveMissCount + speedEstimatedSliderBreaks, attributes.SpeedDifficultStrainCount);
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
@@ -306,8 +312,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                speedValue *= 1.0 + 0.04 * (12.0 - approachRate);
+                speedValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
             }
 
             double speedHighDeviationMultiplier = calculateSpeedHighDeviationNerf(attributes);
@@ -544,21 +549,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return missCount;
         }
 
-        private double calculateEstimatedSliderbreaks(double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
+        private double calculateEstimatedSliderBreaks(double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
         {
             if (!usingClassicSliderAccuracy || countOk == 0)
                 return 0;
 
             double missedComboPercent = 1.0 - (double)scoreMaxCombo / attributes.MaxCombo;
-            double estimatedSliderbreaks = Math.Min(countOk, effectiveMissCount * topWeightedSliderFactor);
+            double estimatedSliderBreaks = Math.Min(countOk, effectiveMissCount * topWeightedSliderFactor);
 
-            // scores with more oks are more likely to have sliderbreaks
-            double okAdjustment = ((countOk - estimatedSliderbreaks) + 0.5) / countOk;
+            // scores with more oks are more likely to have slider breaks
+            double okAdjustment = ((countOk - estimatedSliderBreaks) + 0.5) / countOk;
 
             // There is a low probability of extra slider breaks on effective miss counts close to 1, as score based calculations are good at indicating if only a single break occurred.
-            estimatedSliderbreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
+            estimatedSliderBreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
 
-            return estimatedSliderbreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
+            return estimatedSliderBreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
         }
 
         /// <summary>
