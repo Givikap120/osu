@@ -59,11 +59,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double drainRate = beatmap.Difficulty.DrainRate;
 
-            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
-            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
-            
-            var simulator = new OsuLegacyScoreSimulator();
-            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
+            int hitCircleCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
+            int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
             return new OsuDifficultyAttributes
             {
@@ -77,10 +75,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
-                SpinnerCount = spinnerCount,
-                NestedScorePerObject = sliderNestedScorePerObject,
-                LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
-                MaximumLegacyComboScore = scoreAttributes.ComboScore
+                SpinnerCount = spinnerCount
             };
         }
 
