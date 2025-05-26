@@ -10,7 +10,6 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
-using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
@@ -22,10 +21,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     public class OsuDifficultyCalculator : DifficultyCalculator
     {
         private const double difficulty_multiplier = 0.0675;
-
         public override int Version => 20250306;
-
-        private double mechanicalDifficultyRating;
 
         public OsuDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
             : base(ruleset, beatmap)
@@ -67,16 +63,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
             };
-        }
-
-        private double calculateAimVisibilityFactor(double approachRate)
-        {
-            const double ar_factor_end_point = 11.5;
-
-            double mechanicalDifficultyFactor = DifficultyCalculationUtils.ReverseLerp(mechanicalDifficultyRating, 5, 10);
-            double arFactorStartingPoint = double.Lerp(9, 10.33, mechanicalDifficultyFactor);
-
-            return DifficultyCalculationUtils.ReverseLerp(approachRate, ar_factor_end_point, arFactorStartingPoint);
         }
 
         private static double calculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * difficulty_multiplier;
