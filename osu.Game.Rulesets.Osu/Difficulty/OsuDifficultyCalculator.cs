@@ -11,11 +11,8 @@ using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
-using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
-using osu.Game.Rulesets.Osu.Scoring;
-using osu.Game.Rulesets.Scoring;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
@@ -23,7 +20,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         private const double performance_base_multiplier = 1.15; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
         private const double difficulty_multiplier = 0.0675;
-        private const double star_rating_multiplier = 0.0265;
 
         public override int Version => 20250306;
 
@@ -77,128 +73,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount
             };
-        }
-
-        private double computeAimRating(double aimDifficultyValue, Mod[] mods, int totalHits, double approachRate, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModAutopilot))
-                return 0;
-
-            double aimRating = Math.Sqrt(aimDifficultyValue) * difficulty_multiplier;
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                aimRating = Math.Pow(aimRating, 0.8);
-
-            if (mods.Any(m => m is OsuModRelax))
-                aimRating *= 0.9;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                aimRating *= 1.0 - magnetisedStrength;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
-                                             (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
-
-            double approachRateFactor = 0.0;
-            if (approachRate > 10.33)
-                approachRateFactor = 0.3 * (approachRate - 10.33);
-            else if (approachRate < 8.0)
-                approachRateFactor = 0.05 * (8.0 - approachRate);
-
-            if (mods.Any(h => h is OsuModRelax))
-                approachRateFactor = 0.0;
-
-            ratingMultiplier *= 1.0 + approachRateFactor * approachRateLengthBonus; // Buff for longer maps with high AR.
-
-            if (mods.Any(m => m is OsuModHidden))
-            {
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                ratingMultiplier *= 1.0 + 0.04 * (12.0 - approachRate);
-            }
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
-
-            return aimRating * Math.Cbrt(ratingMultiplier);
-        }
-
-        private double computeSpeedRating(double speedDifficultyValue, Mod[] mods, int totalHits, double approachRate, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModRelax))
-                return 0;
-
-            double speedRating = Math.Sqrt(speedDifficultyValue) * difficulty_multiplier;
-
-            if (mods.Any(m => m is OsuModAutopilot))
-                speedRating *= 0.5;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                // reduce speed rating because of the speed distance scaling, with maximum reduction being 0.7x
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                speedRating *= 1.0 - magnetisedStrength * 0.3;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
-                                             (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
-
-            double approachRateFactor = 0.0;
-            if (approachRate > 10.33)
-                approachRateFactor = 0.3 * (approachRate - 10.33);
-
-            if (mods.Any(m => m is OsuModAutopilot))
-                approachRateFactor = 0.0;
-
-            ratingMultiplier *= 1.0 + approachRateFactor * approachRateLengthBonus; // Buff for longer maps with high AR.
-
-            if (mods.Any(m => m is OsuModHidden))
-            {
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                ratingMultiplier *= 1.0 + 0.04 * (12.0 - approachRate);
-            }
-
-            ratingMultiplier *= 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
-
-            return speedRating * Math.Cbrt(ratingMultiplier);
-        }
-
-        private double computeFlashlightRating(double flashlightDifficultyValue, Mod[] mods, int totalHits, double overallDifficulty)
-        {
-            if (!mods.Any(m => m is OsuModFlashlight))
-                return 0;
-
-            double flashlightRating = Math.Sqrt(flashlightDifficultyValue) * difficulty_multiplier;
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                flashlightRating = Math.Pow(flashlightRating, 0.8);
-
-            if (mods.Any(m => m is OsuModRelax))
-                flashlightRating *= 0.7;
-            else if (mods.Any(m => m is OsuModAutopilot))
-                flashlightRating *= 0.4;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                flashlightRating *= 1.0 - magnetisedStrength;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            // Account for shorter maps having a higher ratio of 0 combo/100 combo flashlight radius.
-            ratingMultiplier *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
-                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
-
-            return flashlightRating * Math.Sqrt(ratingMultiplier);
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
