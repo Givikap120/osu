@@ -217,10 +217,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
             }
 
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                ratingMultiplier *= 1.0 + hdBonus;
-            }
-
             return aimRating * Math.Cbrt(ratingMultiplier);
         }
 
@@ -259,10 +255,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 double visibilityFactor = calculateSpeedVisibilityFactor(approachRate);
                 ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
-            }
-
-                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
-                ratingMultiplier *= 1.0 + hdBonus;
             }
 
             return speedRating * Math.Cbrt(ratingMultiplier);
