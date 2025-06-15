@@ -68,24 +68,6 @@ namespace osu.Game.Rulesets.Osu.Objects
             }
         }
 
-        /// <summary>
-        /// The position of the cursor at the point of completion of this <see cref="Slider"/> if it was hit
-        /// with as few movements as possible. This is set and used by difficulty calculation.
-        /// </summary>
-        internal Vector2? LazyEndPosition;
-
-        /// <summary>
-        /// The distance travelled by the cursor upon completion of this <see cref="Slider"/> if it was hit
-        /// with as few movements as possible. This is set and used by difficulty calculation.
-        /// </summary>
-        internal float LazyTravelDistance;
-
-        /// <summary>
-        /// The time taken by the cursor upon completion of this <see cref="Slider"/> if it was hit
-        /// with as few movements as possible. This is set and used by difficulty calculation.
-        /// </summary>
-        internal double LazyTravelTime;
-
         public IList<IList<HitSampleInfo>> NodeSamples { get; set; } = new List<IList<HitSampleInfo>>();
 
         [JsonIgnore]
@@ -204,6 +186,7 @@ namespace osu.Game.Rulesets.Osu.Objects
                             SpanStartTime = e.SpanStartTime,
                             StartTime = e.Time,
                             Position = Position + Path.PositionAt(e.PathProgress),
+                            PathProgress = e.PathProgress,
                             StackHeight = StackHeight,
                         });
                         break;
@@ -236,6 +219,7 @@ namespace osu.Game.Rulesets.Osu.Objects
                             StartTime = StartTime + (e.SpanIndex + 1) * SpanDuration,
                             Position = Position + Path.PositionAt(e.PathProgress),
                             StackHeight = StackHeight,
+                            PathProgress = e.PathProgress,
                         });
                         break;
                 }
@@ -248,14 +232,27 @@ namespace osu.Game.Rulesets.Osu.Objects
         {
             endPositionCache.Invalidate();
 
-            if (HeadCircle != null)
-                HeadCircle.Position = Position;
+            foreach (var nested in NestedHitObjects)
+            {
+                switch (nested)
+                {
+                    case SliderHeadCircle headCircle:
+                        headCircle.Position = Position;
+                        break;
 
-            if (TailCircle != null)
-                TailCircle.Position = EndPosition;
+                    case SliderTailCircle tailCircle:
+                        tailCircle.Position = EndPosition;
+                        break;
 
-            if (LastRepeat != null)
-                LastRepeat.Position = RepeatCount % 2 == 0 ? Position : Position + Path.PositionAt(1);
+                    case SliderRepeat repeat:
+                        repeat.Position = Position + Path.PositionAt(repeat.PathProgress);
+                        break;
+
+                    case SliderTick tick:
+                        tick.Position = Position + Path.PositionAt(tick.PathProgress);
+                        break;
+                }
+            }
         }
 
         protected void UpdateNestedSamples()
