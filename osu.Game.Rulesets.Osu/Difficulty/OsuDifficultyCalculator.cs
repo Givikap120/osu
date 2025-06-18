@@ -23,7 +23,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     public class OsuDifficultyCalculator : DifficultyCalculator
     {
         public const double DIFFICULTY_MULTIPLIER = 0.0675;
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.114;
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.104;
         public const double SUM_POWER = 1.1;
         public const double FL_SUM_POWER = 1.5;
 
