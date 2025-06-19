@@ -21,7 +21,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        private bool enableCsr => false;
+        private bool enableCsr => true;
 
         private bool usingClassicSliderAccuracy;
         private bool usingScoreV2;
@@ -176,34 +176,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModAutopilot))
                 return 0.0;
 
-            double aimDifficulty = attributes.AimDifficulty;
-
-            if (attributes.SliderCount > 0 && attributes.AimDifficultSliderCount > 0)
-            {
-                double estimateImproperlyFollowedDifficultSliders;
-
-                if (usingClassicSliderAccuracy)
-                {
-                    // When the score is considered classic (regardless if it was made on old client or not) we consider all missing combo to be dropped difficult sliders
-                    int maximumPossibleDroppedSliders = totalImperfectHits;
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(Math.Min(maximumPossibleDroppedSliders, attributes.MaxCombo - scoreMaxCombo), 0, attributes.AimDifficultSliderCount);
-                }
-                else
-                {
-                    // We add tick misses here since they too mean that the player didn't follow the slider properly
-                    // We however aren't adding misses here because missing slider heads has a harsh penalty by itself and doesn't mean that the rest of the slider wasn't followed properly
-                    estimateImproperlyFollowedDifficultSliders = Math.Clamp(countSliderEndsDropped + countSliderTickMiss, 0, attributes.AimDifficultSliderCount);
-                }
-
-                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateImproperlyFollowedDifficultSliders / attributes.AimDifficultSliderCount, 3) + attributes.SliderFactor;
-                aimDifficulty *= sliderNerfFactor;
-            }
-
-            double aimValue = OsuStrainSkill.DifficultyToPerformance(aimDifficulty);
-
-            double lengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
-                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
-            aimValue *= lengthBonus;
+            double aimValue = OsuStrainSkill.DifficultyToPerformance(attributes.AimDifficulty);
 
             if (enableCsr)
             {
@@ -225,18 +198,38 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= getComboScalingFactor(attributes);
             }
 
-            // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
+            double approachRateFactor = 0.0;
+            if (approachRate > 10.33)
+                approachRateFactor = 0.15 * (approachRate - 10.33);
+            else if (approachRate < 9.0)
+                approachRateFactor = 0.05 * (9.0 - approachRate);
+
+            if (score.Mods.Any(h => h is OsuModRelax))
+                approachRateFactor = 0.0;
+            aimValue *= 1.0 + approachRateFactor;
+
             if (score.Mods.Any(m => m is OsuModBlinds))
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
-            else if (score.Mods.Any(m => m is OsuModTraceable))
+            else if (score.Mods.Any(h => h is OsuModHidden || h is OsuModTraceable))
             {
-                aimValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
+                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
+                aimValue *= 1.0 + 0.04 * (12.0 - approachRate);
+            }
+
+            // We assume 15% of sliders in a map are difficult since there's no way to tell from the performance calculator.
+            double estimateDifficultSliders = attributes.SliderCount * 0.15;
+
+            if (attributes.SliderCount > 0)
+            {
+                double estimateSliderEndsDropped = Math.Clamp(Math.Min(countOk + countMeh + countMiss, attributes.MaxCombo - scoreMaxCombo), 0, estimateDifficultSliders);
+                double sliderNerfFactor = (1 - attributes.SliderFactor) * Math.Pow(1 - estimateSliderEndsDropped / estimateDifficultSliders, 3) + attributes.SliderFactor;
+                aimValue *= sliderNerfFactor;
             }
 
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             aimValue *= accuracy;
-            
+
             return aimValue;
         }
 
@@ -267,24 +260,29 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 speedValue *= getComboScalingFactor(attributes);
             }
 
-            // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
+            double approachRateFactor = 0.0;
+            if (approachRate > 10.33)
+                approachRateFactor = 0.24 * (approachRate - 10.33);
+
+            speedValue *= 1.0 + approachRateFactor;
+
             if (score.Mods.Any(m => m is OsuModBlinds))
             {
                 // Increasing the speed value by object count for Blinds isn't ideal, so the minimum buff is given.
                 speedValue *= 1.12;
             }
-            else if (score.Mods.Any(m => m is OsuModTraceable))
+            else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
-                speedValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
+                // We want to give more reward for lower AR when it comes to aim and HD. This nerfs high AR and buffs lower AR.
+                speedValue *= 1.0 + 0.04 * (12.0 - approachRate);
             }
 
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
-            double hitWindow300 = 80 - 6 * overallDifficulty;
-
             // Scale the speed value with deviation.
             if (deviation != null)
                 speedValue *= 1.0 / (1.0 + Math.Pow((double)deviation / 26.0, 4.0));
+
 
             double speedHighDeviationMultiplier = calculateSpeedHighDeviationNerf(attributes);
             speedValue *= speedHighDeviationMultiplier;
@@ -308,7 +306,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             else if (score.Mods.Any(m => m is OsuModHidden || m is OsuModTraceable))
             {
                 // Decrease bonus for AR > 10
-                accuracyValue *= 1 + 0.08 * DifficultyCalculationUtils.ReverseLerp(approachRate, 11.5, 10);
+                accuracyValue *= 1 + 0.08;
             }
 
             if (score.Mods.Any(m => m is OsuModFlashlight))

@@ -29,7 +29,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private double currentSnapStrain;
         private double realStrain;
 
-        private double skillMultiplier => 32;//38.75;
+        private double skillMultiplier => 32 * 1.06;//38.75;
         // private double skillMultiplier => 23.55;
         private double strainDecayBase => 0.15;
 

@@ -24,7 +24,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         private const double performance_base_multiplier = 1.05; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
         private const double difficulty_multiplier = 0.0675;
-        private const double star_rating_multiplier = 0.0265;
+        private const double star_rating_multiplier = 0.026;
 
         public override int Version => 20250306;
 
@@ -216,25 +216,25 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double ratingMultiplier = 1.0;
 
-            double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
-                                             (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
+            //double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+            //                                 (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
 
-            double approachRateFactor = 0.0;
-            if (approachRate > 10.33)
-                approachRateFactor = 0.15 * (approachRate - 10.33);
-            else if (approachRate < 8.0)
-                approachRateFactor = 0.05 * (8.0 - approachRate);
+            //double approachRateFactor = 0.0;
+            //if (approachRate > 10.33)
+            //    approachRateFactor = 0.15 * (approachRate - 10.33);
+            //else if (approachRate < 8.0)
+            //    approachRateFactor = 0.05 * (8.0 - approachRate);
 
-            if (mods.Any(h => h is OsuModRelax))
-                approachRateFactor = 0.0;
+            //if (mods.Any(h => h is OsuModRelax))
+            //    approachRateFactor = 0.0;
 
-            ratingMultiplier *= 1.0 + approachRateFactor * approachRateLengthBonus; // Buff for longer maps with high AR.
+            //ratingMultiplier *= 1.0 + approachRateFactor * approachRateLengthBonus; // Buff for longer maps with high AR.
 
-            if (mods.Any(m => m is OsuModHidden))
-            {
-                double visibilityFactor = calculateAimVisibilityFactor(approachRate);
-                ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
-            }
+            //if (mods.Any(m => m is OsuModHidden))
+            //{
+            //    double visibilityFactor = calculateAimVisibilityFactor(approachRate);
+            //    ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
+            //}
 
             return aimRating * Math.Cbrt(ratingMultiplier);
         }
@@ -258,20 +258,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double ratingMultiplier = 1.0;
 
-            double approachRateFactor = 0.0;
-            if (approachRate > 10.33)
-                approachRateFactor = 0.24 * (approachRate - 10.33);
+            //double approachRateFactor = 0.0;
+            //if (approachRate > 10.33)
+            //    approachRateFactor = 0.24 * (approachRate - 10.33);
 
-            if (mods.Any(m => m is OsuModAutopilot))
-                approachRateFactor = 0.0;
+            //if (mods.Any(m => m is OsuModAutopilot))
+            //    approachRateFactor = 0.0;
 
-            ratingMultiplier *= 1.0 + approachRateFactor; // Buff for longer maps with high AR.
+            //ratingMultiplier *= 1.0 + approachRateFactor; // Buff for longer maps with high AR.
 
-            if (mods.Any(m => m is OsuModHidden))
-            {
-                double visibilityFactor = calculateSpeedVisibilityFactor(approachRate);
-                ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
-            }
+            //if (mods.Any(m => m is OsuModHidden))
+            //{
+            //    double visibilityFactor = calculateSpeedVisibilityFactor(approachRate);
+            //    ratingMultiplier *= 1.0 + CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
+            //}
 
             return speedRating * Math.Cbrt(ratingMultiplier);
         }
