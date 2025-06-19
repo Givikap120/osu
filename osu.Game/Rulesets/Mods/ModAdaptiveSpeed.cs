@@ -173,10 +173,10 @@ namespace osu.Game.Rulesets.Mods
             };
             drawable.OnRevertResult += (_, result) =>
             {
-                if (!ratesForRewinding.ContainsKey(result.HitObject)) return;
+                if (!ratesForRewinding.TryGetValue(result.HitObject, out double rate)) return;
                 if (!shouldProcessResult(result)) return;
 
-                recentRates.Insert(0, ratesForRewinding[result.HitObject]);
+                recentRates.Insert(0, rate);
                 ratesForRewinding.Remove(result.HitObject);
 
                 recentRates.RemoveAt(recentRates.Count - 1);
@@ -188,7 +188,7 @@ namespace osu.Game.Rulesets.Mods
         public void ApplyToBeatmap(IBeatmap beatmap)
         {
             var hitObjects = getAllApplicableHitObjects(beatmap.HitObjects).ToList();
-            var endTimes = hitObjects.Select(x => x.GetEndTime()).OrderBy(x => x).Distinct().ToList();
+            var endTimes = hitObjects.Select(x => x.GetEndTime()).Order().Distinct().ToList();
 
             foreach (HitObject hitObject in hitObjects)
             {
@@ -205,7 +205,7 @@ namespace osu.Game.Rulesets.Mods
         {
             foreach (var hitObject in hitObjects)
             {
-                if (!(hitObject.HitWindows is HitWindows.EmptyHitWindows))
+                if (hitObject.HitWindows != HitWindows.Empty)
                     yield return hitObject;
 
                 foreach (HitObject nested in getAllApplicableHitObjects(hitObject.NestedHitObjects))

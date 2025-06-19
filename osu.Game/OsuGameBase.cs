@@ -41,6 +41,7 @@ using osu.Game.Database;
 using osu.Game.Extensions;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Cursor;
+using osu.Game.Graphics.UserInterface;
 using osu.Game.Input;
 using osu.Game.Input.Bindings;
 using osu.Game.IO;
@@ -48,9 +49,9 @@ using osu.Game.Localisation;
 using osu.Game.Online;
 using osu.Game.Online.API;
 using osu.Game.Online.Chat;
+using osu.Game.Online.Leaderboards;
 using osu.Game.Online.Metadata;
 using osu.Game.Online.Multiplayer;
-using osu.Game.Online.Solo;
 using osu.Game.Online.Spectator;
 using osu.Game.Overlays;
 using osu.Game.Overlays.Settings;
@@ -74,7 +75,11 @@ namespace osu.Game
     [Cached(typeof(OsuGameBase))]
     public partial class OsuGameBase : Framework.Game, ICanAcceptFiles, IBeatSyncProvider
     {
-        public static readonly string[] VIDEO_EXTENSIONS = { ".mp4", ".mov", ".avi", ".flv", ".mpg", ".wmv", ".m4v" };
+#if DEBUG
+        public const string GAME_NAME = "osu! (development)";
+#else
+        public const string GAME_NAME = "osu!";
+#endif
 
         public const string OSU_PROTOCOL = "osu://";
 
@@ -95,14 +100,16 @@ namespace osu.Game
         public const int SAMPLE_DEBOUNCE_TIME = 20;
 
         /// <summary>
-        /// The maximum volume at which audio tracks should playback. This can be set lower than 1 to create some head-room for sound effects.
+        /// The maximum volume at which audio tracks should play back at. This can be set lower than 1 to create some head-room for sound effects.
         /// </summary>
         private const double global_track_volume_adjust = 0.8;
 
         public virtual bool UseDevelopmentServer => DebugUtils.IsDebugBuild;
 
         public virtual EndpointConfiguration CreateEndpoints() =>
-            UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ExperimentalEndpointConfiguration();
+            UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ProductionEndpointConfiguration();
+
+        protected override OnlineStore CreateOnlineStore() => new TrustedDomainOnlineStore();
 
         public virtual Version AssemblyVersion => Assembly.GetEntryAssembly()?.GetName().Version ?? new Version();
 
@@ -193,10 +200,11 @@ namespace osu.Game
         public readonly Bindable<Dictionary<ModType, IReadOnlyList<Mod>>> AvailableMods = new Bindable<Dictionary<ModType, IReadOnlyList<Mod>>>(new Dictionary<ModType, IReadOnlyList<Mod>>());
 
         private BeatmapDifficultyCache difficultyCache;
-        private BeatmapUpdater beatmapUpdater;
+        private IBeatmapUpdater beatmapUpdater;
 
         private UserLookupCache userCache;
         private BeatmapLookupCache beatmapCache;
+        protected LeaderboardManager LeaderboardManager { get; private set; }
 
         private RulesetConfigCache rulesetConfigCache;
 
@@ -207,7 +215,6 @@ namespace osu.Game
         protected MultiplayerClient MultiplayerClient { get; private set; }
 
         private MetadataClient metadataClient;
-        private SoloStatisticsWatcher soloStatisticsWatcher;
 
         private RealmAccess realm;
 
@@ -243,11 +250,7 @@ namespace osu.Game
 
         public OsuGameBase()
         {
-            Name = @"osu!";
-
-#if DEBUG
-            Name += " (development)";
-#endif
+            Name = GAME_NAME;
 
             allowableExceptions = UnhandledExceptionsBeforeCrash;
         }
@@ -279,7 +282,7 @@ namespace osu.Game
             dependencies.CacheAs(Storage);
 
             var largeStore = new LargeTextureStore(Host.Renderer, Host.CreateTextureLoaderStore(new NamespacedResourceStore<byte[]>(Resources, @"Textures")));
-            largeStore.AddTextureSource(Host.CreateTextureLoaderStore(new OnlineStore()));
+            largeStore.AddTextureSource(Host.CreateTextureLoaderStore(CreateOnlineStore()));
             dependencies.Cache(largeStore);
 
             dependencies.CacheAs(LocalConfig);
@@ -296,7 +299,7 @@ namespace osu.Game
 
             EndpointConfiguration endpoints = CreateEndpoints();
 
-            MessageFormatter.WebsiteRootUrl = endpoints.WebsiteRootUrl;
+            MessageFormatter.WebsiteRootUrl = endpoints.WebsiteUrl;
 
             frameworkLocale = frameworkConfig.GetBindable<string>(FrameworkSetting.Locale);
             frameworkLocale.BindValueChanged(_ => updateLanguage());
@@ -316,6 +319,7 @@ namespace osu.Game
             dependencies.Cache(ScoreManager = new ScoreManager(RulesetStore, () => BeatmapManager, Storage, realm, API, LocalConfig));
 
             dependencies.Cache(BeatmapManager = new BeatmapManager(Storage, realm, API, Audio, Resources, Host, defaultBeatmap, difficultyCache, performOnlineLookups: true));
+            dependencies.CacheAs<IWorkingBeatmapCache>(BeatmapManager);
 
             dependencies.Cache(BeatmapDownloader = new BeatmapModelDownloader(BeatmapManager, API));
             dependencies.Cache(ScoreDownloader = new ScoreModelDownloader(ScoreManager, API));
@@ -324,11 +328,10 @@ namespace osu.Game
             base.Content.Add(difficultyCache);
 
             // TODO: OsuGame or OsuGameBase?
-            dependencies.CacheAs(beatmapUpdater = new BeatmapUpdater(BeatmapManager, difficultyCache, API, Storage));
+            dependencies.CacheAs(beatmapUpdater = CreateBeatmapUpdater());
             dependencies.CacheAs(SpectatorClient = new OnlineSpectatorClient(endpoints));
             dependencies.CacheAs(MultiplayerClient = new OnlineMultiplayerClient(endpoints));
             dependencies.CacheAs(metadataClient = new OnlineMetadataClient(endpoints));
-            dependencies.CacheAs(soloStatisticsWatcher = new SoloStatisticsWatcher());
 
             base.Content.Add(new BeatmapOnlineChangeIngest(beatmapUpdater, realm, metadataClient));
 
@@ -339,10 +342,6 @@ namespace osu.Game
 
             dependencies.Cache(beatmapCache = new BeatmapLookupCache());
             base.Content.Add(beatmapCache);
-
-            var scorePerformanceManager = new ScorePerformanceCache();
-            dependencies.Cache(scorePerformanceManager);
-            base.Content.Add(scorePerformanceManager);
 
             dependencies.CacheAs<IRulesetConfigCache>(rulesetConfigCache = new RulesetConfigCache(realm, RulesetStore));
 
@@ -368,6 +367,9 @@ namespace osu.Game
             dependencies.CacheAs<IBindable<WorkingBeatmap>>(Beatmap);
             dependencies.CacheAs(Beatmap);
 
+            dependencies.Cache(LeaderboardManager = new LeaderboardManager());
+            base.Content.Add(LeaderboardManager);
+
             // add api components to hierarchy.
             if (API is APIAccess apiAccess)
                 base.Content.Add(apiAccess);
@@ -375,7 +377,6 @@ namespace osu.Game
             base.Content.Add(SpectatorClient);
             base.Content.Add(MultiplayerClient);
             base.Content.Add(metadataClient);
-            base.Content.Add(soloStatisticsWatcher);
 
             base.Content.Add(rulesetConfigCache);
 
@@ -390,6 +391,10 @@ namespace osu.Game
             base.Content.Add(beatmapClock);
 
             GlobalActionContainer globalBindings;
+
+            OsuMenuSamples menuSamples;
+            dependencies.Cache(menuSamples = new OsuMenuSamples());
+            base.Content.Add(menuSamples);
 
             base.Content.Add(SafeAreaContainer = new SafeAreaContainer
             {
@@ -415,31 +420,38 @@ namespace osu.Game
 
             KeyBindingStore = new RealmKeyBindingStore(realm, keyCombinationProvider);
             KeyBindingStore.Register(globalBindings, RulesetStore.AvailableRulesets);
+            dependencies.Cache(KeyBindingStore);
 
             dependencies.Cache(globalBindings);
 
             Ruleset.BindValueChanged(onRulesetChanged);
             Beatmap.BindValueChanged(onBeatmapChanged);
+
+            // make config aware of how to lookup skins for on-screen display purposes.
+            // if this becomes a more common thing, tracked settings should be reconsidered to allow local DI.
+            LocalConfig.LookupSkinName = id => SkinManager.Query(s => s.ID == id)?.ToString() ?? "Unknown";
+            LocalConfig.LookupKeyBindings = l => KeyBindingStore.GetBindingsStringFor(l);
         }
 
         private void updateLanguage() => CurrentLanguage.Value = LanguageExtensions.GetLanguageFor(frameworkLocale.Value, localisationParameters.Value);
 
         private void addFilesWarning()
         {
-            var realmStore = new RealmFileStore(realm, Storage);
-
             const string filename = "IMPORTANT READ ME.txt";
 
-            if (!realmStore.Storage.Exists(filename))
+            if (!Storage.Exists(filename))
             {
-                using (var stream = realmStore.Storage.CreateFileSafely(filename))
+                using (var stream = Storage.CreateFileSafely(filename))
                 using (var textWriter = new StreamWriter(stream))
                 {
-                    textWriter.WriteLine(@"This folder contains all your user files (beatmaps, skins, replays etc.)");
-                    textWriter.WriteLine(@"Please do not touch or delete this folder!!");
+                    textWriter.WriteLine(@"This folder contains all your user files and configuration.");
+                    textWriter.WriteLine(@"Please DO NOT make manual changes to this folder.");
                     textWriter.WriteLine();
-                    textWriter.WriteLine(@"If you are really looking to completely delete user data, please delete");
-                    textWriter.WriteLine(@"the parent folder including all other files and directories");
+                    textWriter.WriteLine(@"- If you want to back up your game files, please back up THE ENTIRETY OF THIS DIRECTORY.");
+                    textWriter.WriteLine(@"- If you want to delete all of your game files, please delete THE ENTIRETY OF THIS DIRECTORY.");
+                    textWriter.WriteLine();
+                    textWriter.WriteLine(@"To be very clear, the ""files/"" directory inside this directory stores all the raw pieces of your beatmaps, skins, and replays.");
+                    textWriter.WriteLine(@"Importantly, it is NOT the only directory you need a backup of to avoid losing data. If you copy only the ""files/"" directory, YOU WILL LOSE DATA.");
                     textWriter.WriteLine();
                     textWriter.WriteLine(@"For more information on how these files are organised,");
                     textWriter.WriteLine(@"see https://github.com/ppy/osu/wiki/User-file-storage");
@@ -521,6 +533,12 @@ namespace osu.Game
         /// <returns>Whether a restart operation was queued.</returns>
         public virtual bool RestartAppWhenExited() => false;
 
+        /// <summary>
+        /// Perform migration of user data to a specified path.
+        /// </summary>
+        /// <param name="path">The path to migrate to.</param>
+        /// <returns>Whether migration succeeded to completion. If <c>false</c>, some files were left behind.</returns>
+        /// <exception cref="TimeoutException"></exception>
         public bool Migrate(string path)
         {
             Logger.Log($@"Migrating osu! data from ""{Storage.GetFullPath(string.Empty)}"" to ""{path}""...");
@@ -540,7 +558,10 @@ namespace osu.Game
                         realmBlocker = realm.BlockAllOperations("migration");
                         success = true;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Attempting to block all operations failed: {ex}", LoggingTarget.Database);
+                    }
 
                     readyToRun.Set();
                 }, false);
@@ -548,16 +569,18 @@ namespace osu.Game
                 if (!readyToRun.Wait(30000) || !success)
                     throw new TimeoutException("Attempting to block for migration took too long.");
 
-                bool? cleanupSucceded = (Storage as OsuStorage)?.Migrate(Host.GetStorage(path));
+                bool? cleanupSucceeded = (Storage as OsuStorage)?.Migrate(Host.GetStorage(path));
 
                 Logger.Log(@"Migration complete!");
-                return cleanupSucceded != false;
+                return cleanupSucceeded != false;
             }
             finally
             {
                 realmBlocker?.Dispose();
             }
         }
+
+        protected virtual IBeatmapUpdater CreateBeatmapUpdater() => new BeatmapUpdater(BeatmapManager, difficultyCache, API, Storage);
 
         protected override UserInputManager CreateUserInputManager() => new OsuUserInputManager();
 
@@ -584,17 +607,17 @@ namespace osu.Game
                 {
                     case ITabletHandler th:
                         return new TabletSettings(th);
-
-                    case MouseHandler mh:
-                        return new MouseSettings(mh);
-
-                    case JoystickHandler jh:
-                        return new JoystickSettings(jh);
                 }
             }
 
             switch (handler)
             {
+                case MouseHandler mh:
+                    return new MouseSettings(mh);
+
+                case JoystickHandler jh:
+                    return new JoystickSettings(jh);
+
                 case TouchHandler th:
                     return new TouchSettings(th);
 
@@ -686,16 +709,21 @@ namespace osu.Game
         /// <summary>
         /// Allows a maximum of one unhandled exception, per second of execution.
         /// </summary>
-        private bool onExceptionThrown(Exception _)
+        /// <returns>Whether to ignore the exception and continue running.</returns>
+        private bool onExceptionThrown(Exception ex)
         {
-            bool continueExecution = Interlocked.Decrement(ref allowableExceptions) >= 0;
+            if (Interlocked.Decrement(ref allowableExceptions) < 0)
+            {
+                Logger.Log("Too many unhandled exceptions, crashing out.");
+                RulesetStore?.TryDisableCustomRulesetsCausing(ex);
+                return false;
+            }
 
-            Logger.Log($"Unhandled exception has been {(continueExecution ? $"allowed with {allowableExceptions} more allowable exceptions" : "denied")} .");
-
+            Logger.Log($"Unhandled exception has been allowed with {allowableExceptions} more allowable exceptions.");
             // restore the stock of allowable exceptions after a short delay.
             Task.Delay(1000).ContinueWith(_ => Interlocked.Increment(ref allowableExceptions));
 
-            return continueExecution;
+            return true;
         }
 
         protected override void Dispose(bool isDisposing)

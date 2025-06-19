@@ -9,6 +9,7 @@ using System.Linq;
 using JetBrains.Annotations;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
+using osu.Framework.Extensions;
 using osu.Framework.Graphics.Rendering;
 using osu.Framework.Graphics.Rendering.Dummy;
 using osu.Framework.Graphics.Textures;
@@ -88,7 +89,7 @@ namespace osu.Game.Beatmaps
 
         public virtual WorkingBeatmap GetWorkingBeatmap([CanBeNull] BeatmapInfo beatmapInfo)
         {
-            if (beatmapInfo?.BeatmapSet == null)
+            if (beatmapInfo == null || ReferenceEquals(beatmapInfo, DefaultBeatmap.BeatmapInfo))
                 return DefaultBeatmap;
 
             lock (workingCache)
@@ -116,7 +117,7 @@ namespace osu.Game.Beatmaps
         ITrackStore IBeatmapResourceProvider.Tracks => trackStore;
         IRenderer IStorageResourceProvider.Renderer => host?.Renderer ?? new DummyRenderer();
         AudioManager IStorageResourceProvider.AudioManager => audioManager;
-        RealmAccess IStorageResourceProvider.RealmAccess => null;
+        RealmAccess IStorageResourceProvider.RealmAccess => null!;
         IResourceStore<byte[]> IStorageResourceProvider.Files => files;
         IResourceStore<byte[]> IStorageResourceProvider.Resources => resources;
         IResourceStore<TextureUpload> IStorageResourceProvider.CreateTextureLoaderStore(IResourceStore<byte[]> underlyingStore) => host?.CreateTextureLoaderStore(underlyingStore);
@@ -143,8 +144,6 @@ namespace osu.Game.Beatmaps
                 {
                     string fileStorePath = BeatmapSetInfo.GetPathForFile(BeatmapInfo.Path);
 
-                    // TODO: check validity of file
-
                     var stream = GetStream(fileStorePath);
 
                     if (stream == null)
@@ -153,8 +152,25 @@ namespace osu.Game.Beatmaps
                         return null;
                     }
 
+                    string streamMD5 = stream.ComputeMD5Hash();
+                    string streamSHA2 = stream.ComputeSHA2Hash();
+
+                    if (streamMD5 != BeatmapInfo.MD5Hash)
+                    {
+                        Logger.Log($"Beatmap failed to load (file {BeatmapInfo.Path} does not have the expected hash).", level: LogLevel.Error);
+                        return null;
+                    }
+
                     using (var reader = new LineBufferedReader(stream))
-                        return Decoder.GetDecoder<Beatmap>(reader).Decode(reader);
+                    {
+                        var beatmap = Decoder.GetDecoder<Beatmap>(reader).Decode(reader);
+
+                        beatmap.BeatmapInfo.MD5Hash = streamMD5;
+                        beatmap.BeatmapInfo.Hash = streamSHA2;
+                        beatmap.BeatmapInfo.UpdateStatisticsFromBeatmap(beatmap);
+
+                        return beatmap;
+                    }
                 }
                 catch (Exception e)
                 {

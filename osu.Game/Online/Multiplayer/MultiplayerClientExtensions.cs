@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
+using osu.Framework.Extensions.ExceptionExtensions;
 using osu.Framework.Logging;
 
 namespace osu.Game.Online.Multiplayer
@@ -16,16 +17,15 @@ namespace osu.Game.Online.Multiplayer
             {
                 if (t.IsFaulted)
                 {
-                    Exception? exception = t.Exception;
+                    Debug.Assert(t.Exception != null);
+                    Exception exception = t.Exception.AsSingular();
 
-                    if (exception is AggregateException ae)
-                        exception = ae.InnerException;
+                    if (exception.GetHubExceptionMessage() is string message)
+                        // Hub exceptions generally contain something we can show the user directly.
+                        Logger.Log(message, level: LogLevel.Important);
+                    else
+                        Logger.Error(exception, $"Unobserved exception occurred via {nameof(FireAndForget)} call: {exception.Message}");
 
-                    Debug.Assert(exception != null);
-
-                    string message = exception.GetHubExceptionMessage() ?? exception.Message;
-
-                    Logger.Log(message, level: LogLevel.Important);
                     onError?.Invoke(exception);
                 }
                 else

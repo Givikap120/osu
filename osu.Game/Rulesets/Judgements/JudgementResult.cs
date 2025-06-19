@@ -30,7 +30,7 @@ namespace osu.Game.Rulesets.Judgements
 
         /// <summary>
         /// The time at which this <see cref="JudgementResult"/> occurred.
-        /// Populated when this <see cref="JudgementResult"/> is applied via <see cref="DrawableHitObject.ApplyResult"/>.
+        /// Populated when this <see cref="JudgementResult"/> is applied via <see cref="DrawableHitObject.ApplyResult{T}"/>.
         /// </summary>
         /// <remarks>
         /// This is used instead of <see cref="TimeAbsolute"/> to check whether this <see cref="JudgementResult"/> should be reverted.
@@ -75,6 +75,11 @@ namespace osu.Game.Rulesets.Judgements
         public int HighestComboAtJudgement { get; internal set; }
 
         /// <summary>
+        /// The highest combo achieved after this <see cref="JudgementResult"/> occurred.
+        /// </summary>
+        public int HighestComboAfterJudgement { get; internal set; }
+
+        /// <summary>
         /// The health prior to this <see cref="JudgementResult"/> occurring.
         /// </summary>
         public double HealthAtJudgement { get; internal set; }
@@ -93,6 +98,11 @@ namespace osu.Game.Rulesets.Judgements
         /// Whether a successful hit occurred.
         /// </summary>
         public bool IsHit => Type.IsHit();
+
+        /// <summary>
+        /// The increase in health resulting from this judgement result.
+        /// </summary>
+        public double HealthIncrease => Judgement.HealthIncreaseFor(this);
 
         /// <summary>
         /// Creates a new <see cref="JudgementResult"/>.

@@ -19,6 +19,8 @@ namespace osu.Game.Rulesets.Mods
         public override ModType Type => ModType.DifficultyIncrease;
         public override LocalisableString Description => "Miss and fail.";
         public override double ScoreMultiplier => 1;
+        public override bool Ranked => true;
+        public override bool ValidForFreestyleAsRequiredMod => true;
 
         public override Type[] IncompatibleMods => base.IncompatibleMods.Append(typeof(ModPerfect)).ToArray();
 

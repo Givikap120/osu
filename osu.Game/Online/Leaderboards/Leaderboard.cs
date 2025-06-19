@@ -287,7 +287,7 @@ namespace osu.Game.Online.Leaderboards
 
                 double delay = 0;
 
-                foreach (var s in scoreFlowContainer.Children)
+                foreach (var s in scoreFlowContainer)
                 {
                     using (s.BeginDelayedSequence(delay))
                         s.Show();
@@ -356,6 +356,9 @@ namespace osu.Game.Online.Leaderboards
                 case LeaderboardState.NotSupporter:
                     return new MessagePlaceholder(LeaderboardStrings.PleaseInvestInAnOsuSupporterTagToViewThisLeaderboard);
 
+                case LeaderboardState.NoTeam:
+                    return new MessagePlaceholder(LeaderboardStrings.NoTeam);
+
                 case LeaderboardState.Retrieving:
                     return null;
 
@@ -363,7 +366,7 @@ namespace osu.Game.Online.Leaderboards
                     return null;
 
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(state));
             }
         }
 
@@ -375,8 +378,8 @@ namespace osu.Game.Online.Leaderboards
         {
             base.UpdateAfterChildren();
 
-            float fadeBottom = scrollContainer.Current + scrollContainer.DrawHeight;
-            float fadeTop = scrollContainer.Current + LeaderboardScore.HEIGHT;
+            float fadeBottom = (float)(scrollContainer.Current + scrollContainer.DrawHeight);
+            float fadeTop = (float)(scrollContainer.Current + LeaderboardScore.HEIGHT);
 
             if (!scrollContainer.IsScrolledToEnd())
                 fadeBottom -= LeaderboardScore.HEIGHT;
@@ -384,7 +387,7 @@ namespace osu.Game.Online.Leaderboards
             if (scoreFlowContainer == null)
                 return;
 
-            foreach (var c in scoreFlowContainer.Children)
+            foreach (var c in scoreFlowContainer)
             {
                 float topY = c.ToSpaceOfOtherDrawable(Vector2.Zero, scoreFlowContainer).Y;
                 float bottomY = topY + LeaderboardScore.HEIGHT;

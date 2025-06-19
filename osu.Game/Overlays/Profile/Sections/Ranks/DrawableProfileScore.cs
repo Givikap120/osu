@@ -8,16 +8,17 @@ using osu.Framework.Extensions.ObjectExtensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
+using osu.Framework.Graphics.Sprites;
 using osu.Framework.Localisation;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Online.Leaderboards;
+using osu.Game.Resources.Localisation.Web;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.UI;
-using osu.Game.Scoring.Drawables;
 using osu.Game.Utils;
 using osuTK;
 
@@ -213,15 +214,50 @@ namespace osu.Game.Overlays.Profile.Sections.Ranks
 
         private Drawable createDrawablePerformance()
         {
-            if (!Score.PP.HasValue)
-            {
-                if (Score.Beatmap?.Status.GrantsPerformancePoints() == true)
-                    return new UnprocessedPerformancePointsPlaceholder { Size = new Vector2(16), Colour = colourProvider.Highlight1 };
+            var font = OsuFont.GetFont(weight: FontWeight.Bold);
 
-                return new OsuSpriteText
+            // cross-reference: https://github.com/ppy/osu-web/blob/a6afee076f4f68bb56dea0cb8f18db63651763a7/resources/js/profile-page/play-detail.tsx#L118-L133
+            if (Score.Beatmap?.Status.GrantsPerformancePoints() != true)
+            {
+                if (Score.Beatmap?.Status == BeatmapOnlineStatus.Loved)
                 {
-                    Font = OsuFont.GetFont(weight: FontWeight.Bold),
+                    return new SpriteIconWithTooltip
+                    {
+                        Icon = FontAwesome.Solid.Heart,
+                        Size = new Vector2(font.Size),
+                        TooltipText = UsersStrings.ShowExtraTopRanksNotRanked,
+                        Colour = colourProvider.Highlight1
+                    };
+                }
+
+                return new SpriteTextWithTooltip
+                {
                     Text = "-",
+                    Font = OsuFont.GetFont(weight: FontWeight.Bold),
+                    TooltipText = UsersStrings.ShowExtraTopRanksNotRanked,
+                    Colour = colourProvider.Highlight1
+                };
+            }
+
+            // cross-reference: https://github.com/ppy/osu-web/blob/a6afee076f4f68bb56dea0cb8f18db63651763a7/resources/js/scores/pp-value.tsx#L19-L39
+            if (!Score.Ranked || !Score.Preserve || (Score.PP == null && Score.Processed))
+            {
+                return new SpriteTextWithTooltip
+                {
+                    Text = "-",
+                    Font = OsuFont.GetFont(weight: FontWeight.Bold),
+                    TooltipText = ScoresStrings.StatusNoPp,
+                    Colour = colourProvider.Highlight1
+                };
+            }
+
+            if (Score.PP == null)
+            {
+                return new SpriteIconWithTooltip
+                {
+                    Icon = FontAwesome.Solid.Sync,
+                    Size = new Vector2(font.Size),
+                    TooltipText = ScoresStrings.StatusProcessing,
                     Colour = colourProvider.Highlight1
                 };
             }
@@ -236,7 +272,7 @@ namespace osu.Game.Overlays.Profile.Sections.Ranks
                     {
                         Anchor = Anchor.BottomLeft,
                         Origin = Anchor.BottomLeft,
-                        Font = OsuFont.GetFont(weight: FontWeight.Bold),
+                        Font = font,
                         Text = $"{Score.PP:0}",
                         Colour = colourProvider.Highlight1
                     },
@@ -244,7 +280,7 @@ namespace osu.Game.Overlays.Profile.Sections.Ranks
                     {
                         Anchor = Anchor.BottomLeft,
                         Origin = Anchor.BottomLeft,
-                        Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                        Font = font.With(size: 12),
                         Text = "pp",
                         Colour = colourProvider.Light3
                     }

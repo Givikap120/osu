@@ -10,6 +10,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Collections;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Filter;
+using osu.Game.Rulesets.Mods;
 using osu.Game.Screens.Select.Filter;
 
 namespace osu.Game.Screens.Select
@@ -18,11 +19,6 @@ namespace osu.Game.Screens.Select
     {
         public GroupMode Group;
         public SortMode Sort;
-
-        /// <summary>
-        /// Whether the display of beatmap sets should be split apart per-difficulty for the current criteria.
-        /// </summary>
-        public bool SplitOutDifficulties => Sort == SortMode.Difficulty;
 
         public BeatmapSetInfo? SelectedBeatmapSet;
 
@@ -34,11 +30,15 @@ namespace osu.Game.Screens.Select
         public OptionalRange<double> Length;
         public OptionalRange<double> BPM;
         public OptionalRange<int> BeatDivisor;
-        public OptionalRange<BeatmapOnlineStatus> OnlineStatus;
+        public OptionalSet<BeatmapOnlineStatus> OnlineStatus = new OptionalSet<BeatmapOnlineStatus>();
+        public OptionalRange<DateTimeOffset> LastPlayed;
+        public OptionalRange<DateTimeOffset> DateRanked;
+        public OptionalRange<DateTimeOffset> DateSubmitted;
         public OptionalTextFilter Creator;
         public OptionalTextFilter Artist;
         public OptionalTextFilter Title;
         public OptionalTextFilter DifficultyName;
+        public OptionalTextFilter Source;
 
         public OptionalRange<double> UserStarDifficulty = new OptionalRange<double>
         {
@@ -49,7 +49,11 @@ namespace osu.Game.Screens.Select
         public OptionalTextFilter[] SearchTerms = Array.Empty<OptionalTextFilter>();
 
         public RulesetInfo? Ruleset;
+        public IReadOnlyList<Mod>? Mods;
         public bool AllowConvertedBeatmaps;
+        public int? BeatmapSetId;
+
+        public bool? HasOnlineID;
 
         private string searchText = string.Empty;
 
@@ -112,6 +116,23 @@ namespace osu.Game.Screens.Select
         public IEnumerable<string>? CollectionBeatmapMD5Hashes { get; set; }
 
         public IRulesetFilterCriteria? RulesetCriteria { get; set; }
+
+        public readonly struct OptionalSet<T> : IEquatable<OptionalSet<T>>
+            where T : struct, Enum
+        {
+            public bool HasFilter => true;
+
+            public bool IsInRange(T value) => Values.Contains(value);
+
+            public HashSet<T> Values { get; }
+
+            public OptionalSet()
+            {
+                Values = Enum.GetValues<T>().ToHashSet();
+            }
+
+            public bool Equals(OptionalSet<T> other) => Values.SetEquals(other.Values);
+        }
 
         public struct OptionalRange<T> : IEquatable<OptionalRange<T>>
             where T : struct

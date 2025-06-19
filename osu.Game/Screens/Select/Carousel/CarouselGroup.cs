@@ -2,17 +2,42 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.Collections.Generic;
+using osu.Framework.Extensions.ListExtensions;
+using osu.Framework.Lists;
 
 namespace osu.Game.Screens.Select.Carousel
 {
     /// <summary>
     /// A group which ensures only one item is selected.
     /// </summary>
-    public class CarouselGroup : CarouselItem
+    public abstract class CarouselGroup : CarouselItem
     {
+        protected CarouselGroup(List<CarouselItem>? items = null)
+        {
+            if (items != null) this.items = items;
+
+            State.ValueChanged += state =>
+            {
+                switch (state.NewValue)
+                {
+                    case CarouselItemState.Collapsed:
+                    case CarouselItemState.NotSelected:
+                        this.items.ForEach(c => c.State.Value = CarouselItemState.Collapsed);
+                        break;
+
+                    case CarouselItemState.Selected:
+                        this.items.ForEach(c =>
+                        {
+                            if (c.State.Value == CarouselItemState.Collapsed) c.State.Value = CarouselItemState.NotSelected;
+                        });
+                        break;
+                }
+            };
+        }
+
         public override DrawableCarouselItem? CreateDrawableRepresentation() => null;
 
-        public IReadOnlyList<CarouselItem> Items => items;
+        public SlimReadOnlyListWrapper<CarouselItem> Items => items.AsSlimReadOnly();
 
         public int TotalItemsNotFiltered { get; private set; }
 
@@ -63,29 +88,6 @@ namespace osu.Game.Screens.Select.Carousel
 
             if (!i.Filtered.Value)
                 TotalItemsNotFiltered++;
-        }
-
-        public CarouselGroup(List<CarouselItem>? items = null)
-        {
-            if (items != null) this.items = items;
-
-            State.ValueChanged += state =>
-            {
-                switch (state.NewValue)
-                {
-                    case CarouselItemState.Collapsed:
-                    case CarouselItemState.NotSelected:
-                        this.items.ForEach(c => c.State.Value = CarouselItemState.Collapsed);
-                        break;
-
-                    case CarouselItemState.Selected:
-                        this.items.ForEach(c =>
-                        {
-                            if (c.State.Value == CarouselItemState.Collapsed) c.State.Value = CarouselItemState.NotSelected;
-                        });
-                        break;
-                }
-            };
         }
 
         public override void Filter(FilterCriteria criteria)

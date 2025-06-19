@@ -25,6 +25,8 @@ namespace osu.Game.Rulesets.Mods
         public override LocalisableString Description => "Can you still feel the rhythm without music?";
         public override ModType Type => ModType.Fun;
         public override double ScoreMultiplier => 1;
+        public override bool Ranked => true;
+        public override bool ValidForFreestyleAsRequiredMod => true;
     }
 
     public abstract class ModMuted<TObject> : ModMuted, IApplicableToDrawableRuleset<TObject>, IApplicableToTrack, IApplicableToScoreProcessor

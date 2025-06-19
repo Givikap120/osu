@@ -1,8 +1,6 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-#nullable disable
-
 using System;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -19,7 +17,7 @@ namespace osu.Game.Graphics.Containers
     {
         public Facade LogoFacade => facade;
 
-        protected OsuLogo Logo { get; private set; }
+        protected OsuLogo? Logo { get; private set; }
 
         private readonly InternalFacade facade = new InternalFacade();
 
@@ -36,16 +34,13 @@ namespace osu.Game.Graphics.Containers
         /// <param name="easing">The easing type of the initial transform.</param>
         public void StartTracking(OsuLogo logo, double duration = 0, Easing easing = Easing.None)
         {
+            if (Logo != null && Logo != logo)
+                throw new InvalidOperationException("A different logo is already being tracked.");
+
             ArgumentNullException.ThrowIfNull(logo);
 
             if (logo.IsTracking && Logo == null)
                 throw new InvalidOperationException($"Cannot track an instance of {typeof(OsuLogo)} to multiple {typeof(LogoTrackingContainer)}s");
-
-            if (Logo != logo && Logo != null)
-            {
-                // If we're replacing the logo to be tracked, the old one no longer has a tracking container
-                Logo.IsTracking = false;
-            }
 
             Logo = logo;
             Logo.IsTracking = true;
@@ -62,11 +57,10 @@ namespace osu.Game.Graphics.Containers
         /// </summary>
         public void StopTracking()
         {
-            if (Logo != null)
-            {
-                Logo.IsTracking = false;
-                Logo = null;
-            }
+            if (Logo == null) return;
+
+            Logo.IsTracking = false;
+            Logo = null;
         }
 
         /// <summary>
@@ -76,15 +70,15 @@ namespace osu.Game.Graphics.Containers
         /// <remarks>Will only be correct if the logo's <see cref="Drawable.RelativePositionAxes"/> are set to Axes.Both</remarks>
         protected Vector2 ComputeLogoTrackingPosition()
         {
-            var absolutePos = Logo.Parent!.ToLocalSpace(LogoFacade.ScreenSpaceDrawQuad.Centre);
+            var absolutePos = Logo!.Parent!.ToLocalSpace(LogoFacade.ScreenSpaceDrawQuad.Centre);
 
             return new Vector2(absolutePos.X / Logo.Parent!.RelativeToAbsoluteFactor.X,
                 absolutePos.Y / Logo.Parent!.RelativeToAbsoluteFactor.Y);
         }
 
-        protected override void Update()
+        protected override void UpdateAfterChildren()
         {
-            base.Update();
+            base.UpdateAfterChildren();
 
             if (Logo == null)
                 return;

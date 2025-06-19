@@ -4,17 +4,21 @@
 using System.Threading.Tasks;
 using osu.Framework;
 using osu.Framework.Allocation;
-using osu.Framework.Extensions;
+using osu.Framework.Bindables;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Localisation;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Screens;
+using osu.Framework.Statistics;
 using osu.Game.Configuration;
 using osu.Game.Localisation;
+using osu.Game.Online.Multiplayer;
+using osu.Game.Overlays.Dialog;
 using osu.Game.Overlays.Notifications;
 using osu.Game.Overlays.Settings.Sections.Maintenance;
 using osu.Game.Updater;
+using osu.Game.Utils;
 using SharpCompress.Archives.Zip;
 
 namespace osu.Game.Overlays.Settings.Sections.General
@@ -25,6 +29,9 @@ namespace osu.Game.Overlays.Settings.Sections.General
 
         private SettingsButton checkForUpdatesButton = null!;
 
+        private readonly Bindable<ReleaseStream> configReleaseStream = new Bindable<ReleaseStream>();
+        private SettingsEnumDropdown<ReleaseStream> releaseStreamDropdown = null!;
+
         [Resolved]
         private UpdateManager? updateManager { get; set; }
 
@@ -34,37 +41,49 @@ namespace osu.Game.Overlays.Settings.Sections.General
         [Resolved]
         private Storage storage { get; set; } = null!;
 
+        [Resolved]
+        private OsuGame? game { get; set; }
+
         [BackgroundDependencyLoader]
-        private void load(OsuConfigManager config, OsuGame? game)
+        private void load(OsuConfigManager config, IDialogOverlay? dialogOverlay)
         {
-            Add(new SettingsEnumDropdown<ReleaseStream>
-            {
-                LabelText = GeneralSettingsStrings.ReleaseStream,
-                Current = config.GetBindable<ReleaseStream>(OsuSetting.ReleaseStream),
-            });
+            config.BindWith(OsuSetting.ReleaseStream, configReleaseStream);
 
             if (updateManager?.CanCheckForUpdate == true)
             {
+                Add(releaseStreamDropdown = new SettingsEnumDropdown<ReleaseStream>
+                {
+                    LabelText = GeneralSettingsStrings.ReleaseStream,
+                    Current = { Value = configReleaseStream.Value },
+                });
+
                 Add(checkForUpdatesButton = new SettingsButton
                 {
                     Text = GeneralSettingsStrings.CheckUpdate,
-                    Action = () =>
-                    {
-                        checkForUpdatesButton.Enabled.Value = false;
-                        Task.Run(updateManager.CheckForUpdateAsync).ContinueWith(task => Schedule(() =>
-                        {
-                            if (!task.GetResultSafely())
-                            {
-                                notifications?.Post(new SimpleNotification
-                                {
-                                    Text = GeneralSettingsStrings.RunningLatestRelease(game!.Version),
-                                    Icon = FontAwesome.Solid.CheckCircle,
-                                });
-                            }
+                    Action = () => checkForUpdates().FireAndForget()
+                });
 
-                            checkForUpdatesButton.Enabled.Value = true;
-                        }));
+                releaseStreamDropdown.Current.BindValueChanged(stream =>
+                {
+                    if (stream.NewValue == ReleaseStream.Tachyon)
+                    {
+                        dialogOverlay?.Push(new ConfirmDialog(GeneralSettingsStrings.ChangeReleaseStreamConfirmation,
+                            () =>
+                            {
+                                configReleaseStream.Value = ReleaseStream.Tachyon;
+                            },
+                            () =>
+                            {
+                                releaseStreamDropdown.Current.Value = ReleaseStream.Lazer;
+                            })
+                        {
+                            BodyText = GeneralSettingsStrings.ChangeReleaseStreamConfirmationInfo
+                        });
+
+                        return;
                     }
+
+                    configReleaseStream.Value = stream.NewValue;
                 });
             }
 
@@ -92,6 +111,44 @@ namespace osu.Game.Overlays.Settings.Sections.General
             }
         }
 
+        private async Task checkForUpdates()
+        {
+            if (updateManager == null || game == null)
+                return;
+
+            checkForUpdatesButton.Enabled.Value = false;
+
+            var checkingNotification = new ProgressNotification
+            {
+                Text = GeneralSettingsStrings.CheckingForUpdates,
+            };
+            notifications?.Post(checkingNotification);
+
+            try
+            {
+                bool foundUpdate = await updateManager.CheckForUpdateAsync().ConfigureAwait(true);
+
+                if (!foundUpdate)
+                {
+                    notifications?.Post(new SimpleNotification
+                    {
+                        Text = GeneralSettingsStrings.RunningLatestRelease(game.Version),
+                        Icon = FontAwesome.Solid.CheckCircle,
+                    });
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                // This sequence allows the notification to be immediately dismissed.
+                checkingNotification.State = ProgressNotificationState.Cancelled;
+                checkingNotification.Close(false);
+                checkForUpdatesButton.Enabled.Value = true;
+            }
+        }
+
         private void exportLogs()
         {
             ProgressNotification notification = new ProgressNotification
@@ -106,12 +163,16 @@ namespace osu.Game.Overlays.Settings.Sections.General
 
             try
             {
+                GlobalStatistics.OutputToLog();
+                Logger.Flush();
+
                 var logStorage = Logger.Storage;
 
                 using (var outStream = storage.CreateFileSafely(archive_filename))
                 using (var zip = ZipArchive.Create())
                 {
-                    foreach (string? f in logStorage.GetFiles(string.Empty, "*.log")) zip.AddEntry(f, logStorage.GetStream(f), true);
+                    foreach (string? f in logStorage.GetFiles(string.Empty, "*.log"))
+                        FileUtils.AttemptOperation(z => z.AddEntry(f, logStorage.GetStream(f), true), zip);
 
                     zip.SaveTo(outStream);
                 }

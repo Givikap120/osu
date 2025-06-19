@@ -7,6 +7,7 @@ using System.Linq;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects;
+using osu.Game.Rulesets.Objects.Legacy;
 using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.Scoring.Legacy;
@@ -65,11 +66,7 @@ namespace osu.Game.Rulesets.Taiko.Difficulty
                 drainLength = ((int)Math.Round(baseBeatmap.HitObjects[^1].StartTime) - (int)Math.Round(baseBeatmap.HitObjects[0].StartTime) - breakLength) / 1000;
             }
 
-            difficultyPeppyStars = (int)Math.Round(
-                (baseBeatmap.Difficulty.DrainRate
-                 + baseBeatmap.Difficulty.OverallDifficulty
-                 + baseBeatmap.Difficulty.CircleSize
-                 + Math.Clamp((float)objectCount / drainLength * 8, 0, 16)) / 38 * 5);
+            difficultyPeppyStars = LegacyRulesetExtensions.CalculateDifficultyPeppyStars(baseBeatmap.Difficulty, objectCount, drainLength);
 
             LegacyScoreAttributes attributes = new LegacyScoreAttributes();
 
@@ -98,6 +95,8 @@ namespace osu.Game.Rulesets.Taiko.Difficulty
                 case SwellTick:
                     scoreIncrease = 300;
                     increaseCombo = false;
+                    isBonus = true;
+                    bonusResult = HitResult.IgnoreHit;
                     break;
 
                 case DrumRollTick:
@@ -144,6 +143,13 @@ namespace osu.Game.Rulesets.Taiko.Difficulty
                 case DrumRoll:
                     foreach (var nested in hitObject.NestedHitObjects)
                         simulateHit(nested, ref attributes);
+                    return;
+
+                case StrongNestedHitObject:
+                    // we never need to deal with these directly.
+                    // the only thing strong hits do in terms of scoring is double their object's score increase,
+                    // which is already handled at the parent object level via the `strongable.IsStrong` check lower down in this method.
+                    // not handling these here can lead to them falsely being counted as combo-increasing when handling strong drum rolls!
                     return;
             }
 

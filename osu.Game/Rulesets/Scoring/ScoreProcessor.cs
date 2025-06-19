@@ -57,6 +57,14 @@ namespace osu.Game.Rulesets.Scoring
         public readonly BindableLong TotalScore = new BindableLong { MinValue = 0 };
 
         /// <summary>
+        /// The total number of points awarded for the score without including mod multipliers.
+        /// </summary>
+        /// <remarks>
+        /// The purpose of this property is to enable future lossless rebalances of mod multipliers.
+        /// </remarks>
+        public readonly BindableLong TotalScoreWithoutMods = new BindableLong { MinValue = 0 };
+
+        /// <summary>
         /// The current accuracy.
         /// </summary>
         public readonly BindableDouble Accuracy = new BindableDouble(1) { MinValue = 0, MaxValue = 1 };
@@ -110,6 +118,11 @@ namespace osu.Game.Rulesets.Scoring
         /// The maximum achievable total score.
         /// </summary>
         public long MaximumTotalScore { get; private set; }
+
+        /// <summary>
+        /// The maximum achievable combo.
+        /// </summary>
+        public int MaximumCombo { get; private set; }
 
         /// <summary>
         /// The maximum sum of accuracy-affecting judgements at the current point in time.
@@ -173,6 +186,8 @@ namespace osu.Game.Rulesets.Scoring
             }
         }
 
+        public IReadOnlyDictionary<HitResult, int> Statistics => ScoreResultCounts;
+
         private bool beatmapApplied;
 
         protected readonly Dictionary<HitResult, int> ScoreResultCounts = new Dictionary<HitResult, int>();
@@ -181,21 +196,13 @@ namespace osu.Game.Rulesets.Scoring
         private readonly List<HitEvent> hitEvents = new List<HitEvent>();
         private HitObject? lastHitObject;
 
+        public bool ApplyNewJudgementsWhenFailed { get; set; }
+
         public ScoreProcessor(Ruleset ruleset)
         {
             Ruleset = ruleset;
 
-            Combo.ValueChanged += combo => HighestCombo.Value = Math.Max(HighestCombo.Value, combo.NewValue);
-            Accuracy.ValueChanged += accuracy =>
-            {
-                // Once failed, we shouldn't update the rank anymore.
-                if (rank.Value == ScoreRank.F)
-                    return;
-
-                rank.Value = RankFromAccuracy(accuracy.NewValue);
-                foreach (var mod in Mods.Value.OfType<IApplicableToScoreProcessor>())
-                    rank.Value = mod.AdjustRank(Rank.Value, accuracy.NewValue);
-            };
+            Accuracy.ValueChanged += _ => updateRank();
 
             Mods.ValueChanged += mods =>
             {
@@ -205,6 +212,7 @@ namespace osu.Game.Rulesets.Scoring
                     scoreMultiplier *= m.ScoreMultiplier;
 
                 updateScore();
+                updateRank();
             };
         }
 
@@ -219,7 +227,7 @@ namespace osu.Game.Rulesets.Scoring
             result.ComboAtJudgement = Combo.Value;
             result.HighestComboAtJudgement = HighestCombo.Value;
 
-            if (result.FailedAtJudgement)
+            if (result.FailedAtJudgement && !ApplyNewJudgementsWhenFailed)
                 return;
 
             ScoreResultCounts[result.Type] = ScoreResultCounts.GetValueOrDefault(result.Type) + 1;
@@ -229,7 +237,10 @@ namespace osu.Game.Rulesets.Scoring
             else if (result.Type.BreaksCombo())
                 Combo.Value = 0;
 
+            HighestCombo.Value = Math.Max(HighestCombo.Value, Combo.Value);
+
             result.ComboAfterJudgement = Combo.Value;
+            result.HighestComboAfterJudgement = HighestCombo.Value;
 
             if (result.Judgement.MaxResult.AffectsAccuracy())
             {
@@ -272,10 +283,13 @@ namespace osu.Game.Rulesets.Scoring
             if (!TrackHitEvents)
                 throw new InvalidOperationException(@$"Rewind is not supported when {nameof(TrackHitEvents)} is disabled.");
 
-            Combo.Value = result.ComboAtJudgement;
-            HighestCombo.Value = result.HighestComboAtJudgement;
+            // the reason this is written so funnily rather than just using `ComboAtJudgement`
+            // is to nullify impact of ordering when reverting concurrent judgement results
+            // (think mania and multiple judgements within a frame).
+            Combo.Value -= (result.ComboAfterJudgement - result.ComboAtJudgement);
+            HighestCombo.Value -= (result.HighestComboAfterJudgement - result.HighestComboAtJudgement);
 
-            if (result.FailedAtJudgement)
+            if (result.FailedAtJudgement && !ApplyNewJudgementsWhenFailed)
                 return;
 
             ScoreResultCounts[result.Type] = ScoreResultCounts.GetValueOrDefault(result.Type) - 1;
@@ -367,9 +381,24 @@ namespace osu.Game.Rulesets.Scoring
             MaximumAccuracy.Value = maximumBaseScore > 0 ? (currentBaseScore + (maximumBaseScore - currentMaximumBaseScore)) / maximumBaseScore : 1;
 
             double comboProgress = maximumComboPortion > 0 ? currentComboPortion / maximumComboPortion : 1;
-            double accuracyProcess = maximumAccuracyJudgementCount > 0 ? (double)currentAccuracyJudgementCount / maximumAccuracyJudgementCount : 1;
+            double accuracyProgress = maximumAccuracyJudgementCount > 0 ? (double)currentAccuracyJudgementCount / maximumAccuracyJudgementCount : 1;
 
-            TotalScore.Value = (long)Math.Round(ComputeTotalScore(comboProgress, accuracyProcess, currentBonusPortion) * scoreMultiplier);
+            TotalScoreWithoutMods.Value = (long)Math.Round(ComputeTotalScore(comboProgress, accuracyProgress, currentBonusPortion));
+            TotalScore.Value = (long)Math.Round(TotalScoreWithoutMods.Value * scoreMultiplier);
+        }
+
+        private void updateRank()
+        {
+            // Once failed, we shouldn't update the rank anymore.
+            if (rank.Value == ScoreRank.F)
+                return;
+
+            ScoreRank newRank = RankFromScore(Accuracy.Value, ScoreResultCounts);
+
+            foreach (var mod in Mods.Value.OfType<IApplicableToScoreProcessor>())
+                newRank = mod.AdjustRank(newRank, Accuracy.Value);
+
+            rank.Value = newRank;
         }
 
         protected virtual double ComputeTotalScore(double comboProgress, double accuracyProgress, double bonusPortion)
@@ -404,6 +433,7 @@ namespace osu.Game.Rulesets.Scoring
                 MaximumResultCounts.AddRange(ScoreResultCounts);
 
                 MaximumTotalScore = TotalScore.Value;
+                MaximumCombo = HighestCombo.Value;
             }
 
             ScoreResultCounts.Clear();
@@ -417,8 +447,8 @@ namespace osu.Game.Rulesets.Scoring
             TotalScore.Value = 0;
             Accuracy.Value = 1;
             Combo.Value = 0;
-            rank.Value = ScoreRank.X;
             HighestCombo.Value = 0;
+            updateRank();
         }
 
         /// <summary>
@@ -441,6 +471,7 @@ namespace osu.Game.Rulesets.Scoring
                 score.MaximumStatistics[result] = MaximumResultCounts.GetValueOrDefault(result);
 
             // Populate total score after everything else.
+            score.TotalScoreWithoutMods = TotalScoreWithoutMods.Value;
             score.TotalScore = TotalScore.Value;
         }
 
@@ -502,7 +533,7 @@ namespace osu.Game.Rulesets.Scoring
         /// <summary>
         /// Given an accuracy (0..1), return the correct <see cref="ScoreRank"/>.
         /// </summary>
-        public virtual ScoreRank RankFromAccuracy(double accuracy)
+        public virtual ScoreRank RankFromScore(double accuracy, IReadOnlyDictionary<HitResult, int> results)
         {
             if (accuracy == accuracy_cutoff_x)
                 return ScoreRank.X;

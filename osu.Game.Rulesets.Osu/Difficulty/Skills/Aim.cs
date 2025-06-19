@@ -2,10 +2,14 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using System.Collections.Generic;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -14,15 +18,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     /// </summary>
     public class Aim : OsuStrainSkill
     {
-        public Aim(Mod[] mods, bool withSliders)
+        public readonly bool IncludeSliders;
+
+        public Aim(Mod[] mods, bool includeSliders)
             : base(mods)
         {
-            this.withSliders = withSliders;
+            IncludeSliders = includeSliders;
         }
-
-        private readonly bool withSliders;
-
-        private double currentFlowStrain;        
+        private double currentFlowStrain;
         private double currentSnapStrain;
         private double realStrain;
 
@@ -32,6 +35,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private readonly List<double> flowStrains = new List<double>();
         private readonly List<double> snapStrains = new List<double>();
+
+        private readonly List<double> sliderStrains = new List<double>();
 
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
@@ -44,7 +49,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             double currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
 
-            (double, double) aimResult = AimEvaluator.EvaluateDifficultyOf(current, withSliders, strainDecayBase, currentRhythm);
+            (double, double) aimResult = AimEvaluator.EvaluateDifficultyOf(current, IncludeSliders, strainDecayBase, currentRhythm);
 
             double flowStrain = aimResult.Item1 * skillMultiplier;
             double snapStrain = aimResult.Item2 * skillMultiplier;
@@ -57,7 +62,25 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             // double p = 3;
             realStrain = currentFlowStrain + currentSnapStrain;// + (Math.Pow(Math.Pow(currentFlowStrain, p) + Math.Pow(currentSnapStrain, p), 1.0 / p) - Math.Max(currentFlowStrain, currentSnapStrain));
 
+            if (current.BaseObject is Slider)
+                sliderStrains.Add(realStrain);
+
             return realStrain;
         }
+
+        public double GetDifficultSliders()
+        {
+            if (sliderStrains.Count == 0)
+                return 0;
+
+            double maxSliderStrain = sliderStrains.Max();
+
+            if (maxSliderStrain == 0)
+                return 0;
+
+            return sliderStrains.Sum(strain => 1.0 / (1.0 + Math.Exp(-(strain / maxSliderStrain * 12.0 - 6.0))));
+        }
+
+        public double CountTopWeightedSliders() => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, DifficultyValue());
     }
 }
