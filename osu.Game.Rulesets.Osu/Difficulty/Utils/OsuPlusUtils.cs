@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace osu.Game.Rulesets.Osu.Difficulty
+namespace osu.Game.Rulesets.Osu.Difficulty.Utils
 {
-    public static class Utils
+    public static class OsuPlusUtils
     {
         public static bool IsRoughlyEqual(double a, double b)
         {

@@ -8,6 +8,7 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -96,7 +97,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             var previous = (OsuDifficultyHitObject)current.Previous(0);
             double rhythmBonus = 0;
 
-            if (isPreviousOffbeat && Utils.IsRatioEqualGreater(1.5, current.GapTime, previous.GapTime))
+            if (isPreviousOffbeat && OsuPlusUtils.IsRatioEqualGreater(1.5, current.GapTime, previous.GapTime))
             {
                 rhythmBonus = 5; // Doubles, Quads etc.
                 foreach (int previousDouble in previousDoubles.Skip(Math.Max(0, previousDoubles.Count - 10)))
@@ -109,20 +110,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
                 previousDoubles.Add(noteIndex);
             }
-            else if (Utils.IsRatioEqual(0.667, current.GapTime, previous.GapTime))
+            else if (OsuPlusUtils.IsRatioEqual(0.667, current.GapTime, previous.GapTime))
             {
                 rhythmBonus = 4 + 8 * current.Flow; // Transition to 1/3s
                 if (current.Flow > 0.8)
                     previousDoubles.Add(-1);
             }
-            else if (Utils.IsRatioEqual(0.333, current.GapTime, previous.GapTime))
+            else if (OsuPlusUtils.IsRatioEqual(0.333, current.GapTime, previous.GapTime))
                 rhythmBonus = 0.4 + 0.8 * current.Flow; // Transition to 1/6s
-            else if (Utils.IsRatioEqual(0.5, current.GapTime, previous.GapTime) || Utils.IsRatioEqualLess(0.25, current.GapTime, previous.GapTime))
+            else if (OsuPlusUtils.IsRatioEqual(0.5, current.GapTime, previous.GapTime) || OsuPlusUtils.IsRatioEqualLess(0.25, current.GapTime, previous.GapTime))
                 rhythmBonus = 0.1 + 0.2 * current.Flow; // Transition to triples, streams etc.
 
-            if (Utils.IsRatioEqualLess(0.667, current.GapTime, previous.GapTime) && current.Flow > 0.8)
+            if (OsuPlusUtils.IsRatioEqualLess(0.667, current.GapTime, previous.GapTime) && current.Flow > 0.8)
                 isPreviousOffbeat = true;
-            else if (Utils.IsRatioEqual(1, current.GapTime, previous.GapTime) && current.Flow > 0.8)
+            else if (OsuPlusUtils.IsRatioEqual(1, current.GapTime, previous.GapTime) && current.Flow > 0.8)
                 isPreviousOffbeat = !isPreviousOffbeat;
             else
                 isPreviousOffbeat = false;
@@ -135,7 +136,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double rhythmBonus = 0;
             double sliderMS = current.StrainTime - current.GapTime;
 
-            if (Utils.IsRatioEqual(0.5, current.GapTime, sliderMS) || Utils.IsRatioEqual(0.25, current.GapTime, sliderMS))
+            if (OsuPlusUtils.IsRatioEqual(0.5, current.GapTime, sliderMS) || OsuPlusUtils.IsRatioEqual(0.25, current.GapTime, sliderMS))
             {
                 double endFlow = calculateSliderEndFlow(current);
                 rhythmBonus = 0.3 * endFlow; // Triples, streams etc. starting with a slider end.
@@ -154,10 +155,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private static double calculateSliderEndFlow(OsuDifficultyHitObject current)
         {
             double streamBpm = 15000 / current.GapTime;
-            double isFlowSpeed = Utils.TransitionToTrue(streamBpm, 120, 30);
+            double isFlowSpeed = OsuPlusUtils.TransitionToTrue(streamBpm, 120, 30);
 
             double distanceOffset = (Math.Tanh((streamBpm - 140) / 20) + 2) * OsuDifficultyHitObject.NORMALISED_RADIUS;
-            double isFlowDistance = Utils.TransitionToFalse(current.JumpDistance, distanceOffset, OsuDifficultyHitObject.NORMALISED_RADIUS);
+            double isFlowDistance = OsuPlusUtils.TransitionToFalse(current.JumpDistance, distanceOffset, OsuDifficultyHitObject.NORMALISED_RADIUS);
 
             return isFlowSpeed * isFlowDistance;
         }
