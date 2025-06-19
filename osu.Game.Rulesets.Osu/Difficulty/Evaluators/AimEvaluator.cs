@@ -39,43 +39,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
             const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
 
-            // Doubletap detection stuff
-
-            static double cosSigmoid(double value, double range = 1) => (1 - Math.Cos(value * Math.PI / range)) / 2;
-
-            // Calculate how much things are overlapping. Low overlapping circles are very hard in being doubletappable
-            double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
-            overlapnessCurr = cosSigmoid(overlapnessCurr);
-            overlapnessCurr *= overlapnessCurr;
-
-            double antiOverlapnessLast = 1 - Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
-            antiOverlapnessLast = cosSigmoid(antiOverlapnessLast);
-            antiOverlapnessLast *= antiOverlapnessLast;
-
-            // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
-            double doubletapHitWindow = (osuLastObj.HitWindowGreat + osuLastLastObj.HitWindowGreat) / 2 - osuLastObj.StrainTime;
-
-            // Extra time to aim when doubletapping
-            double doubletapTime;
-
-            if (doubletapHitWindow > 0)
-            {
-                // Always equal or bigger than doubletapTime from `else`
-                doubletapTime = osuLastObj.StrainTime * overlapnessCurr * antiOverlapnessLast / 2;
-            }
-            else
-            {
-                doubletapTime = osuLastObj.HitWindowGreat * overlapnessCurr * antiOverlapnessLast / 2;
-
-                // if the second note is delayed - decrease the penalty down to 0 on doubled time
-                double difference = osuCurrObj.DeltaTime - osuLastObj.DeltaTime;
-                double min = Math.Min(osuCurrObj.DeltaTime, osuLastObj.DeltaTime);
-                difference = Math.Clamp(difference, -min, min);
-
-                doubletapTime *= 1 - cosSigmoid(difference, min);
-            }
-
-            double adjustedStrainTime = osuCurrObj.StrainTime + doubletapTime;
+            double adjustedStrainTime = osuCurrObj.StrainTime;
 
             // Calculate the velocity to the current hitobject, which starts with a base distance / time assuming the last object is a hitcircle.
             double currVelocity = osuCurrObj.LazyJumpDistance / adjustedStrainTime;
@@ -193,6 +157,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Add in acute angle bonus or wide angle bonus, whichever is larger.
             aimStrain += Math.Max(acuteAngleBonus * acute_angle_multiplier, wideAngleBonus * wide_angle_multiplier);
 
+            aimStrain *= calculateDoubletapMultiplier(osuCurrObj);
+
             // Add in additional slider velocity bonus.
             if (withSliderTravelDistance)
                 aimStrain += sliderBonus * slider_multiplier;
@@ -201,6 +167,41 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             aimStrain *= osuCurrObj.SmallCircleBonus;
 
             return aimStrain;
+        }
+
+        private static double calculateDoubletapMultiplier(OsuDifficultyHitObject osuCurrObj)
+        {
+            var osuLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(0);
+            var osuLastLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(1);
+
+            // Calculate how much things are overlapping. Low overlapping circles are very hard in being doubletappable
+            double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
+            overlapnessCurr = Math.Pow(DifficultyCalculationUtils.Smoothstep(overlapnessCurr, 0, 1), 2);
+
+            double overlapnessLast = Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
+            overlapnessLast = Math.Pow(DifficultyCalculationUtils.Smoothstep(overlapnessLast, 1, 0), 2);
+
+            // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
+            double doubletapHitWindow = (osuLastObj.HitWindowGreat + osuLastLastObj.HitWindowGreat) / 2 - osuLastObj.StrainTime;
+
+            // Extra time to aim when doubletapping
+            double doubletapTime;
+
+            if (doubletapHitWindow > 0)
+            {
+                // Always equal or bigger than doubletapTime from `else`
+                doubletapTime = osuLastObj.StrainTime * overlapnessCurr * overlapnessLast / 2;
+            }
+            else
+            {
+                doubletapTime = osuLastObj.HitWindowGreat * overlapnessCurr * overlapnessLast / 2;
+
+                // if the second note is delayed - decrease the penalty down to 0 on doubled time
+                double difference = osuCurrObj.DeltaTime - osuLastObj.DeltaTime;
+                doubletapTime *= 1 - DifficultyCalculationUtils.Smoothstep(difference, 0, Math.Min(osuCurrObj.DeltaTime, osuLastObj.DeltaTime));
+            }
+
+            return osuCurrObj.StrainTime / (osuCurrObj.StrainTime + doubletapTime);
         }
 
         private static double calcWideAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(40), double.DegreesToRadians(140));
