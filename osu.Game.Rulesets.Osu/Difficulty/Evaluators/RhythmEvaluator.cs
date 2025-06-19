@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -14,7 +15,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     {
         private const int history_time_max = 5 * 1000; // 5 seconds
         private const int history_objects_max = 32;
-        private const double rhythm_overall_multiplier = 0.95;
+        private const double rhythm_overall_multiplier = 1.0;
         private const double rhythm_ratio_multiplier = 12.0;
 
         /// <summary>
@@ -67,16 +68,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
                 // calculate how much current delta difference deserves a rhythm bonus
                 // this function is meant to reduce rhythm bonus for deltas that are multiples of each other (i.e 100 and 200)
-                double deltaDifferenceRatio = Math.Min(prevDelta, currDelta) / Math.Max(prevDelta, currDelta);
-                double currRatio = 1.0 + rhythm_ratio_multiplier * Math.Min(0.5, Math.Pow(Math.Sin(Math.PI / deltaDifferenceRatio), 2));
+                double deltaDifference = Math.Max(prevDelta, currDelta) / Math.Min(prevDelta, currDelta);
+
+                // Take only the fractional part of the value since we're only interested in punishing multiples
+                double deltaDifferenceFraction = deltaDifference - Math.Truncate(deltaDifference);
+
+                double currRatio = 1.0 + rhythm_ratio_multiplier * Math.Min(0.5, DifficultyCalculationUtils.SmoothstepBellCurve(deltaDifferenceFraction));
 
                 // reduce ratio bonus if delta difference is too big
-                double fraction = Math.Max(prevDelta / currDelta, currDelta / prevDelta);
-                double fractionMultiplier = Math.Clamp(2.0 - fraction / 8.0, 0.0, 1.0);
+                double differenceMultiplier = Math.Clamp(2.0 - deltaDifference / 8.0, 0.0, 1.0);
 
                 double windowPenalty = Math.Min(1, Math.Max(0, Math.Abs(prevDelta - currDelta) - deltaDifferenceEpsilon) / deltaDifferenceEpsilon);
 
-                double effectiveRatio = windowPenalty * currRatio * fractionMultiplier;
+                double effectiveRatio = windowPenalty * currRatio * differenceMultiplier;
 
                 if (firstDeltaSwitch)
                 {
@@ -120,7 +124,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                                 islandCount.Count++;
 
                             // repeated island (ex: triplet -> triplet)
-                            double power = logistic(island.Delta, 2.75, 0.24, 14);
+                            double power = DifficultyCalculationUtils.Logistic(island.Delta, maxValue: 2.75, multiplier: 0.24, midpointOffset: 58.33);
                             effectiveRatio *= Math.Min(3.0 / islandCount.Count, Math.Pow(1.0 / islandCount.Count, power));
 
                             islandCounts[countIndex] = (islandCount.Island, islandCount.Count);
@@ -171,8 +175,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             return Math.Sqrt(4 + rhythmComplexitySum * rhythm_overall_multiplier) / 2.0; // produces multiplier that can be applied to strain. range [1, infinity) (not really though)
         }
-
-        private static double logistic(double x, double maxValue, double multiplier, double offset) => (maxValue / (1 + Math.Pow(Math.E, offset - (multiplier * x))));
 
         private class Island : IEquatable<Island>
         {
