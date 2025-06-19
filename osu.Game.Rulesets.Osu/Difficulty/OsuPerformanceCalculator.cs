@@ -5,16 +5,61 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
+using osu.Framework.Extensions.IEnumerableExtensions;
+using osu.Game.Beatmaps;
+using osu.Game.Rulesets.Difficulty.Utils;
+using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
+using osu.Game.Utils;
+using osu.Game.Rulesets.Osu.Difficulty.Skills;
+using System.Xml.Linq;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
+        private bool usingClassicSliderAccuracy;
+        private bool usingScoreV2;
+
+        private double accuracy;
+        private int scoreMaxCombo;
+        private int countGreat;
+        private int countOk;
+        private int countMeh;
+        private int countMiss;
+
+        /// <summary>
+        /// Missed slider ticks that includes missed reverse arrows. Will only be correct on non-classic scores
+        /// </summary>
+        private int countSliderTickMiss;
+
+        /// <summary>
+        /// Amount of missed slider tails that don't break combo. Will only be correct on non-classic scores
+        /// </summary>
+        private int countSliderEndsDropped;
+
+        /// <summary>
+        /// Estimated total amount of combo breaks
+        /// </summary>
+        private double effectiveMissCount;
+
+        private double clockRate;
+        private double greatHitWindow;
+        private double okHitWindow;
+        private double mehHitWindow;
+        private double overallDifficulty;
+        private double approachRate;
+
+        private double? speedDeviation;
+
+        private double aimEstimatedSliderBreaks;
+        private double speedEstimatedSliderBreaks;
+
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
         {
@@ -26,15 +71,36 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             Mod[] visualMods = mods.Where(m => m is ModWithVisibilityAdjustment).ToArray();
             var osuAttributes = (OsuDifficultyAttributes)attributes;
 
-            double accuracy = score.Accuracy;
-            int scoreMaxCombo = score.MaxCombo;
-            int countGreat = score.Statistics.GetValueOrDefault(HitResult.Great);
-            int countOk = score.Statistics.GetValueOrDefault(HitResult.Ok);
-            int countMeh = score.Statistics.GetValueOrDefault(HitResult.Meh);
-            int countMiss = score.Statistics.GetValueOrDefault(HitResult.Miss);
-            int totalHits = countGreat + countOk + countMeh + countMiss;
+            usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
+            usingScoreV2 = score.Mods.Any(m => m is ModScoreV2);
 
-            double effectiveMissCount = countMiss;
+            accuracy = score.Accuracy;
+            scoreMaxCombo = score.MaxCombo;
+            countGreat = score.Statistics.GetValueOrDefault(HitResult.Great);
+            countOk = score.Statistics.GetValueOrDefault(HitResult.Ok);
+            countMeh = score.Statistics.GetValueOrDefault(HitResult.Meh);
+            countMiss = score.Statistics.GetValueOrDefault(HitResult.Miss);
+            countSliderEndsDropped = osuAttributes.SliderCount - score.Statistics.GetValueOrDefault(HitResult.SliderTailHit);
+            countSliderTickMiss = score.Statistics.GetValueOrDefault(HitResult.LargeTickMiss);
+            effectiveMissCount = countMiss;
+
+            var difficulty = score.BeatmapInfo!.Difficulty.Clone();
+
+            score.Mods.OfType<IApplicableToDifficulty>().ForEach(m => m.ApplyToDifficulty(difficulty));
+
+            clockRate = ModUtils.CalculateRateWithMods(score.Mods);
+
+            HitWindows hitWindows = new OsuHitWindows();
+            hitWindows.SetDifficulty(difficulty.OverallDifficulty);
+
+            greatHitWindow = hitWindows.WindowFor(HitResult.Great) / clockRate;
+            okHitWindow = hitWindows.WindowFor(HitResult.Ok) / clockRate;
+            mehHitWindow = hitWindows.WindowFor(HitResult.Meh) / clockRate;
+
+            double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
+
+            overallDifficulty = (80 - greatHitWindow) / 6;
+            approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
 
             double multiplier = 1.12; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things
 
@@ -51,24 +117,42 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 accuracyHitObjectsCount += osuAttributes.SliderCount;
             }
-            else if (OsuDifficultyCalculator.ENABLE_EFFECTIVE_MISS_COUNT)
+
+            double comboBasedEstimatedMissCount = calculateComboBasedEstimatedMissCount(osuAttributes);
+            double? scoreBasedEstimatedMissCount = null;
+
+            if (OsuDifficultyCalculator.ENABLE_EFFECTIVE_MISS_COUNT)
             {
-                effectiveMissCount = Math.Max(countMiss, calculateEffectiveMissCount(osuAttributes, scoreMaxCombo, countMiss, totalHits - countGreat));
+                if (usingClassicSliderAccuracy && score.LegacyTotalScore != null)
+                {
+                    var legacyScoreMissCalculator = new OsuLegacyScoreMissCalculator(score, osuAttributes);
+                    scoreBasedEstimatedMissCount = legacyScoreMissCalculator.Calculate();
+
+                    effectiveMissCount = scoreBasedEstimatedMissCount.Value;
+                }
+                else
+                {
+                    // Use combo-based miss count if this isn't a legacy score
+                    effectiveMissCount = comboBasedEstimatedMissCount;
+                }
+
+                effectiveMissCount = Math.Max(countMiss, effectiveMissCount);
+                effectiveMissCount = Math.Min(totalHits, effectiveMissCount);
             }
 
-            double normalisedHitError = calculateNormalisedHitError(osuAttributes.OverallDifficulty, totalHits, accuracyHitObjectsCount, countGreat);
+            double normalisedHitError = calculateNormalisedHitError(overallDifficulty, totalHits, accuracyHitObjectsCount, countGreat);
 
             double aimWeight = calculateAimWeight(normalisedHitError, scoreMaxCombo, osuAttributes.MaxCombo, totalHits, visualMods);
             double speedWeight = calculateSpeedWeight(normalisedHitError, scoreMaxCombo, osuAttributes.MaxCombo);
             double accuracyWeight = calculateAccuracyWeight(accuracyHitObjectsCount, visualMods);
 
-            double aimValue = aimWeight * CalculateSkillValue(osuAttributes.AimDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.AimDifficultyStrainsCount);
-            double jumpAimValue = aimWeight * CalculateSkillValue(osuAttributes.JumpAimDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.JumpAimDifficultyStrainsCount);
-            double flowAimValue = aimWeight * CalculateSkillValue(osuAttributes.FlowAimDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.FlowAimDifficultyStrainsCount);
-            double precisionValue = aimWeight * CalculateSkillValue(osuAttributes.PrecisionDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.AimDifficultyStrainsCount);
+            double aimValue = aimWeight * CalculateSkillValue(osuAttributes.AimDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.AimDifficultyStrainsCount, osuAttributes.AimTopWeightedSliderFactor);
+            double jumpAimValue = aimWeight * CalculateSkillValue(osuAttributes.JumpAimDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.JumpAimDifficultyStrainsCount, osuAttributes.AimTopWeightedSliderFactor);
+            double flowAimValue = aimWeight * CalculateSkillValue(osuAttributes.FlowAimDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.FlowAimDifficultyStrainsCount, osuAttributes.AimTopWeightedSliderFactor);
+            double precisionValue = aimWeight * CalculateSkillValue(osuAttributes.PrecisionDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.AimDifficultyStrainsCount, osuAttributes.AimTopWeightedSliderFactor);
 
-            double speedValue = speedWeight * CalculateSkillValue(osuAttributes.SpeedDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.SpeedDifficultyStrainsCount);
-            double staminaValue = speedWeight * CalculateSkillValue(osuAttributes.StaminaDifficulty) * calculateMissWeight(effectiveMissCount, osuAttributes.StaminaDifficultyStrainsCount);
+            double speedValue = speedWeight * CalculateSkillValue(osuAttributes.SpeedDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.SpeedDifficultyStrainsCount, osuAttributes.SpeedTopWeightedSliderFactor);
+            double staminaValue = speedWeight * CalculateSkillValue(osuAttributes.StaminaDifficulty) * calculateMissWeight(osuAttributes, osuAttributes.StaminaDifficultyStrainsCount, osuAttributes.SpeedTopWeightedSliderFactor);
 
             double accuracyValue = calculateAccuracyValue(normalisedHitError) * osuAttributes.AccuracyDifficulty * accuracyWeight;
 
@@ -102,7 +186,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Speed = speedValue,
                 Stamina = staminaValue,
                 Accuracy = accuracyValue,
-                Total = totalValue,
+                EffectiveMissCount = effectiveMissCount,
+                ComboBasedEstimatedMissCount = comboBasedEstimatedMissCount,
+                ScoreBasedEstimatedMissCount = scoreBasedEstimatedMissCount,
+                AimEstimatedSliderBreaks = aimEstimatedSliderBreaks,
+                SpeedEstimatedSliderBreaks = speedEstimatedSliderBreaks,
+                SpeedDeviation = speedDeviation,
+                Total = totalValue
             };
 
             return result;
@@ -126,7 +216,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return hitWindow / zValue; // Hit errors are normally distributed along the x-axis.
         }
 
-        private static double calculateMissWeight(double misses, double difficultStrainCount) => OsuDifficultyCalculator.ENABLE_CSR ? 0.96 / ((misses / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1) : Math.Pow(0.97, misses);
+        private double calculateMissWeight(OsuDifficultyAttributes attributes, double difficultStrainCount, double topWeightedSliderFactor)
+        {
+            double sliderBreaks = calculateEstimatedSliderBreaks(topWeightedSliderFactor, attributes);
+            double relevantMissCount = Math.Min(effectiveMissCount + aimEstimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
+            return OsuDifficultyCalculator.ENABLE_CSR ? 0.96 / ((relevantMissCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1) : Math.Pow(0.97, relevantMissCount);
+        }
 
         private static double calculateAimWeight(double normalizedHitError, int combo, int maxCombo, int objectCount, Mod[] visualMods)
         {
@@ -160,22 +255,163 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private static double calculateAccuracyValue(double normalizedHitError) => 560 * Math.Pow(0.85, normalizedHitError);
 
-        private static double calculateEffectiveMissCount(OsuDifficultyAttributes attributes, int scoreMaxCombo, int countMiss, int countMistakes)
-        {
-            // Guess the number of misses + slider breaks from combo
-            double comboBasedMissCount = 0.0;
 
-            if (attributes.SliderCount > 0)
+        private double calculateComboBasedEstimatedMissCount(OsuDifficultyAttributes attributes)
+        {
+            if (attributes.SliderCount <= 0)
+                return countMiss;
+
+            double missCount = countMiss;
+
+            if (usingClassicSliderAccuracy)
             {
+                // Consider that full combo is maximum combo minus dropped slider tails since they don't contribute to combo but also don't break it
+                // In classic scores we can't know the amount of dropped sliders so we estimate to 10% of all sliders on the map
                 double fullComboThreshold = attributes.MaxCombo - 0.1 * attributes.SliderCount;
+
                 if (scoreMaxCombo < fullComboThreshold)
-                    comboBasedMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // In classic scores there can't be more misses than a sum of all non-perfect judgements
+                missCount = Math.Min(missCount, totalImperfectHits);
+            }
+            else
+            {
+                double fullComboThreshold = attributes.MaxCombo - countSliderEndsDropped;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // Combine regular misses with tick misses since tick misses break combo as well
+                missCount = Math.Min(missCount, countSliderTickMiss + countMiss);
             }
 
-            // Clamp miss count to maximum amount of possible breaks
-            comboBasedMissCount = Math.Min(comboBasedMissCount, countMistakes);
-
-            return Math.Max(countMiss, comboBasedMissCount);
+            return missCount;
         }
+
+        private double calculateEstimatedSliderBreaks(double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
+        {
+            if (!usingClassicSliderAccuracy || countOk == 0)
+                return 0;
+
+            double missedComboPercent = 1.0 - (double)scoreMaxCombo / attributes.MaxCombo;
+            double estimatedSliderBreaks = Math.Min(countOk, effectiveMissCount * topWeightedSliderFactor);
+
+            // Scores with more Oks are more likely to have slider breaks.
+            double okAdjustment = ((countOk - estimatedSliderBreaks) + 0.5) / countOk;
+
+            // There is a low probability of extra slider breaks on effective miss counts close to 1, as score based calculations are good at indicating if only a single break occurred.
+            estimatedSliderBreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
+
+            return estimatedSliderBreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
+        }
+
+        /// <summary>
+        /// Estimates player's deviation on speed notes using <see cref="calculateDeviation"/>, assuming worst-case.
+        /// Treats all speed notes as hit circles.
+        /// </summary>
+        private double? calculateSpeedDeviation(OsuDifficultyAttributes attributes)
+        {
+            if (totalSuccessfulHits == 0)
+                return null;
+
+            // Calculate accuracy assuming the worst case scenario
+            double speedNoteCount = attributes.SpeedNoteCount;
+            speedNoteCount += (totalHits - attributes.SpeedNoteCount) * 0.1;
+
+            // Assume worst case: all mistakes were on speed notes
+            double relevantCountMiss = Math.Min(countMiss, speedNoteCount);
+            double relevantCountMeh = Math.Min(countMeh, speedNoteCount - relevantCountMiss);
+            double relevantCountOk = Math.Min(countOk, speedNoteCount - relevantCountMiss - relevantCountMeh);
+            double relevantCountGreat = Math.Max(0, speedNoteCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
+
+            return calculateDeviation(relevantCountGreat, relevantCountOk, relevantCountMeh);
+        }
+
+        /// <summary>
+        /// Estimates the player's tap deviation based on the OD, given number of greats, oks, mehs and misses,
+        /// assuming the player's mean hit error is 0. The estimation is consistent in that two SS scores on the same map with the same settings
+        /// will always return the same deviation. Misses are ignored because they are usually due to misaiming.
+        /// Greats and oks are assumed to follow a normal distribution, whereas mehs are assumed to follow a uniform distribution.
+        /// </summary>
+        private double? calculateDeviation(double relevantCountGreat, double relevantCountOk, double relevantCountMeh)
+        {
+            if (relevantCountGreat + relevantCountOk + relevantCountMeh <= 0)
+                return null;
+
+            // The sample proportion of successful hits.
+            double n = Math.Max(1, relevantCountGreat + relevantCountOk);
+            double p = relevantCountGreat / n;
+
+            // 99% critical value for the normal distribution (one-tailed).
+            const double z = 2.32634787404;
+
+            // We can be 99% confident that the population proportion is at least this value.
+            double pLowerBound = Math.Min(p, (n * p + z * z / 2) / (n + z * z) - z / (n + z * z) * Math.Sqrt(n * p * (1 - p) + z * z / 4));
+
+            double deviation;
+
+            // Tested max precision for the deviation calculation.
+            if (pLowerBound > 0.01)
+            {
+                // Compute deviation assuming greats and oks are normally distributed.
+                deviation = greatHitWindow / (Math.Sqrt(2) * DifficultyCalculationUtils.ErfInv(pLowerBound));
+
+                // Subtract the deviation provided by tails that land outside the ok hit window from the deviation computed above.
+                // This is equivalent to calculating the deviation of a normal distribution truncated at +-okHitWindow.
+                double okHitWindowTailAmount = Math.Sqrt(2 / Math.PI) * okHitWindow * Math.Exp(-0.5 * Math.Pow(okHitWindow / deviation, 2))
+                                               / (deviation * DifficultyCalculationUtils.Erf(okHitWindow / (Math.Sqrt(2) * deviation)));
+
+                deviation *= Math.Sqrt(1 - okHitWindowTailAmount);
+            }
+            else
+            {
+                // A tested limit value for the case of a score only containing oks.
+                deviation = okHitWindow / Math.Sqrt(3);
+            }
+
+            // Compute and add the variance for mehs, assuming that they are uniformly distributed.
+            double mehVariance = (mehHitWindow * mehHitWindow + okHitWindow * mehHitWindow + okHitWindow * okHitWindow) / 3;
+
+            deviation = Math.Sqrt(((relevantCountGreat + relevantCountOk) * Math.Pow(deviation, 2) + relevantCountMeh * mehVariance) / (relevantCountGreat + relevantCountOk + relevantCountMeh));
+
+            return deviation;
+        }
+
+        // Calculates multiplier for speed to account for improper tapping based on the deviation and speed difficulty
+        // https://www.desmos.com/calculator/dmogdhzofn
+        private double calculateSpeedHighDeviationNerf(OsuDifficultyAttributes attributes)
+        {
+            if (speedDeviation == null)
+                return 0;
+
+            double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
+
+            // Decides a point where the PP value achieved compared to the speed deviation is assumed to be tapped improperly. Any PP above this point is considered "excess" speed difficulty.
+            // This is used to cause PP above the cutoff to scale logarithmically towards the original speed value thus nerfing the value.
+            double excessSpeedDifficultyCutoff = 100 + 220 * Math.Pow(22 / speedDeviation.Value, 6.5);
+
+            if (speedValue <= excessSpeedDifficultyCutoff)
+                return 1.0;
+
+            const double scale = 50;
+            double adjustedSpeedValue = scale * (Math.Log((speedValue - excessSpeedDifficultyCutoff) / scale + 1) + excessSpeedDifficultyCutoff / scale);
+
+            // 220 UR and less are considered tapped correctly to ensure that normal scores will be punished as little as possible
+            double lerp = 1 - DifficultyCalculationUtils.ReverseLerp(speedDeviation.Value, 22.0, 27.0);
+            adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
+
+            return adjustedSpeedValue / speedValue;
+        }
+
+        // Miss penalty assumes that a player will miss on the hardest parts of a map,
+        // so we use the amount of relatively difficult sections to adjust miss penalty
+        // to make it more punishing on maps with lower amount of hard sections.
+        private double calculateMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
+        private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
+
+        private int totalHits => countGreat + countOk + countMeh + countMiss;
+        private int totalSuccessfulHits => countGreat + countOk + countMeh;
+        private int totalImperfectHits => countOk + countMeh + countMiss;
     }
 }

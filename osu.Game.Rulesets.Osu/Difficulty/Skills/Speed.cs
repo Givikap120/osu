@@ -2,9 +2,12 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -21,6 +24,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         public Speed(Mod[] mods) : base(mods)
         {
         }
+
+        private readonly List<double> sliderStrains = new List<double>();
 
         protected double StrainDecay(double ms) => Math.Pow(StrainDecayBase, ms / 1000);
 
@@ -39,7 +44,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentStrain += ((1 - osuCurrent.Flow) * tapValue + osuCurrent.Flow * streamValue) * 1000 * SkillMultiplier;
             ObjectStrains.Add(currentStrain);
 
+            if (current.BaseObject is Slider)
+                sliderStrains.Add(currentStrain);
+
             return currentStrain;
         }
+
+        public double CountTopWeightedSliders() => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, DifficultyValue());
     }
 }

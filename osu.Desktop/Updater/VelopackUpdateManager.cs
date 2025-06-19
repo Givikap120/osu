@@ -4,8 +4,10 @@
 using System;
 using System.Threading.Tasks;
 using osu.Framework.Allocation;
+using osu.Framework.Bindables;
 using osu.Framework.Logging;
 using osu.Game;
+using osu.Game.Configuration;
 using osu.Game.Overlays;
 using osu.Game.Overlays.Notifications;
 using osu.Game.Screens.Play;
@@ -16,8 +18,8 @@ namespace osu.Desktop.Updater
 {
     public partial class VelopackUpdateManager : Game.Updater.UpdateManager
     {
-        private readonly UpdateManager updateManager;
-        private INotificationOverlay notificationOverlay = null!;
+        [Resolved]
+        private INotificationOverlay notificationOverlay { get; set; } = null!;
 
         [Resolved]
         private OsuGameBase game { get; set; } = null!;
@@ -25,25 +27,37 @@ namespace osu.Desktop.Updater
         [Resolved]
         private ILocalUserPlayInfo? localUserInfo { get; set; }
 
+        [Resolved]
+        private OsuConfigManager osuConfigManager { get; set; } = null!;
+
+        private bool isInGameplay => localUserInfo?.PlayingState.Value != LocalUserPlayingState.NotPlaying;
+
+        private readonly Bindable<ReleaseStream> releaseStream = new Bindable<ReleaseStream>();
+        private UpdateManager? updateManager;
         private UpdateInfo? pendingUpdate;
 
-        public VelopackUpdateManager()
+        protected override void LoadComplete()
         {
-            updateManager = new UpdateManager(new GithubSource(@"https://github.com/ppy/osu", null, false), new UpdateOptions
+            // Used by the base implementation.
+            osuConfigManager.BindWith(OsuSetting.ReleaseStream, releaseStream);
+            releaseStream.BindValueChanged(_ => onReleaseStreamChanged(), true);
+
+            base.LoadComplete();
+        }
+
+        private void onReleaseStreamChanged()
+        {
+            updateManager = new UpdateManager(new GithubSource(@"https://github.com/ppy/osu", null, releaseStream.Value == ReleaseStream.Tachyon), new UpdateOptions
             {
                 AllowVersionDowngrade = true,
             });
-        }
 
-        [BackgroundDependencyLoader]
-        private void load(INotificationOverlay notifications)
-        {
-            notificationOverlay = notifications;
+            Schedule(() => Task.Run(CheckForUpdateAsync));
         }
 
         protected override async Task<bool> PerformUpdateCheck() => await checkForUpdateAsync().ConfigureAwait(false);
 
-        private async Task<bool> checkForUpdateAsync(UpdateProgressNotification? notification = null)
+        private async Task<bool> checkForUpdateAsync()
         {
             // whether to check again in 30 minutes. generally only if there's an error or no update was found (yet).
             bool scheduleRecheck = false;
@@ -51,10 +65,10 @@ namespace osu.Desktop.Updater
             try
             {
                 // Avoid any kind of update checking while gameplay is running.
-                if (localUserInfo?.IsPlaying.Value == true)
+                if (isInGameplay)
                 {
                     scheduleRecheck = true;
-                    return false;
+                    return true;
                 }
 
                 // TODO: we should probably be checking if there's a more recent update, rather than shortcutting here.
@@ -66,12 +80,18 @@ namespace osu.Desktop.Updater
                     {
                         Activated = () =>
                         {
-                            restartToApplyUpdate();
+                            Task.Run(restartToApplyUpdate);
                             return true;
                         }
                     });
 
                     return true;
+                }
+
+                if (updateManager == null)
+                {
+                    scheduleRecheck = true;
+                    return false;
                 }
 
                 pendingUpdate = await updateManager.CheckForUpdatesAsync().ConfigureAwait(false);
@@ -84,23 +104,22 @@ namespace osu.Desktop.Updater
                 }
 
                 // An update is found, let's notify the user and start downloading it.
-                if (notification == null)
+                UpdateProgressNotification notification = new UpdateProgressNotification
                 {
-                    notification = new UpdateProgressNotification
+                    CompletionClickAction = () =>
                     {
-                        CompletionClickAction = restartToApplyUpdate,
-                    };
+                        Task.Run(restartToApplyUpdate);
+                        return true;
+                    },
+                };
 
-                    Schedule(() => notificationOverlay.Post(notification));
-                }
-
+                runOutsideOfGameplay(() => notificationOverlay.Post(notification));
                 notification.StartDownload();
 
                 try
                 {
                     await updateManager.DownloadUpdatesAsync(pendingUpdate, p => notification.Progress = p / 100f).ConfigureAwait(false);
-
-                    notification.State = ProgressNotificationState.Completed;
+                    runOutsideOfGameplay(() => notification.State = ProgressNotificationState.Completed);
                 }
                 catch (Exception e)
                 {
@@ -127,13 +146,24 @@ namespace osu.Desktop.Updater
             return true;
         }
 
-        private bool restartToApplyUpdate()
+        private void runOutsideOfGameplay(Action action)
         {
-            // TODO: Migrate this to async flow whenever available (see https://github.com/ppy/osu/pull/28743#discussion_r1740505665).
-            // Currently there's an internal Thread.Sleep(300) which will cause a stutter when the user clicks to restart.
-            updateManager.WaitExitThenApplyUpdates(pendingUpdate?.TargetFullRelease);
+            if (isInGameplay)
+            {
+                Scheduler.AddDelayed(() => runOutsideOfGameplay(action), 1000);
+                return;
+            }
+
+            action();
+        }
+
+        private async Task restartToApplyUpdate()
+        {
+            if (updateManager == null)
+                return;
+
+            await updateManager.WaitExitThenApplyUpdatesAsync(pendingUpdate?.TargetFullRelease).ConfigureAwait(false);
             Schedule(() => game.AttemptExit());
-            return true;
         }
     }
 }

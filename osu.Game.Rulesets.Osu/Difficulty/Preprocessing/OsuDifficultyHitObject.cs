@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Scoring;
@@ -20,9 +21,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public const int NORMALISED_RADIUS = 52; // Change radius to 50 to make 100 the diameter. Easier for mental maths.
 
-        private int minDeltaTime => OsuDifficultyCalculator.DISABLE_300BPM_SPEED_LIMIT ? 25 : 50;
+        public int MinDeltaTime => OsuDifficultyCalculator.DISABLE_300BPM_SPEED_LIMIT ? 25 : 50;
+        
+        public const int NORMALISED_DIAMETER = NORMALISED_RADIUS * 2;
+
+        private const float maximum_slider_radius = NORMALISED_RADIUS * 2.4f;
+        private const float assumed_slider_radius = NORMALISED_RADIUS * 1.8f;
 
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
+        protected new OsuHitObject LastObject => (OsuHitObject)base.LastObject;
 
         /// <summary>
         /// Raw distance from the end position of the previous <see cref="OsuDifficultyHitObject"/> to the start position of this <see cref="OsuDifficultyHitObject"/>.
@@ -38,11 +45,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// Normalized distance from the end position of the previous <see cref="OsuDifficultyHitObject"/> to the start position of this <see cref="OsuDifficultyHitObject"/>.
         /// </summary>
         public readonly double StrainTime;
-
-        /// <summary>
-        /// Normalised distance between the start and end position of this <see cref="OsuDifficultyHitObject"/>.
-        /// </summary>
-        public double TravelDistance { get; private set; }
 
         /// <summary>
         /// Angle the player has to take to hit this <see cref="OsuDifficultyHitObject"/>.
@@ -85,42 +87,44 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double HitWindowGreat { get; private set; }
 
+        public Vector2? LazyEndPosition { get; private set; }
+        public double LazyTravelDistance { get; private set; }
+        public double LazyTravelTime { get; private set; }
+        public double TravelDistance { get; private set; }
+
         // Placeholders
+        public double LazyJumpDistance { get; }
         public double TravelTime { get; }
         public double MinimumJumpDistance { get; }
         public double MinimumJumpTime { get; }
 
+        private readonly OsuDifficultyHitObject? lastLastDifficultyObject;
+        private readonly OsuDifficultyHitObject? lastDifficultyObject;
 
-        private readonly OsuHitObject? lastLastObject;
-        private readonly OsuHitObject lastObject;
-        private readonly OsuDifficultyHitObject lastLastDifficultyObject;
-        private readonly OsuDifficultyHitObject lastDifficultyObject;
-
-        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastLastObject, HitObject lastObject, OsuDifficultyHitObject lastLastDifficultyObject, OsuDifficultyHitObject lastDifficultyObject, double clockRate, List<DifficultyHitObject> objects, int index)
+        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, double clockRate, List<DifficultyHitObject> objects, int index)
             : base(hitObject, lastObject, clockRate, objects, index)
         {
-            this.lastLastObject = lastLastObject as OsuHitObject;
-            this.lastObject = (OsuHitObject)lastObject;
-            this.lastLastDifficultyObject = lastLastDifficultyObject;
-            this.lastDifficultyObject = lastDifficultyObject;
+            lastLastDifficultyObject = index > 1 ? (OsuDifficultyHitObject)objects[index - 2] : null;
+            lastDifficultyObject = index > 0 ? (OsuDifficultyHitObject)objects[index - 1] : null;
 
+            computeSliderCursorPosition();
             setDistances(clockRate);
 
             Preempt = ((OsuHitObject)hitObject).TimePreempt / clockRate;
 
-            StrainTime = Math.Max(minDeltaTime, DeltaTime);
+            StrainTime = Math.Max(MinDeltaTime, DeltaTime);
 
-            if (lastLastObject == null)
+            if (lastLastDifficultyObject == null)
                 LastTwoStrainTime = OsuDifficultyCalculator.ENABLE_FIRST_SPEED_NOTE_FIX ? double.PositiveInfinity : 100;
             else
-                LastTwoStrainTime = Math.Max(minDeltaTime * 2, (hitObject.StartTime - lastLastObject.StartTime) / clockRate);
+                LastTwoStrainTime = Math.Max(MinDeltaTime * 2, (hitObject.StartTime - lastLastDifficultyObject.BaseObject.StartTime) / clockRate);
 
             if (lastObject is HitCircle)
                 GapTime = StrainTime;
             else if (lastObject is Slider lastSlider)
-                GapTime = Math.Max(minDeltaTime, (hitObject.StartTime - lastSlider.EndTime) / clockRate);
+                GapTime = Math.Max(MinDeltaTime, (hitObject.StartTime - lastSlider.EndTime) / clockRate);
             else if (lastObject is Spinner lastSpinner)
-                GapTime = Math.Max(minDeltaTime, (hitObject.StartTime - lastSpinner.EndTime) / clockRate);
+                GapTime = Math.Max(MinDeltaTime, (hitObject.StartTime - lastSpinner.EndTime) / clockRate);
 
             // WARNING - this is a very stupid bandaid, but without it speed is very broken because of flawed curve
             if (OsuDifficultyCalculator.DISABLE_300BPM_SPEED_LIMIT)
@@ -165,6 +169,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             return Math.Clamp((time - fadeInStartTime) / fadeInDuration, 0.0, 1.0);
         }
 
+        /// <summary>
+        /// Returns how possible is it to doubletap this object together with the next one and get perfect judgement in range from 0 to 1
+        /// </summary>
+        public double GetDoubletapness(OsuDifficultyHitObject? osuNextObj)
+        {
+            if (osuNextObj != null)
+            {
+                double currDeltaTime = Math.Max(1, DeltaTime);
+                double nextDeltaTime = Math.Max(1, osuNextObj.DeltaTime);
+                double deltaDifference = Math.Abs(nextDeltaTime - currDeltaTime);
+                double speedRatio = currDeltaTime / Math.Max(currDeltaTime, deltaDifference);
+                double windowRatio = Math.Pow(Math.Min(1, currDeltaTime / HitWindowGreat), 2);
+                return 1.0 - Math.Pow(speedRatio, 1 - windowRatio);
+            }
+
+            return 0;
+        }
+
         private void setDistances(double clockRate)
         {
             // We will scale distances by this factor, so we can assume a uniform CircleSize among beatmaps.
@@ -176,24 +198,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            if (lastObject is Slider lastSlider)
+            if (LastObject is Slider && lastDifficultyObject != null)
             {
-                computeSliderCursorPosition(lastSlider);
-                TravelDistance = lastSlider.LazyTravelDistance * scalingFactor;
+                computeSliderCursorPosition();
+                TravelDistance = lastDifficultyObject.LazyTravelDistance * scalingFactor;
             }
 
-            Vector2 lastCursorPosition = getEndCursorPosition(lastObject);
+            Vector2 lastCursorPosition = lastDifficultyObject != null ? getEndCursorPosition(lastDifficultyObject) : LastObject.StackedPosition;
 
             // Don't need to jump to reach spinners
             if (!(BaseObject is Spinner))
                 RawJumpDistance = (BaseObject.StackedPosition - lastCursorPosition).Length;
             JumpDistance = (BaseObject.StackedPosition * scalingFactor - lastCursorPosition * scalingFactor).Length;
 
-            if (lastLastObject != null)
+            if (lastLastDifficultyObject != null)
             {
-                Vector2 lastLastCursorPosition = getEndCursorPosition(lastLastObject);
+                Vector2 lastLastCursorPosition = getEndCursorPosition(lastLastDifficultyObject);
 
-                Vector2 v1 = lastLastCursorPosition - lastObject.StackedPosition;
+                Vector2 v1 = lastLastCursorPosition - LastObject.StackedPosition;
                 Vector2 v2 = BaseObject.StackedPosition - lastCursorPosition;
 
                 float dot = Vector2.Dot(v1, v2);
@@ -203,12 +225,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             }
         }
 
-        private void computeSliderCursorPosition(Slider slider)
+        private void computeSliderCursorPosition()
         {
-            if (slider.LazyEndPosition != null)
+            if (BaseObject is not Slider slider)
                 return;
 
-            slider.LazyEndPosition = slider.StackedPosition;
+            if (LazyEndPosition != null)
+                return;
+
+            LazyEndPosition = slider.StackedPosition;
 
             float approxFollowCircleRadius = (float)(slider.Radius * 3);
             var computeVertex = new Action<double>(t =>
@@ -220,7 +245,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                     progress %= 1;
 
                 // ReSharper disable once PossibleInvalidOperationException (bugged in current r# version)
-                var diff = slider.StackedPosition + slider.Path.PositionAt(progress) - slider.LazyEndPosition.Value;
+                var diff = slider.StackedPosition + slider.Path.PositionAt(progress) - LazyEndPosition.Value;
                 float dist = diff.Length;
 
                 if (dist > approxFollowCircleRadius)
@@ -228,8 +253,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                     // The cursor would be outside the follow circle, we need to move it
                     diff.Normalize(); // Obtain direction of diff
                     dist -= approxFollowCircleRadius;
-                    slider.LazyEndPosition = slider.LazyEndPosition! + diff * dist;
-                    slider.LazyTravelDistance += dist;
+                    LazyEndPosition = LazyEndPosition! + diff * dist;
+                    LazyTravelDistance += dist;
                 }
             });
 
@@ -239,17 +264,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 computeVertex(time);
         }
 
-        private Vector2 getEndCursorPosition(OsuHitObject hitObject)
+        private Vector2 getEndCursorPosition(OsuDifficultyHitObject difficultyHitObject)
         {
-            Vector2 pos = hitObject.StackedPosition;
-
-            if (hitObject is Slider slider)
-            {
-                computeSliderCursorPosition(slider);
-                pos = slider.LazyEndPosition ?? pos;
-            }
-
-            return pos;
+            return difficultyHitObject.LazyEndPosition ?? difficultyHitObject.BaseObject.StackedPosition;
         }
 
         private void setFlowValues()
@@ -260,10 +277,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
         private double calculateBaseFlow()
         {
-            if (lastDifficultyObject == null || Utils.IsRatioEqualLess(0.667, StrainTime, lastDifficultyObject.StrainTime))
+            if (lastDifficultyObject == null || OsuPlusUtils.IsRatioEqualLess(0.667, StrainTime, lastDifficultyObject.StrainTime))
                 return calculateSpeedFlow() * calculateDistanceFlow(); // No angle checks for the first actual note of the stream.
 
-            if (Utils.IsRoughlyEqual(StrainTime, lastDifficultyObject.StrainTime))
+            if (OsuPlusUtils.IsRoughlyEqual(StrainTime, lastDifficultyObject.StrainTime))
                 return calculateSpeedFlow() * calculateDistanceFlow(calculateAngleScalingFactor(Angle));
 
             return 0;
@@ -272,18 +289,18 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private double calculateSpeedFlow()
         {
             // Sine curve transition from 0 to 1 starting at 90 BPM, reaching 1 at 90 + 30 = 120 BPM.
-            return Utils.TransitionToTrue(streamBpm, 90, 30);
+            return OsuPlusUtils.TransitionToTrue(streamBpm, 90, 30);
         }
 
         private double calculateDistanceFlow(double angleScalingFactor = 1)
         {
             double distanceOffset = (Math.Tanh((streamBpm - 140) / 20) + 2) * NORMALISED_RADIUS;
-            return Utils.TransitionToFalse(JumpDistance, distanceOffset * angleScalingFactor, distanceOffset);
+            return OsuPlusUtils.TransitionToFalse(JumpDistance, distanceOffset * angleScalingFactor, distanceOffset);
         }
 
         private double calculateAngleScalingFactor(double? angle)
         {
-            if (!Utils.IsNullOrNaN(angle))
+            if (!OsuPlusUtils.IsNullOrNaN(angle))
             {
                 double angleScalingFactor = (-Math.Sin(Math.Cos(angle!.Value) * Math.PI / 2) + 3) / 4;
                 return angleScalingFactor + (1 - angleScalingFactor) * lastDifficultyObject.AngleLeniency;
@@ -312,13 +329,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         {
             double irregularFlow = calculateExtendedDistanceFlow();
 
-            if (Utils.IsRoughlyEqual(StrainTime, lastDifficultyObject.StrainTime))
+            if (OsuPlusUtils.IsRoughlyEqual(StrainTime, lastDifficultyObject.StrainTime))
                 irregularFlow *= lastDifficultyObject.BaseFlow;
             else
                 irregularFlow = 0;
 
             if (lastLastDifficultyObject != null)
-            if (Utils.IsRoughlyEqual(StrainTime, lastLastDifficultyObject.StrainTime))
+            if (OsuPlusUtils.IsRoughlyEqual(StrainTime, lastLastDifficultyObject.StrainTime))
                 irregularFlow *= lastLastDifficultyObject.BaseFlow;
             else
                 irregularFlow = 0;
@@ -329,7 +346,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private double calculateExtendedDistanceFlow()
         {
             double distanceOffset = (Math.Tanh((streamBpm - 140) / 20) * 1.75 + 2.75) * NORMALISED_RADIUS;
-            return Utils.TransitionToFalse(JumpDistance, distanceOffset, distanceOffset);
+            return OsuPlusUtils.TransitionToFalse(JumpDistance, distanceOffset, distanceOffset);
         }
 
         private double streamBpm => 15000 / StrainTime;

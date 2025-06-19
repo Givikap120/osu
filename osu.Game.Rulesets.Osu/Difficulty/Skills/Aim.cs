@@ -7,6 +7,7 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 using osu.Game.Rulesets.Osu.UI;
@@ -167,7 +168,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
                 double angleWeight = 1;
                 // An additional restriction to stop jumps that come after triples/streams from getting bonuses for the change in angles.
-                if (Utils.IsRatioEqual(1, current.StrainTime, previousObject.StrainTime) && !Utils.IsNullOrNaN(current.Angle) && !Utils.IsNullOrNaN(previousObject.Angle))
+                if (OsuPlusUtils.IsRatioEqual(1, current.StrainTime, previousObject.StrainTime) && !OsuPlusUtils.IsNullOrNaN(current.Angle) && !OsuPlusUtils.IsNullOrNaN(previousObject.Angle))
                 {
                     double angleChange = Math.Abs(current.Angle!.Value) - Math.Abs(previousObject.Angle!.Value);
                     if (Math.Abs(angleChange) >= Math.PI / 1.5)
@@ -202,7 +203,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 distanceBonus = (-Math.Cos(distanceRatio * Math.PI) + 1) / 2;
 
             double angleBonus = 0;
-            if (!Utils.IsNullOrNaN(current.Angle) && !Utils.IsNullOrNaN(previousObject.Angle))
+            if (!OsuPlusUtils.IsNullOrNaN(current.Angle) && !OsuPlusUtils.IsNullOrNaN(previousObject.Angle))
             {
                 // Only the change relative to a straight line is considred when the angle changes towards the opposite direction.
                 // (So it is considered a zero change in angle when the stream just straightens out.)
@@ -231,7 +232,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 }
             }
 
-            double isStreamJump = Utils.TransitionToTrue(distanceRatio, 0, 1);
+            double isStreamJump = OsuPlusUtils.TransitionToTrue(distanceRatio, 0, 1);
 
             double distanceWeight = (1 + distanceBonus) * calculateStreamJumpWeight(current.JumpDistance, isStreamJump, distance);
             double angleWeight = 1 + angleBonus * (1 - isStreamJump);
@@ -297,11 +298,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private static double calculateDistanceRequirement(double deltaTime, double previousDeltaTime, double previousDistance)
         {
             // Restrict cases when the previous note was significantly slower, as that plays similar to an overlap.
-            if (Utils.IsRatioEqualGreater(1, deltaTime, previousDeltaTime))
+            if (OsuPlusUtils.IsRatioEqualGreater(1, deltaTime, previousDeltaTime))
             {
                 // In half the time only half as much movement is required between two circles.
                 double overlapDistance = previousDeltaTime / deltaTime * OsuDifficultyHitObject.NORMALISED_RADIUS * 2;
-                return Utils.TransitionToTrue(previousDistance, 0, overlapDistance);
+                return OsuPlusUtils.TransitionToTrue(previousDistance, 0, overlapDistance);
             }
             else
                 return 0;
@@ -321,7 +322,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 // 30% aim bonus for notes completely out of the visible area relative to the previous note.
                 // The primary goal is to prevent maps sightreadable with Flashlight from getting a bonus.
                 // (For example old CS7 maps where every circle is well within flashlight range at all times.)
-                return 1 + Utils.TransitionToTrue(rawJumpDistance, OsuPlayfield.BASE_SIZE.Y / 4, radius) * 0.3;
+                return 1 + OsuPlusUtils.TransitionToTrue(rawJumpDistance, OsuPlayfield.BASE_SIZE.Y / 4, radius) * 0.3;
             }
             else
                 return 1;

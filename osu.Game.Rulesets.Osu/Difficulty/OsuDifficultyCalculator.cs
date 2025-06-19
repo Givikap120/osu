@@ -1,8 +1,6 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,14 +13,15 @@ using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
-using osu.Game.Rulesets.Osu.Scoring;
-using osu.Game.Rulesets.Scoring;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuDifficultyCalculator : DifficultyCalculator
     {
+        private const double performance_base_multiplier = 1.14; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
         private const double difficulty_multiplier = 0.0675;
+        private const double star_rating_multiplier = 0.0265;
 
         public override int Version => 20231104;
 
@@ -44,18 +43,52 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
         }
 
+        public static double CalculateDifficultyMultiplier(Mod[] mods, int totalHits, int spinnerCount)
+        {
+            double multiplier = performance_base_multiplier;
+
+            if (mods.Any(m => m is OsuModSpunOut) && totalHits > 0)
+                multiplier *= 1.0 - Math.Pow((double)spinnerCount / totalHits, 0.85);
+
+            return multiplier;
+        }
+
+        /// <summary>
+        /// Calculates a visibility bonus that is applicable to Hidden and Traceable.
+        /// </summary>
+        public static double CalculateVisibilityBonus(Mod[] mods, double approachRate, double visibilityFactor = 1)
+        {
+            // NOTE: TC's effect is only noticeable in performance calculations until lazer mods are accounted for server-side.
+            bool isAlwaysPartiallyVisible = mods.OfType<OsuModHidden>().Any(m => !m.OnlyFadeApproachCircles.Value) || mods.OfType<OsuModTraceable>().Any();
+
+            // Start from normal curve, rewarding lower AR up to AR5
+            double readingBonus = 0.04 * (12.0 - Math.Max(approachRate, 5));
+
+            readingBonus *= visibilityFactor;
+
+            // For AR up to 0 - reduce reward for very low ARs when object is visible
+            if (approachRate < 5)
+                readingBonus += (isAlwaysPartiallyVisible ? 0.04 : 0.03) * (5.0 - Math.Max(approachRate, 0));
+
+            // Starting from AR0 - cap values so they won't grow to infinity
+            if (approachRate < 0)
+                readingBonus += (isAlwaysPartiallyVisible ? 0.1 : 0.075) * (1 - Math.Pow(1.5, approachRate));
+
+            return readingBonus;
+        }
+
         protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
         {
             if (beatmap.HitObjects.Count == 0)
                 return new OsuDifficultyAttributes { Mods = mods };
 
-            double aimRating = Math.Sqrt(skills[0].DifficultyValue()) * difficulty_multiplier;
-            double jumpAimRating = Math.Sqrt(skills[2].DifficultyValue()) * difficulty_multiplier;
-            double flowAimRating = Math.Sqrt(skills[3].DifficultyValue()) * difficulty_multiplier;
-            double precisionRating = Math.Sqrt(Math.Max(0, skills[0].DifficultyValue() - skills[1].DifficultyValue())) * difficulty_multiplier;
+            double aimRating = calculateDifficultyRating(skills[0].DifficultyValue());
+            double jumpAimRating = calculateDifficultyRating(skills[2].DifficultyValue());
+            double flowAimRating = calculateDifficultyRating(skills[3].DifficultyValue());
+            double precisionRating = calculateDifficultyRating(Math.Max(0, skills[0].DifficultyValue() - skills[1].DifficultyValue()));
 
-            double speedRating = Math.Sqrt(skills[4].DifficultyValue()) * difficulty_multiplier;
-            double staminaRating = Math.Sqrt(skills[5].DifficultyValue()) * difficulty_multiplier;
+            double speedRating = calculateDifficultyRating(skills[4].DifficultyValue());
+            double staminaRating = calculateDifficultyRating(skills[5].DifficultyValue());
 
             double accuracyRating = skills[6].DifficultyValue();
 
@@ -71,19 +104,18 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimRating *= 0.9;
                 speedRating = 0.0;
             }
-
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
-            double drainRate = beatmap.Difficulty.DrainRate;
             int maxCombo = beatmap.GetMaxCombo();
 
-            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int hitCircleCount = beatmap.HitObjects.Count(h => h is HitCircle);
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
+            int totalHits = beatmap.HitObjects.Count;
 
-            HitWindows hitWindows = new OsuHitWindows();
-            hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
+            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
 
-            double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
+            var simulator = new OsuLegacyScoreSimulator();
+            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
 
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
             {
@@ -101,39 +133,32 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 StaminaDifficulty = staminaRating,
                 StaminaDifficultyStrainsCount = ((OsuStrainSkill)skills[5]).CountDifficultStrains(),
                 AccuracyDifficulty = accuracyRating,
-                ApproachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5,
-                OverallDifficulty = (80 - hitWindows.WindowFor(HitResult.Great) / clockRate) / 6,
                 MaxCombo = maxCombo,
-                HitCircleCount = hitCirclesCount,
+                HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
+                NestedScorePerObject = sliderNestedScorePerObject,
+                LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
+                MaximumLegacyComboScore = scoreAttributes.ComboScore
             };
 
             return attributes;
         }
 
+        private static double calculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * difficulty_multiplier;
+
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
         {
-            OsuDifficultyHitObject lastLastDifficultyObject = null;
-            OsuDifficultyHitObject lastDifficultyObject = null;
-
             List<DifficultyHitObject> objects = new List<DifficultyHitObject>();
 
             // The first jump is formed by the first two hitobjects of the map.
             // If the map has less than two OsuHitObjects, the enumerator will not return anything.
             for (int i = 1; i < beatmap.HitObjects.Count; i++)
             {
-                var lastLast = i > 1 ? beatmap.HitObjects[i - 2] : null;
-                var last = beatmap.HitObjects[i - 1];
-                var current = beatmap.HitObjects[i];
-
-                var difficultyHitObject = new OsuDifficultyHitObject(current, lastLast, last, lastLastDifficultyObject, lastDifficultyObject, clockRate, objects, objects.Count);
-                objects.Add(difficultyHitObject);
-
-                lastLastDifficultyObject = lastDifficultyObject;
-                lastDifficultyObject = difficultyHitObject;
-                yield return difficultyHitObject;
+                objects.Add(new OsuDifficultyHitObject(beatmap.HitObjects[i], beatmap.HitObjects[i - 1], clockRate, objects, objects.Count));
             }
+
+            return objects;
         }
 
         protected override Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods, double clockRate)
@@ -160,7 +185,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             new OsuModEasy(),
             new OsuModHardRock(),
             new OsuModFlashlight(),
-            new MultiMod(new OsuModFlashlight(), new OsuModHidden())
+            new OsuModHidden(),
+            new OsuModSpunOut(),
         };
     }
 }
