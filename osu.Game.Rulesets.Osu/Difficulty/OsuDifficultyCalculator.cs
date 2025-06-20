@@ -8,7 +8,6 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
-using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
@@ -30,8 +29,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private const double star_rating_multiplier = 0.0265;
 
         public override int Version => 20250306;
-
-        private double mechanicalDifficultyRating;
 
         public OsuDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
             : base(ruleset, beatmap)
