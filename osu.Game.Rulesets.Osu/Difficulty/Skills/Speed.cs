@@ -23,7 +23,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private double currentRhythm;
 
         protected override int ReducedSectionCount => 5;
-        protected override double DifficultyMultiplier => 1.04;
 
         private readonly List<double> objectStrains = new List<double>();
 
