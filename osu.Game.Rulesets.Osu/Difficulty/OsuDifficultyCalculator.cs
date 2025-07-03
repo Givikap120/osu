@@ -23,7 +23,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         private const double performance_base_multiplier = 1.15; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
         private const double difficulty_multiplier = 0.0675;
-        private const double star_rating_multiplier = 0.0272;
+        private const double star_rating_multiplier = 0.0265;
 
         public override int Version => 20250306;
 
@@ -132,17 +132,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double aimNoSlidersRelevantObjectCount = aimWithoutSliders.CountRelevantObjects();
             double speedRelevantObjectCount = speed.CountRelevantObjects();
 
+            const double aim_length_bonus_multiplier = 0.91257;
+            const double speed_length_bonus_multiplier = 0.998;
+
             double aimLengthBonus = 1.0 + Math.Min(0.8, aimRelevantObjectCount / 300.0) +
-                                    (aimRelevantObjectCount > 320.0 ? 1.5 * Math.Log10(aimRelevantObjectCount / 240.0) : 0);
-            aimRating *= Math.Cbrt(aimLengthBonus);
+                                    (aimRelevantObjectCount > 240.0 ? 1.5 * Math.Log10(aimRelevantObjectCount / 240.0) : 0);
+            aimRating *= Math.Cbrt(aimLengthBonus * aim_length_bonus_multiplier);
 
             double aimNoSlidersLengthBonus = 1.0 + Math.Min(0.8, aimNoSlidersRelevantObjectCount / 300.0) +
-                                             (aimNoSlidersRelevantObjectCount > 320.0 ? 1.5 * Math.Log10(aimNoSlidersRelevantObjectCount / 240.0) : 0);
-            aimRatingNoSliders *= Math.Cbrt(aimNoSlidersLengthBonus);
+                                             (aimNoSlidersRelevantObjectCount > 240.0 ? 1.5 * Math.Log10(aimNoSlidersRelevantObjectCount / 240.0) : 0);
+            aimRatingNoSliders *= Math.Cbrt(aimNoSlidersLengthBonus * aim_length_bonus_multiplier);
 
             double speedLengthBonus = 1.0 + Math.Min(0.2, speedRelevantObjectCount / 750.0) +
                                       (speedRelevantObjectCount > 200 ? 0.4 * Math.Log10(speedRelevantObjectCount / 200.0) : 0.0);
-            speedRating *= Math.Cbrt(speedLengthBonus);
+            speedRating *= Math.Cbrt(speedLengthBonus * speed_length_bonus_multiplier);
 
             double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
             double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
