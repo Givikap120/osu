@@ -26,6 +26,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private const double difficulty_multiplier = 0.0675;
         private const double star_rating_multiplier = 0.0265;
 
+        private const double relax_multiplier = 0.87;
+        private const double touch_device_multiplier = 0.83;
+
         public override int Version => 20250306;
 
         private double mechanicalDifficultyRating;
@@ -46,6 +49,46 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 multiplier *= 1.0 - Math.Pow((double)spinnerCount / totalHits, 0.85);
 
             return multiplier;
+        }
+
+        /// <summary>
+        /// Calculates a visibility bonus that is applicable to Hidden and Traceable.
+        /// </summary>
+        public static double CalculateVisibilityBonus(Mod[] mods, double approachRate, double visibilityFactor = 1)
+        {
+            // NOTE: TC's effect is only noticeable in performance calculations until lazer mods are accounted for server-side.
+            bool isAlwaysPartiallyVisible = mods.OfType<OsuModHidden>().Any(m => !m.OnlyFadeApproachCircles.Value) || mods.OfType<OsuModTraceable>().Any();
+
+            // Start from normal curve, rewarding lower AR up to AR5
+            double readingBonus = 0.04 * (12.0 - Math.Max(approachRate, 5));
+
+            readingBonus *= visibilityFactor;
+
+            // For AR up to 0 - reduce reward for very low ARs when object is visible
+            if (approachRate < 5)
+                readingBonus += (isAlwaysPartiallyVisible ? 0.04 : 0.03) * (5.0 - Math.Max(approachRate, 0));
+
+            // Starting from AR0 - cap values so they won't grow to infinity
+            if (approachRate < 0)
+                readingBonus += (isAlwaysPartiallyVisible ? 0.1 : 0.075) * (1 - Math.Pow(1.5, approachRate));
+
+            return readingBonus;
+        }
+
+        public static double CalculateRateAdjustedApproachRate(double approachRate, double clockRate)
+        {
+            double preempt = IBeatmapDifficultyInfo.DifficultyRange(approachRate, OsuHitObject.PREEMPT_MAX, OsuHitObject.PREEMPT_MID, OsuHitObject.PREEMPT_MIN) / clockRate;
+            return IBeatmapDifficultyInfo.InverseDifficultyRange(preempt, OsuHitObject.PREEMPT_MAX, OsuHitObject.PREEMPT_MID, OsuHitObject.PREEMPT_MIN);
+        }
+
+        public static double CalculateRateAdjustedOverallDifficulty(double overallDifficulty, double clockRate)
+        {
+            HitWindows hitWindows = new OsuHitWindows();
+            hitWindows.SetDifficulty(overallDifficulty);
+
+            double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
+
+            return (79.5 - hitWindowGreat) / 6;
         }
 
         protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
@@ -73,15 +116,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double difficultSliders = aim.GetDifficultSliders();
 
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
-            double approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
-
-            HitWindows hitWindows = new OsuHitWindows();
-            hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
-
-            double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
-
-            double overallDifficulty = (80 - hitWindowGreat) / 6;
+            double approachRate = CalculateRateAdjustedApproachRate(beatmap.Difficulty.ApproachRate, clockRate);
+            double overallDifficulty = CalculateRateAdjustedOverallDifficulty(beatmap.Difficulty.OverallDifficulty, clockRate);
 
             int hitCircleCount = beatmap.HitObjects.Count(h => h is HitCircle);
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
@@ -96,8 +132,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double snapAimDifficultyValue = skills.OfType<SnapAim>().Single().DifficultyValue();
             double flowAimDifficultyValue = skills.OfType<FlowAim>().Single().DifficultyValue();
             double speedDifficultyValue = speed.DifficultyValue();
-            double totalAimDifficultyValue = double.Lerp(aimDifficultyValue, snapAimDifficultyValue + flowAimDifficultyValue, AimVersatilityBonus);
 
+            double totalAimDifficultyValue = double.Lerp(aimDifficultyValue, snapAimDifficultyValue + flowAimDifficultyValue, AimVersatilityBonus);
             mechanicalDifficultyRating = calculateMechanicalDifficultyRating(totalAimDifficultyValue, speedDifficultyValue);
 
             double aimRating = computeTotalAimRating(aim.DifficultyValue(), snapAimDifficultyValue, flowAimDifficultyValue, mods, totalHits, approachRate, overallDifficulty);
@@ -181,30 +217,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return attributes;
         }
 
-        /// <summary>
-        /// Calculates a visibility bonus that is applicable to Hidden and Traceable.
-        /// </summary>
-        public static double CalculateVisibilityBonus(Mod[] mods, double approachRate, double visibilityFactor = 1)
-        {
-            // NOTE: TC's effect is only noticeable in performance calculations until lazer mods are accounted for server-side.
-            bool isAlwaysPartiallyVisible = mods.OfType<OsuModHidden>().Any(m => !m.OnlyFadeApproachCircles.Value) || mods.OfType<OsuModTraceable>().Any();
-
-            // Start from normal curve, rewarding lower AR up to AR5
-            double readingBonus = 0.04 * (12.0 - Math.Max(approachRate, 5));
-
-            readingBonus *= visibilityFactor;
-
-            // For AR up to 0 - reduce reward for very low ARs when object is visible
-            if (approachRate < 5)
-                readingBonus += (isAlwaysPartiallyVisible ? 0.04 : 0.03) * (5.0 - Math.Max(approachRate, 0));
-
-            // Starting from AR0 - cap values so they won't grow to infinity
-            if (approachRate < 0)
-                readingBonus += (isAlwaysPartiallyVisible ? 0.1 : 0.075) * (1 - Math.Pow(1.5, approachRate));
-
-            return readingBonus;
-        }
-
         // Summation for aim and speed, reducing reward for mixed maps
         public static double SumMechanicalDifficulty(double aim, double speed)
         {
@@ -243,16 +255,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (mods.Any(m => m is OsuModTouchDevice))
             {
-                aimRating = Math.Pow(aimRating, 0.83);
-                snapAimRating = Math.Pow(snapAimRating, 0.83);
+                aimRating = Math.Pow(aimRating, touch_device_multiplier);
+                snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
                 // no reduce on flow aim rating is intentional
             }
 
             if (mods.Any(m => m is OsuModRelax))
             {
-                aimRating *= 0.9;
-                flowAimRating *= 0;
-                // no reduce on snap aim rating is intentional, because it's used only in versatility bonus, not as a base
+                aimRating *= relax_multiplier;
+                snapAimRating *= relax_multiplier;
+                flowAimRating *= relax_multiplier;
+
+                // Remove big chunk of flow aim difficulty
+                aimRating = double.Lerp(snapAimRating, aimRating, 0.5);
             }
 
             aimRating = double.Lerp(aimRating, snapAimRating + flowAimRating, AimVersatilityBonus);
@@ -268,11 +283,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double snapAimRating = Math.Sqrt(snapAimDifficultyValue) * difficulty_multiplier;
 
             if (mods.Any(m => m is OsuModTouchDevice))
-                snapAimRating = Math.Pow(snapAimRating, 0.83);
+                snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
 
             // To ensure that result would not be bigger than normal aim difficulty rating
             if (mods.Any(m => m is OsuModRelax))
-                snapAimRating *= 0.9;
+                snapAimRating *= relax_multiplier;
 
             return computeRawAimRating(snapAimRating, mods, totalHits, approachRate, overallDifficulty);
         }
