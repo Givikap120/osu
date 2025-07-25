@@ -120,7 +120,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (mods.Any(m => m is OsuModMagnetised))
             {
                 float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                lowArRating *= 1.0 - magnetisedStrength;
+                lowArRating *= 1.0 - 0.6 * magnetisedStrength;
             }
 
             double ratingMultiplier = Math.Pow(0.98 + Math.Pow(overallDifficulty, 2) / 2500, 2);
@@ -141,18 +141,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedRatingMultiplier = 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
             double ratingMultiplier = aimRatingMultiplier * aimRatio + speedRatingMultiplier * (1 - aimRatio);
 
+            double aimRatingRatio = aimRating / (aimRating + speedRating);
+
             if (mods.Any(m => m is OsuModTouchDevice))
-                highArRating = Math.Pow(highArRating, 0.9);
+                highArRating = Math.Pow(highArRating, double.Lerp(aimRatingRatio, 1, 0.9));
 
             if (mods.Any(m => m is OsuModRelax))
-                highArRating *= 0.7;
+                highArRating *= double.Lerp(aimRatingRatio, 0, 0.9);
             else if (mods.Any(m => m is OsuModAutopilot))
-                highArRating *= 0.4;
+                highArRating *= double.Lerp(aimRatingRatio, 0.5, 0);
 
             if (mods.Any(m => m is OsuModMagnetised))
             {
                 float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                highArRating *= 1.0 - magnetisedStrength;
+                highArRating *= 1.0 - magnetisedStrength * double.Lerp(aimRatingRatio, 0.3, 1);
             }
 
             return highArRating * Math.Cbrt(ratingMultiplier);
