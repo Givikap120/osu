@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Extensions.IEnumerableExtensions;
-using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Scoring;
@@ -92,10 +91,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             okHitWindow = hitWindows.WindowFor(HitResult.Ok) / clockRate;
             mehHitWindow = hitWindows.WindowFor(HitResult.Meh) / clockRate;
 
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
-
-            overallDifficulty = (80 - greatHitWindow) / 6;
-            approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
+            approachRate = OsuDifficultyCalculator.CalculateRateAdjustedApproachRate(difficulty.ApproachRate, clockRate);
+            overallDifficulty = OsuDifficultyCalculator.CalculateRateAdjustedOverallDifficulty(difficulty.OverallDifficulty, clockRate);
 
             double comboBasedEstimatedMissCount = calculateComboBasedEstimatedMissCount(osuAttributes);
             double? scoreBasedEstimatedMissCount = null;
@@ -255,7 +252,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.3 + (totalHits * (0.0016 / (1 + 2 * effectiveMissCount)) * Math.Pow(accuracy, 16)) * (1 - 0.003 * attributes.DrainRate * attributes.DrainRate);
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
-                aimValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
+                aimValue *= 1.0 + OsuRatingCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
             }
 
             aimValue *= accuracy;
@@ -315,7 +312,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             }
             else if (score.Mods.Any(m => m is OsuModTraceable))
             {
-                speedValue *= 1.0 + OsuDifficultyCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
+                speedValue *= 1.0 + OsuRatingCalculator.CalculateVisibilityBonus(score.Mods, approachRate);
             }
 
             double speedHighDeviationMultiplier = calculateSpeedHighDeviationNerf(attributes);
