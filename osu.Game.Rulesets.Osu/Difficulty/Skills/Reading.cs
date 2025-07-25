@@ -183,8 +183,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private static double scaleDifficulty(double aimPart, double speedPart)
         {
             // Simulating summing to get the most correct value possible
-            double aimValue = Math.Sqrt(aimPart * skill_multiplier) * OsuDifficultyCalculator.DIFFICULTY_MULTIPLIER;
-            double speedValue = Math.Sqrt(speedPart * skill_multiplier) * OsuDifficultyCalculator.DIFFICULTY_MULTIPLIER;
+            double aimValue = Math.Sqrt(aimPart * skill_multiplier) * OsuRatingCalculator.DIFFICULTY_MULTIPLIER;
+            double speedValue = Math.Sqrt(speedPart * skill_multiplier) * OsuRatingCalculator.DIFFICULTY_MULTIPLIER;
 
             double aimPerformance = DifficultyToPerformance(aimValue);
             double speedPerformance = DifficultyToPerformance(speedValue);
@@ -193,7 +193,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double totalPerformance = Math.Pow(Math.Pow(aimPerformance, sumPower) + Math.Pow(speedPerformance, sumPower), 1.0 / sumPower);
 
             double newSkillValue = performanceToDifficulty(totalPerformance);
-            double difficultyValue = Math.Pow(newSkillValue / OsuDifficultyCalculator.DIFFICULTY_MULTIPLIER, 2.0);
+            double difficultyValue = Math.Pow(newSkillValue / OsuRatingCalculator.DIFFICULTY_MULTIPLIER, 2.0);
 
             difficultyValue = Math.Pow(difficultyValue / skill_multiplier, MECHANICAL_PP_POWER);
 

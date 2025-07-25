@@ -3,7 +3,6 @@
 
 using System;
 using System.Linq;
-using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
@@ -12,7 +11,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuRatingCalculator
     {
-        private const double difficulty_multiplier = 0.0675;
+        public const double DIFFICULTY_MULTIPLIER = 0.0675;
 
         private readonly Mod[] mods;
         private readonly int totalHits;
@@ -207,6 +206,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return readingBonus;
         }
 
-        public static double CalculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * difficulty_multiplier;
+        public static double CalculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * DIFFICULTY_MULTIPLIER;
     }
 }
