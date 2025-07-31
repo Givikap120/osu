@@ -16,15 +16,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private readonly Mod[] mods;
         private readonly int totalHits;
         private readonly double approachRate;
-        private readonly double overallDifficulty;
         private readonly double mechanicalDifficultyRating;
 
-        public OsuRatingCalculator(Mod[] mods, int totalHits, double approachRate, double overallDifficulty, double mechanicalDifficultyRating)
+        public OsuRatingCalculator(Mod[] mods, int totalHits, double approachRate, double mechanicalDifficultyRating)
         {
             this.mods = mods;
             this.totalHits = totalHits;
             this.approachRate = approachRate;
-            this.overallDifficulty = overallDifficulty;
             this.mechanicalDifficultyRating = mechanicalDifficultyRating;
         }
 
@@ -49,12 +47,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double ratingMultiplier = 1.0;
 
-            double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+            double approachRateLengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
                                              (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
-                approachRateFactor = 0.3 * (approachRate - 10.33);
+                approachRateFactor = 0.25 * (approachRate - 10.33);
             else if (approachRate < 8.0)
                 approachRateFactor = 0.05 * (8.0 - approachRate);
 
@@ -68,9 +66,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double visibilityFactor = calculateAimVisibilityFactor(approachRate);
                 ratingMultiplier += CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
             }
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
 
             return aimRating * Math.Cbrt(ratingMultiplier);
         }
@@ -94,12 +89,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double ratingMultiplier = 1.0;
 
-            double approachRateLengthBonus = 0.95 + 0.4 * Math.Min(1.0, totalHits / 2000.0) +
+            double approachRateLengthBonus = 0.95 + 0.45 * Math.Min(1.0, totalHits / 2000.0) +
                                              (totalHits > 2000 ? Math.Log10(totalHits / 2000.0) * 0.5 : 0.0);
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
-                approachRateFactor = 0.3 * (approachRate - 10.33);
+                approachRateFactor = 0.22 * (approachRate - 10.33);
 
             if (mods.Any(m => m is OsuModAutopilot))
                 approachRateFactor = 0.0;
@@ -111,8 +106,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double visibilityFactor = calculateSpeedVisibilityFactor(approachRate);
                 ratingMultiplier += CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
             }
-
-            ratingMultiplier *= 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
 
             return speedRating * Math.Cbrt(ratingMultiplier);
         }
@@ -143,9 +136,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Account for shorter maps having a higher ratio of 0 combo/100 combo flashlight radius.
             ratingMultiplier *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
                                 (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
 
             return flashlightRating * Math.Sqrt(ratingMultiplier);
         }

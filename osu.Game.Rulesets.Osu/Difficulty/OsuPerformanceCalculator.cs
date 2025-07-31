@@ -217,7 +217,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-            aimValue *= DifficultyCalculationUtils.Erf(33 / (Math.Sqrt(2) * adjustedDeviation));
+            aimValue *= DifficultyCalculationUtils.Erf(32 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             return aimValue;
@@ -264,7 +264,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
             adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
 
-            speedValue *= DifficultyCalculationUtils.Erf(20.5 / (Math.Sqrt(2) * adjustedSpeedDeviation));
+            speedValue *= DifficultyCalculationUtils.Erf(20 / (Math.Sqrt(2) * adjustedSpeedDeviation));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
 
             return speedValue;
@@ -296,7 +296,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
 
             // Some fancy stuff to make curve similar to live
-            double scaling = 0.9 * Math.Sqrt(2) * Math.Log(1.52163) * DifficultyCalculationUtils.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
+            double scaling = 0.93 * Math.Sqrt(2) * Math.Log(1.52163) * DifficultyCalculationUtils.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
 
             // Accuracy pp formula that's roughly the same as live.
             double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * deviation.Value);
@@ -336,7 +336,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the flashlight value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-            flashlightValue *= DifficultyCalculationUtils.Erf(55 / (Math.Sqrt(2) * adjustedDeviation));
+            flashlightValue *= DifficultyCalculationUtils.Erf(53 / (Math.Sqrt(2) * adjustedDeviation));
             flashlightValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500;  // OD 11 SS stays the same.
 
             return flashlightValue;
