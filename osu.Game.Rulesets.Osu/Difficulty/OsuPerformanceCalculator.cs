@@ -217,6 +217,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
+            adjustedDeviation *= Math.Pow(attributes.AimDifficulty / 4, 1);
+
             aimValue *= DifficultyCalculationUtils.Erf(32 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
@@ -262,7 +264,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(approachRate);
             double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
-            adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4.5, 0.8));
+            adjustedSpeedDeviation *= Math.Pow(attributes.SpeedDifficulty / 4, 0.8);
 
             speedValue *= DifficultyCalculationUtils.Erf(20 / (Math.Sqrt(2) * adjustedSpeedDeviation));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
@@ -531,7 +533,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         // so we use the amount of relatively difficult sections to adjust miss penalty
         // to make it more punishing on maps with lower amount of hard sections.
         private double calculateMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
-        private static double calculateDeviationArAdjust(double AR) => 0.4 + 0.775 / (1.0 + Math.Pow(1.73, 7.9 - AR));
+        private static double calculateDeviationArAdjust(double AR) => 0.38 + 0.78 / (1.0 + Math.Pow(1.63, 7.9 - AR));
         private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
 
         private int totalHits => countGreat + countOk + countMeh + countMiss;
