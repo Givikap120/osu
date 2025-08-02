@@ -217,9 +217,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-            adjustedDeviation *= Math.Pow(attributes.AimDifficulty / 4, 1);
+            adjustedDeviation *= Math.Max(1, (attributes.AimDifficulty + 6) / 8);
 
-            aimValue *= DifficultyCalculationUtils.Erf(32 / (Math.Sqrt(2) * adjustedDeviation));
+            aimValue *= DifficultyCalculationUtils.Erf(30 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             return aimValue;
@@ -264,7 +264,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(approachRate);
             double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
-            adjustedSpeedDeviation *= Math.Pow(attributes.SpeedDifficulty / 4, 0.8);
+            adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4, 0.8));
 
             speedValue *= DifficultyCalculationUtils.Erf(20 / (Math.Sqrt(2) * adjustedSpeedDeviation));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
