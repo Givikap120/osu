@@ -205,6 +205,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantMissCount = Math.Min(effectiveMissCount + aimEstimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
 
                 aimValue *= calculateMissPenalty(relevantMissCount, attributes.AimDifficultStrainCount);
+
+                // This is additional miss penalty to compensate for deviation not accounting for misses unlike accuracy
+                aimValue *= (double)totalSuccessfulHits / totalHits;
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
@@ -243,6 +246,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantMissCount = Math.Min(effectiveMissCount + speedEstimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
 
                 speedValue *= calculateMissPenalty(relevantMissCount, attributes.SpeedDifficultStrainCount);
+
+                // This is additional miss penalty to compensate for deviation not accounting for misses unlike accuracy
+                speedValue *= Math.Pow((double)totalSuccessfulHits / totalHits, 2);
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
