@@ -220,7 +220,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-            adjustedDeviation *= Math.Max(1, (attributes.AimDifficulty + 6) / 8);
+
+            double lowEndScaling = (attributes.AimDifficulty + 8) / 8;
+            double highEndScaling = (attributes.AimDifficulty + 6) / 8;
+            adjustedDeviation *= double.Lerp(lowEndScaling, highEndScaling, DifficultyCalculationUtils.ReverseLerp(attributes.AimDifficulty, 0, 8));
 
             aimValue *= DifficultyCalculationUtils.Erf(30 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
@@ -303,8 +306,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             const double acc_pp_multiplier = 0.9;
             const double acc_length_bonus_multiplier = 1.1;
 
-            double liveLengthBonus = acc_length_bonus_multiplier * Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.3));
-            double threshold = 1000 * Math.Pow(1.15, 1 / 0.3); // Number of objects until length bonus caps.
+            double liveLengthBonus = acc_length_bonus_multiplier * Math.Min(1.15, Math.Pow(amountHitObjectsWithAccuracy / 1000.0, 0.4));
+            double threshold = 1000 * Math.Pow(1.15, 1 / 0.4); // Number of objects until length bonus caps.
 
             // Some fancy stuff to make curve similar to live
             double scaling = acc_pp_multiplier * Math.Sqrt(2) * Math.Log(1.52163) * DifficultyCalculationUtils.ErfInv(1 / (1 + 1 / Math.Min(amountHitObjectsWithAccuracy, threshold))) / 6;
@@ -553,7 +556,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         // so we use the amount of relatively difficult sections to adjust miss penalty
         // to make it more punishing on maps with lower amount of hard sections.
         private double calculateMissPenalty(double missCount, double difficultStrainCount) => 0.96 / ((missCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
-        private static double calculateDeviationArAdjust(double AR) => 0.38 + 0.78 / (1.0 + Math.Pow(1.63, 7.9 - AR));
+
+        // https://www.desmos.com/calculator/gzaglr8u4s
+        private static double calculateDeviationArAdjust(double AR) => 0.35 + 0.78 / (1.0 + Math.Pow(2.3, 8.7 - AR));
         private double getComboScalingFactor(OsuDifficultyAttributes attributes) => attributes.MaxCombo <= 0 ? 1.0 : Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0);
 
         private int totalHits => countGreat + countOk + countMeh + countMiss;
