@@ -54,7 +54,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
-                approachRateFactor = 0.25 * (approachRate - 10.33);
+                approachRateFactor = 0.3 * (approachRate - 10.33);
             else if (approachRate < 8.0)
                 approachRateFactor = 0.05 * (8.0 - approachRate);
 
@@ -96,7 +96,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
-                approachRateFactor = 0.22 * (approachRate - 10.33);
+                approachRateFactor = 0.18 * (approachRate - 10.33);
 
             if (mods.Any(m => m is OsuModAutopilot))
                 approachRateFactor = 0.0;
