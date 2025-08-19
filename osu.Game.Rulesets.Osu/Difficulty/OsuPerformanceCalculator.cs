@@ -22,7 +22,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private bool enableCSR => false;
 
         private bool usingClassicSliderAccuracy;
-        private bool usingScoreV2;
 
         private OsuDifficultyAttributes attributes = null!;
         private Mod[] mods = null!;
@@ -53,7 +52,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             this.attributes = (OsuDifficultyAttributes)attributes;
 
             usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
-            usingScoreV2 = score.Mods.Any(m => m is ModScoreV2);
 
             mods = score.Mods;
             accuracy = score.Accuracy;

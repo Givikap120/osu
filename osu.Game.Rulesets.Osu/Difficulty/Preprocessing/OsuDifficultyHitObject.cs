@@ -43,10 +43,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            Vector2 lastCursorPosition = lastObject.Position;
+            Vector2 lastCursorPosition = LastObject.Position;
             float lastTravelDistance = 0;
 
-            if (LastObject is Slider lastSlider && lastDifficultyObject != null)
+            if (LastObject is Slider lastSlider)
             {
                 computeSliderCursorPosition(lastSlider);
                 lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
@@ -56,12 +56,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Distance = (lastTravelDistance + (BaseObject.Position - lastCursorPosition).Length) * scalingFactor;
         }
 
-        private void computeSliderCursorPosition()
+        private void computeSliderCursorPosition(Slider slider)
         {
-            if (BaseObject is not Slider slider)
-                return;
-
-            if (LazyEndPosition != null)
+            if (slider.LazyEndPosition != null)
                 return;
             slider.LazyEndPosition = slider.StackedPosition;
 
