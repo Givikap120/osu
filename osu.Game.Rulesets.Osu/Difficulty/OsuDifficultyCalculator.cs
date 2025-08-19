@@ -37,12 +37,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         public static double CalculateRateAdjustedOverallDifficulty(double overallDifficulty, double clockRate)
         {
-            HitWindows hitWindows = new OsuHitWindows();
-            hitWindows.SetDifficulty(overallDifficulty);
-
-            double hitWindowGreat = hitWindows.WindowFor(HitResult.Great) / clockRate;
-
-            return (79.5 - hitWindowGreat) / 6;
+            double hitWindowGreat = (int)(80 - 6 * overallDifficulty) / clockRate;
+            return (80 - hitWindowGreat) / 6;
         }
 
         protected override DifficultyAttributes CreateDifficultyAttributes(IBeatmap beatmap, Mod[] mods, Skill[] skills, double clockRate)
