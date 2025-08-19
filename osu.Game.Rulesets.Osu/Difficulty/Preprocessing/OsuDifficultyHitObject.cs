@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
+using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Rulesets.Osu.Objects;
 using osuTK;
 
@@ -46,7 +47,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 scalingFactor *= 1 + smallCircleBonus;
             }
 
-            Vector2 lastCursorPosition = lastObject.StackedPosition;
+            Vector2 lastCursorPosition = lastObject.Position;
             float lastTravelDistance = 0;
 
             if (lastObject is Slider lastSlider)
@@ -56,7 +57,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 lastTravelDistance = lastSlider.LazyTravelDistance;
             }
 
-            Distance = (lastTravelDistance + (BaseObject.StackedPosition - lastCursorPosition).Length) * scalingFactor;
+            Distance = (lastTravelDistance + (BaseObject.Position - lastCursorPosition).Length) * scalingFactor;
         }
 
         private void computeSliderCursorPosition(Slider slider)
@@ -70,7 +71,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             foreach (var nestedHitObject in slider.NestedHitObjects)
             {
                 double progress = (nestedHitObject.StartTime - slider.StartTime) / slider.Duration;
-                var diff = slider.StackedPositionAt(progress) - slider.LazyEndPosition.Value;
+                var diff = slider.Position + slider.CurvePositionAt(progress) - slider.LazyEndPosition.Value;
                 float dist = diff.Length;
 
                 if (dist > approxFollowCircleRadius)
