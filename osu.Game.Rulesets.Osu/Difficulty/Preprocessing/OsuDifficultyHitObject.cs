@@ -16,23 +16,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private const int normalized_radius = 52;
 
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
+        protected new OsuHitObject LastObject => (OsuHitObject)base.LastObject;
 
         /// <summary>
         /// Normalized distance from the <see cref="OsuHitObject.StackedPosition"/> of the previous <see cref="OsuDifficultyHitObject"/>.
         /// </summary>
         public double Distance { get; private set; }
 
-
-        private readonly OsuHitObject lastObject;
-
         /// <summary>
         /// Initializes the object calculating extra data required for difficulty calculation.
         /// </summary>
-        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, HitObject? lastLastObject, double clockRate, List<DifficultyHitObject> objects, int index)
+        public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, double clockRate, List<DifficultyHitObject> objects, int index)
             : base(hitObject, lastObject, clockRate, objects, index)
         {
-            this.lastObject = (OsuHitObject)lastObject;
-
             setDistances();
             DeltaTime = Math.Max(40, DeltaTime);
         }
@@ -50,7 +46,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Vector2 lastCursorPosition = lastObject.Position;
             float lastTravelDistance = 0;
 
-            if (lastObject is Slider lastSlider)
+            if (LastObject is Slider lastSlider && lastDifficultyObject != null)
             {
                 computeSliderCursorPosition(lastSlider);
                 lastCursorPosition = lastSlider.LazyEndPosition ?? lastCursorPosition;
@@ -60,9 +56,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             Distance = (lastTravelDistance + (BaseObject.Position - lastCursorPosition).Length) * scalingFactor;
         }
 
-        private void computeSliderCursorPosition(Slider slider)
+        private void computeSliderCursorPosition()
         {
-            if (slider.LazyEndPosition != null)
+            if (BaseObject is not Slider slider)
+                return;
+
+            if (LazyEndPosition != null)
                 return;
             slider.LazyEndPosition = slider.StackedPosition;
 

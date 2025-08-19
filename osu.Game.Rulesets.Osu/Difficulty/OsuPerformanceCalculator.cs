@@ -5,11 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Extensions.IEnumerableExtensions;
-using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Scoring;
+using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
 using osu.Game.Utils;
@@ -23,6 +22,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private bool enableCSR => false;
 
         private bool usingClassicSliderAccuracy;
+        private bool usingScoreV2;
 
         private OsuDifficultyAttributes attributes = null!;
         private Mod[] mods = null!;
@@ -39,6 +39,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double overallDifficulty;
         private double approachRate;
 
+        private double aimEstimatedSliderBreaks;
+        private double speedEstimatedSliderBreaks;
+
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
         {
@@ -50,6 +53,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             this.attributes = (OsuDifficultyAttributes)attributes;
 
             usingClassicSliderAccuracy = score.Mods.OfType<OsuModClassic>().Any(m => m.NoSliderHeadAccuracy.Value);
+            usingScoreV2 = score.Mods.Any(m => m is ModScoreV2);
 
             mods = score.Mods;
             accuracy = score.Accuracy;
@@ -69,17 +73,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(difficulty.OverallDifficulty);
 
-            double greatHitWindow = hitWindows.WindowFor(HitResult.Great) / clockRate;
-            double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
-
-            overallDifficulty = (80 - greatHitWindow) / 6;
-            approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
+            approachRate = OsuDifficultyCalculator.CalculateRateAdjustedApproachRate(difficulty.ApproachRate, clockRate);
+            overallDifficulty = OsuDifficultyCalculator.CalculateRateAdjustedOverallDifficulty(difficulty.OverallDifficulty, clockRate);
 
             if (removeRelaxAutopilotPp && score.Mods.Any(m => m is OsuModRelax || m is OsuModAutopilot))
+            {
                 return new OsuPerformanceAttributes
                 {
                     EffectiveMissCount = countMiss
                 };
+            }
 
             if (enableCSR && (usingClassicSliderAccuracy || !enableLazerAcc) && this.attributes.SliderCount > 0)
             {
@@ -117,6 +120,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Speed = speedValue,
                 Accuracy = accuracyValue,
                 EffectiveMissCount = effectiveMissCount,
+                AimEstimatedSliderBreaks = aimEstimatedSliderBreaks,
+                SpeedEstimatedSliderBreaks = speedEstimatedSliderBreaks,
                 Total = totalValue
             };
         }

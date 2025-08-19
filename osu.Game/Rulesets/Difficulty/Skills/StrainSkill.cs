@@ -116,6 +116,8 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// </summary>
         public IEnumerable<double> GetCurrentStrainPeaks() => strainPeaks;
 
+        public IEnumerable<double> GetObjectStrains() => ObjectStrains;
+
         /// <summary>
         /// Returns the calculated difficulty value representing all <see cref="DifficultyHitObject"/>s that have been processed up to this point.
         /// </summary>
