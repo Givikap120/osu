@@ -49,7 +49,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double comfyness = IdentifyComfyFlow(current);
 
                 // Change those 2 power coeficients to control amount of buff high spaced flow aim has for comfy/uncomfy patterns
-                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 0.85 - 0.4 * comfyness);
+                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 0.9 - 0.35 * comfyness);
             }
             else
             {
@@ -58,8 +58,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             }
 
             // Flow aim is harder on High BPM
-            const double base_speedflow_multiplier = 0.12; // Base multiplier for speedflow bonus
-            const double spacing_factor = 0.8; // How much bonus is skewed towards high spacing, 1 means equal buff for any spacing
+            const double base_speedflow_multiplier = 0.1; // Base multiplier for speedflow bonus
             const double bpm_factor = 15; // How steep the bonus is, higher values means more bonus for high BPM
 
             // Autobalance, it's expected for bonus multiplier to be 1 for the bpm base
@@ -67,9 +66,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double bpmFactorMultiplierAtBase = bpmBase / (bpmBase - bpm_factor) - 1;
             double multiplier = base_speedflow_multiplier / bpmFactorMultiplierAtBase;
 
+            // Start from base of the bonus
             double speeflowBonus = multiplier * diameter / osuCurrObj.StrainTime;
-            speeflowBonus *= Math.Min(Math.Pow(osuCurrObj.LazyJumpDistance / radius, spacing_factor), 1); // Spacing factor, reward up to 1 radius
-            speeflowBonus *= (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - bpm_factor) - 1); // Bpm factor
+
+            // Spacing factor, reward up to 1 radius. The reason why we're doing this is because we want to be close live speedflow
+            // If we won't do this - it will be similar to multiplicative speed and distance bonuses, not additive
+            speeflowBonus *= DifficultyCalculationUtils.Smoothstep(osuCurrObj.LazyJumpDistance, -radius, radius);
+
+            // Bpm factor
+            speeflowBonus *= (osuCurrObj.StrainTime / (osuCurrObj.StrainTime - bpm_factor) - 1);
+
             flowDifficulty += speeflowBonus;
 
             double angleBonus = 0;
