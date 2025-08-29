@@ -450,8 +450,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (totalSuccessfulHits == 0)
                 return null;
 
-            // Calculate accuracy assuming close to the worst case scenario
-            double speedNoteCount = attributes.SpeedNoteCount + 0.1 * Math.Max(0, totalHits - attributes.SpeedNoteCount);
+            // Calculate accuracy assuming the worst case scenario
+            double speedNoteCount = attributes.SpeedNoteCount;
+            speedNoteCount += (totalHits - attributes.SpeedNoteCount) * 0.1;
 
             // Assume worst case: all mistakes were on speed notes
             double relevantCountMiss = Math.Min(countMiss, speedNoteCount);
@@ -463,10 +464,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         }
 
         /// <summary>
-        /// Estimates the player's tap deviation based on the OD, given number of 300s, 100s, 50s and misses,
+        /// Estimates the player's tap deviation based on the OD, given number of greats, oks, mehs and misses,
         /// assuming the player's mean hit error is 0. The estimation is consistent in that two SS scores on the same map with the same settings
         /// will always return the same deviation. Misses are ignored because they are usually due to misaiming.
-        /// 300s and 100s are assumed to follow a normal distribution, whereas 50s are assumed to follow a uniform distribution.
+        /// Greats and oks are assumed to follow a normal distribution, whereas mehs are assumed to follow a uniform distribution.
         /// </summary>
         private double? calculateDeviation(double relevantCountGreat, double relevantCountOk, double relevantCountMeh)
         {
