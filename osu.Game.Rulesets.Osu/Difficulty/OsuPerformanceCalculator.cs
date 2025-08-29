@@ -168,7 +168,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (deviation == null || score.Mods.Any(h => h is OsuModAutopilot))
+            if (score.Mods.Any(h => h is OsuModAutopilot))
                 return 0.0;
 
             double aimDifficulty = attributes.AimDifficulty;
@@ -207,9 +207,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantMissCount = Math.Min(effectiveMissCount + aimEstimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
 
                 aimValue *= calculateMissPenalty(relevantMissCount, attributes.AimDifficultStrainCount);
-
-                // This is additional miss penalty to compensate for deviation not accounting for misses unlike accuracy
-                aimValue *= (double)totalSuccessfulHits / totalHits;
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
@@ -220,22 +217,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimValue *= 1.0 + OsuRatingCalculator.CalculateVisibilityBonus(score.Mods, approachRate, attributes.SliderFactor);
             }
 
-            // Scale the aim value with adjusted deviation
-            double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-
-            double lowEndScaling = (attributes.AimDifficulty + 8) / 8;
-            double highEndScaling = (attributes.AimDifficulty + 6) / 8;
-            adjustedDeviation *= double.Lerp(lowEndScaling, highEndScaling, DifficultyCalculationUtils.ReverseLerp(attributes.AimDifficulty, 0, 8));
-
-            aimValue *= DifficultyCalculationUtils.Erf(30 / (Math.Sqrt(2) * adjustedDeviation));
-            aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
+            aimValue *= accuracy;
 
             return aimValue;
         }
 
         private double computeSpeedValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == null)
+            if (score.Mods.Any(h => h is OsuModRelax))
                 return 0.0;
 
             double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
@@ -251,9 +240,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 double relevantMissCount = Math.Min(effectiveMissCount + speedEstimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
 
                 speedValue *= calculateMissPenalty(relevantMissCount, attributes.SpeedDifficultStrainCount);
-
-                // This is additional miss penalty to compensate for deviation not accounting for misses unlike accuracy
-                speedValue *= Math.Pow((double)totalSuccessfulHits / totalHits, 2);
             }
 
             // TC bonuses are excluded when blinds is present as the increased visual difficulty is unimportant when notes cannot be seen.
@@ -274,7 +260,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Use additional bad UR penalty for high speed difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(approachRate);
-            double adjustedSpeedDeviation = speedDeviation.Value * Math.Max(Math.Pow(arAdjust, 0.7), arAdjust);
+            double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
             adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4, 0.7));
 
             speedValue *= DifficultyCalculationUtils.Erf(21 / (Math.Sqrt(2) * adjustedSpeedDeviation));
@@ -285,7 +271,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAccuracyValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (score.Mods.Any(h => h is OsuModRelax) || deviation == null)
+            if (score.Mods.Any(h => h is OsuModRelax))
                 return 0.0;
 
             // This percentage only considers HitCircles of any value - in this part of the calculation we focus on hitting the timing hit window.
@@ -339,7 +325,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeFlashlightValue(ScoreInfo score, OsuDifficultyAttributes attributes)
         {
-            if (!score.Mods.Any(h => h is OsuModFlashlight) || deviation == null)
+            if (!score.Mods.Any(h => h is OsuModFlashlight))
                 return 0.0;
 
             double flashlightValue = Flashlight.DifficultyToPerformance(attributes.FlashlightDifficulty);
@@ -350,10 +336,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             flashlightValue *= getComboScalingFactor(attributes);
 
-            // Scale the flashlight value with adjusted deviation
-            double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
-            flashlightValue *= DifficultyCalculationUtils.Erf(53 / (Math.Sqrt(2) * adjustedDeviation));
-            flashlightValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500;  // OD 11 SS stays the same.
+            // Scale the flashlight value with accuracy _slightly_.
+            flashlightValue *= 0.5 + accuracy / 2.0;
 
             return flashlightValue;
         }

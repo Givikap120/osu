@@ -16,14 +16,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private readonly Mod[] mods;
         private readonly int totalHits;
         private readonly double approachRate;
+        private readonly double overallDifficulty;
         private readonly double mechanicalDifficultyRating;
         private readonly double sliderFactor;
 
-        public OsuRatingCalculator(Mod[] mods, int totalHits, double approachRate, double mechanicalDifficultyRating, double sliderFactor)
+        public OsuRatingCalculator(Mod[] mods, int totalHits, double approachRate, double overallDifficulty, double mechanicalDifficultyRating, double sliderFactor)
         {
             this.mods = mods;
             this.totalHits = totalHits;
             this.approachRate = approachRate;
+            this.overallDifficulty = overallDifficulty;
             this.mechanicalDifficultyRating = mechanicalDifficultyRating;
             this.sliderFactor = sliderFactor;
         }
@@ -69,6 +71,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ratingMultiplier += CalculateVisibilityBonus(mods, approachRate, visibilityFactor, sliderFactor);
             }
 
+            // It is important to consider accuracy difficulty when scaling with accuracy.
+            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
+
             return aimRating * Math.Cbrt(ratingMultiplier);
         }
 
@@ -109,6 +114,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ratingMultiplier += CalculateVisibilityBonus(mods, approachRate, visibilityFactor);
             }
 
+            ratingMultiplier *= 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
+
             return speedRating * Math.Cbrt(ratingMultiplier);
         }
 
@@ -144,6 +151,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Account for shorter maps having a higher ratio of 0 combo/100 combo flashlight radius.
             ratingMultiplier *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
                                 (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
+
+            // It is important to consider accuracy difficulty when scaling with accuracy.
+            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
 
             return flashlightRating * Math.Sqrt(ratingMultiplier);
         }
