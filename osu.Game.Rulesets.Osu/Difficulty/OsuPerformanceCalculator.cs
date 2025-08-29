@@ -303,6 +303,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Accuracy pp formula that's roughly the same as live.
             double accuracyValue = 2.83 * Math.Pow(1.52163, 40.0 / 3) * liveLengthBonus * Math.Exp(-scaling * deviation.Value);
 
+            // Add additional miss scaling to compensate lack of misses in deviation
+            accuracyValue *= Math.Pow((double)(totalHits - effectiveMissCount) / totalHits, 5);
+
             // Punish very low amount of hits additionally to prevent big pp values right at the start of the map
             double amountOfHits = Math.Clamp(totalSuccessfulHits - attributes.SpinnerCount, 0, amountHitObjectsWithAccuracy);
             if (amountOfHits < 30)
