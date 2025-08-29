@@ -52,6 +52,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double overallDifficulty;
         private double approachRate;
 
+        // Scalings graphs
+        // https://www.desmos.com/calculator/kw8uhonavu
         private double? deviation, speedDeviation;
 
         private double aimEstimatedSliderBreaks;
@@ -272,7 +274,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Use additional bad UR penalty for high speed difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(approachRate);
-            double adjustedSpeedDeviation = speedDeviation.Value * (arAdjust < 1 ? Math.Pow(arAdjust, 0.7) : arAdjust);
+            double adjustedSpeedDeviation = speedDeviation.Value * Math.Max(Math.Pow(arAdjust, 0.7), arAdjust);
             adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4, 0.7));
 
             speedValue *= DifficultyCalculationUtils.Erf(21 / (Math.Sqrt(2) * adjustedSpeedDeviation));
