@@ -19,7 +19,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        public const double PERFORMANCE_BASE_MULTIPLIER = 1.14; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
+        public const double PERFORMANCE_BASE_MULTIPLIER = 1.104; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
 
         private bool usingClassicSliderAccuracy;
         private bool usingScoreV2;
@@ -496,7 +496,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double calculateBalancerAdjustingMultiplier(ScoreInfo score, OsuDifficultyAttributes osuAttributes)
         {
-            double totalValue = calculatePerformanceAttributes(score, osuAttributes).Total * OsuDifficultyCalculator.PERFORMANCE_BASE_MULTIPLIER;
+            double totalValue = calculatePerformanceAttributes(score, osuAttributes).Total * PERFORMANCE_BASE_MULTIPLIER;
 
             if (totalValue < 600)
                 return 1;
