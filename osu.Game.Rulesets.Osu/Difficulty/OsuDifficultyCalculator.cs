@@ -34,16 +34,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
         }
 
-        public static double CalculateDifficultyMultiplier(Mod[] mods, int totalHits, int spinnerCount)
-        {
-            double multiplier = PERFORMANCE_BASE_MULTIPLIER;
-
-            if (mods.Any(m => m is OsuModSpunOut) && totalHits > 0)
-                multiplier *= 1.0 - Math.Pow((double)spinnerCount / totalHits, 0.85);
-
-            return multiplier;
-        }
-
         public static double CalculateRateAdjustedApproachRate(double approachRate, double clockRate)
         {
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(approachRate, OsuHitObject.PREEMPT_MAX, OsuHitObject.PREEMPT_MID, OsuHitObject.PREEMPT_MIN) / clockRate;
@@ -151,8 +141,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double basePerformance = mechanicalPerformance + cognitionPerformance;
 
-            double multiplier = CalculateDifficultyMultiplier(mods, totalHits, spinnerCount);
-            double starRating = calculateStarRating(basePerformance, multiplier);
+            double starRating = calculateStarRating(basePerformance);
 
             double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
             double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
@@ -192,12 +181,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return attributes;
         }
 
-        private static double calculateStarRating(double basePerformance, double multiplier)
+        private static double calculateStarRating(double basePerformance)
         {
             if (basePerformance <= 0.00001)
                 return 0;
 
-            return Math.Cbrt(multiplier) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
+            return Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
@@ -241,7 +230,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             new OsuModHardRock(),
             new OsuModFlashlight(),
             new OsuModHidden(),
-            new OsuModSpunOut(),
         };
     }
 }
