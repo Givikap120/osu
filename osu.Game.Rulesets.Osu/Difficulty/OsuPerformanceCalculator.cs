@@ -502,7 +502,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return 1;
 
             double rescaledValue = (totalValue - 600) / 1000;
-            double result = Math.Min(0.06 * rescaledValue, 0.088 * Math.Pow(rescaledValue, 0.4));
+            double result = Math.Min(0.03 * rescaledValue, 0.044 * Math.Pow(rescaledValue, 0.4));
             return 1 + result;
         }
 
