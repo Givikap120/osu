@@ -18,7 +18,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     /// </summary>
     public class Speed : OsuStrainSkill
     {
-        private double skillMultiplier => 1.457;
+        private double skillMultiplier => 1.467;
         private double strainDecayBase => 0.3;
 
         private double currentStrain;
