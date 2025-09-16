@@ -38,7 +38,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             double scalingFactor = 52.0 / osuHitObject.Radius;
             double smallDistNerf = 1.0;
-            double cumulativeStrainTime = 0.0;
+            double cumulativeDeltaTime = 0.0;
 
             double result = 0.0;
 
@@ -52,7 +52,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 var currentObj = (OsuDifficultyHitObject)current.Previous(i);
                 var currentHitObject = (OsuHitObject)(currentObj.BaseObject);
 
-                cumulativeStrainTime += lastObj.AdjustedDeltaTime;
+                cumulativeDeltaTime += lastObj.AdjustedDeltaTime;
 
                 if (!(currentObj.BaseObject is Spinner))
                 {
@@ -68,7 +68,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                     // Bonus based on how visible the object is.
                     double opacityBonus = 1.0 + max_opacity_bonus * (1.0 - osuCurrent.OpacityAt(currentHitObject.StartTime, hidden));
 
-                    result += stackNerf * opacityBonus * scalingFactor * jumpDistance / cumulativeStrainTime;
+                    result += stackNerf * opacityBonus * scalingFactor * jumpDistance / cumulativeDeltaTime;
 
                     if (currentObj.Angle != null && osuCurrent.Angle != null)
                     {

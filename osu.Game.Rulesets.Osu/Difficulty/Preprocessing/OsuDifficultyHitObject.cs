@@ -271,12 +271,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
                             // Check how similar cumulative times are
                             double potentialMinOverlapness = currentOverlapness * getTimeDifference(cumulativeTimeWithCurrent, cumulativeTimeWithoutCurrent);
-                            potentialMinOverlapness *= 1 - getAngleSimilarity(angle, historicAngles[j]) * (1 - getTimeDifference(loopObj.StrainTime, prevObject.StrainTime));
+                            potentialMinOverlapness *= 1 - getAngleSimilarity(angle, historicAngles[j]) * (1 - getTimeDifference(loopObj.AdjustedDeltaTime, prevObject.AdjustedDeltaTime));
                             currentMinOverlapness = Math.Min(currentMinOverlapness, potentialMinOverlapness);
 
                             // Check how similar current time with cumulative time
                             potentialMinOverlapness = currentOverlapness * getTimeDifference(currentTime, cumulativeTimeWithoutCurrent);
-                            potentialMinOverlapness *= 1 - getAngleSimilarity(angle, historicAngles[j]) * (1 - getTimeDifference(loopObj.StrainTime, prevObject.StrainTime));
+                            potentialMinOverlapness *= 1 - getAngleSimilarity(angle, historicAngles[j]) * (1 - getTimeDifference(loopObj.AdjustedDeltaTime, prevObject.AdjustedDeltaTime));
                             currentMinOverlapness = Math.Min(currentMinOverlapness, potentialMinOverlapness);
 
                             // Starting from this point - we will never have better match, so stop searching
@@ -425,12 +425,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             double rescaleFactor = Math.Pow(1 - angleDifferencePrev / Math.PI, 5);
 
             // 0 on different rhythm, 1 on same rhythm
-            double rhythmFactor = 1 - getTimeDifference(StrainTime, prevObj0.StrainTime);
+            double rhythmFactor = 1 - getTimeDifference(AdjustedDeltaTime, prevObj0.AdjustedDeltaTime);
 
             if (prevObj1.IsNotNull())
-                rhythmFactor *= 1 - getTimeDifference(prevObj0.StrainTime, prevObj1.StrainTime);
+                rhythmFactor *= 1 - getTimeDifference(prevObj0.AdjustedDeltaTime, prevObj1.AdjustedDeltaTime);
             if (prevObj1.IsNotNull() && prevObj2.IsNotNull())
-                rhythmFactor *= 1 - getTimeDifference(prevObj1.StrainTime, prevObj2.StrainTime);
+                rhythmFactor *= 1 - getTimeDifference(prevObj1.AdjustedDeltaTime, prevObj2.AdjustedDeltaTime);
 
             // Get the base - how much alternating difference is lower than current difference
             double prevAngleAdjust = Math.Max(angleDifference - angleDifferencePrev, 0);
@@ -496,7 +496,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 return o1.AngleSigned == o2.AngleSigned ? 1 : 0;
 
 
-            double timeSimilarity = 1 - getTimeDifference(o1.StrainTime, o2.StrainTime);
+            double timeSimilarity = 1 - getTimeDifference(o1.AdjustedDeltaTime, o2.AdjustedDeltaTime);
 
             double angleDelta = Math.Abs((double)o1.AngleSigned - (double)o2.AngleSigned);
             angleDelta = Math.Clamp(angleDelta - 0.1, 0, 0.15);

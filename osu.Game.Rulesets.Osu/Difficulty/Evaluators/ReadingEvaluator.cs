@@ -69,10 +69,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 loopDifficulty *= getTimeNerfFactor(timeBetweenCurrAndLoopObj);
 
                 // Only if next object is slower, representing break from many notes in a row
-                if (loopObj.StrainTime > prevObj0.StrainTime)
+                if (loopObj.AdjustedDeltaTime > prevObj0.AdjustedDeltaTime)
                 {
                     // Get rhythm similarity: 1 on same rhythms, 0.5 on 1/4 to 1/2
-                    double rhythmSimilarity = 1 - getRhythmDifference(loopObj.StrainTime, prevObj0.StrainTime);
+                    double rhythmSimilarity = 1 - getRhythmDifference(loopObj.AdjustedDeltaTime, prevObj0.AdjustedDeltaTime);
 
                     // Make differentiation going from 1/4 to 1/2 and bigger difference
                     // To 1/3 to 1/2 and smaller difference
@@ -199,8 +199,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var osuCurrObj = (OsuDifficultyHitObject)current;
             var osuLastObj = (OsuDifficultyHitObject)current.Previous(0);
 
-            double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.StrainTime;
-            double prevVelocity = osuLastObj.LazyJumpDistance / osuLastObj.StrainTime;
+            double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.AdjustedDeltaTime;
+            double prevVelocity = osuLastObj.LazyJumpDistance / osuLastObj.AdjustedDeltaTime;
 
             double velocityChangeFactor = 0;
 
@@ -210,14 +210,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double velocityChange = Math.Max(0,
                 Math.Min(
                     Math.Abs(prevVelocity - currVelocity) - 0.5 * Math.Min(currVelocity, prevVelocity),
-                    Math.Max(((OsuHitObject)osuCurrObj.BaseObject).Radius / Math.Max(osuCurrObj.StrainTime, osuLastObj.StrainTime), Math.Min(currVelocity, prevVelocity))
+                    Math.Max(((OsuHitObject)osuCurrObj.BaseObject).Radius / Math.Max(osuCurrObj.AdjustedDeltaTime, osuLastObj.AdjustedDeltaTime), Math.Min(currVelocity, prevVelocity))
                     )); // Stealed from xexxar
                 velocityChangeFactor = velocityChange / Math.Max(currVelocity, prevVelocity); // maxiumum is 0.4
                 velocityChangeFactor /= 0.4;
             }
 
             // Rhythm difference punishment for velocity and angle bonuses
-            double rhythmSimilarity = 1 - getRhythmDifference(osuCurrObj.StrainTime, osuLastObj.StrainTime);
+            double rhythmSimilarity = 1 - getRhythmDifference(osuCurrObj.AdjustedDeltaTime, osuLastObj.AdjustedDeltaTime);
 
             // Make differentiation going from 1/4 to 1/2 and bigger difference
             // To 1/3 to 1/2 and smaller difference

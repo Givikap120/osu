@@ -244,7 +244,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             {
                 OsuDifficultyHitObject currObj = (OsuDifficultyHitObject)current;
 
-                CurrentStrain *= StrainDecay(currObj.StrainTime);
+                CurrentStrain *= StrainDecay(currObj.AdjustedDeltaTime);
 
                 double highARDifficulty = Math.Pow(ReadingHighAREvaluator.EvaluateDifficultyOf(current, false), 1.0 / MECHANICAL_PP_POWER);
                 double speedDifficulty = SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * SkillMultiplier;
