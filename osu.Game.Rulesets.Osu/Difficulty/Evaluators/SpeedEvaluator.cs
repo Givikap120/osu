@@ -88,7 +88,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double sliderStreamBonus = 1.0;
 
             // Don't buff burst into 2 sliders case
-            sliderStreamBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.StrainTime, osuCurrObj.StrainTime * 0.55, osuCurrObj.StrainTime * 0.75);
+            sliderStreamBonus *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.AdjustedDeltaTime, osuCurrObj.AdjustedDeltaTime * 0.55, osuCurrObj.AdjustedDeltaTime * 0.75);
 
             // Punish too short sliders to prevent cheesing
             double sliderLength = slider.Velocity * slider.SpanDuration;
