@@ -227,12 +227,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Scale the aim value with adjusted deviation
             double adjustedDeviation = deviation.Value * calculateDeviationArAdjust(approachRate);
+            adjustedDeviation *= 1 + 0.12 * Math.Pow(attributes.AimDifficulty, 0.7);
 
-            double lowEndScaling = (attributes.AimDifficulty + 8) / 8;
-            double highEndScaling = (attributes.AimDifficulty + 6) / 8;
-            adjustedDeviation *= double.Lerp(lowEndScaling, highEndScaling, DifficultyCalculationUtils.ReverseLerp(attributes.AimDifficulty, 0, 8));
-
-            aimValue *= DifficultyCalculationUtils.Erf(30 / (Math.Sqrt(2) * adjustedDeviation));
+            aimValue *= DifficultyCalculationUtils.Erf(28 / (Math.Sqrt(2) * adjustedDeviation));
             aimValue *= 0.98 + Math.Pow(100.0 / 9, 2) / 2500; // OD 11 SS stays the same.
 
             return aimValue;
