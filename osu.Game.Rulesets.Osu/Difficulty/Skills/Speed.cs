@@ -39,7 +39,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         {
             OsuDifficultyHitObject currODHO = (OsuDifficultyHitObject)current;
 
-            CurrentStrain *= StrainDecay(currODHO.StrainTime);
+            CurrentStrain *= StrainDecay(currODHO.AdjustedDeltaTime);
             CurrentStrain += SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * SkillMultiplier;
 
             CurrentRhythm = currODHO.RhythmDifficulty;
