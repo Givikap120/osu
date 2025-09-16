@@ -23,18 +23,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         private const double star_rating_multiplier = 0.0265;
 
-        private const double relax_multiplier = 0.87;
-        private const double touch_device_multiplier = 0.83;
-
         public override int Version => 20250306;
 
         public OsuDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
             : base(ruleset, beatmap)
         {
         }
-
-        // Increasing this multiplier buffs versatile aim+flow maps
-        public static double AimVersatilityBonus = 0.08;
 
         public static double CalculateRateAdjustedApproachRate(double approachRate, double clockRate)
         {
@@ -100,9 +94,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             var osuRatingCalculator = new OsuRatingCalculator(mods, totalHits, overallDifficulty);
 
-            double aimRating = osuRatingCalculator.ComputeAimRating(aimDifficultyValue);
+            double aimRating = osuRatingCalculator.ComputeTotalAimRating(aimDifficultyValue, snapAimDifficultyValue, flowAimDifficultyValue);
+            double aimRatingNoSliders = osuRatingCalculator.ComputeTotalAimRating(aimNoSlidersDifficultyValue, snapAimDifficultyValue, flowAimDifficultyValue);
             double speedRating = osuRatingCalculator.ComputeSpeedRating(speedDifficultyValue);
             double readingRating = osuRatingCalculator.ComputeReadingRating(readingDifficultyValue);
+
+            double snapAimRating = osuRatingCalculator.ComputeSnapAimRating(snapAimDifficultyValue);
+            double flowAimRating = osuRatingCalculator.ComputeFlowAimRating(flowAimDifficultyValue);
 
             double flashlightRating = 0.0;
 
@@ -127,6 +125,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     Math.Pow(baseReadingPerformance, 1.1), 1.0 / 1.1
                 );
 
+            double starRating = calculateStarRating(basePerformance);
+
             double aimRelevantObjectCount = aim.CountRelevantObjects();
             double aimNoSlidersRelevantObjectCount = aimWithoutSliders.CountRelevantObjects();
             double speedRelevantObjectCount = speed.CountRelevantObjects();
@@ -145,12 +145,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedLengthBonus = 1.0 + Math.Min(0.2, speedRelevantObjectCount / 750.0) +
                                       (speedRelevantObjectCount > 200 ? 0.4 * Math.Log10(speedRelevantObjectCount / 200.0) : 0.0);
             speedRating *= Math.Cbrt(speedLengthBonus * speed_length_bonus_multiplier);
-
-            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
-            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
-
-            var simulator = new OsuLegacyScoreSimulator();
-            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
 
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
             {
@@ -181,6 +175,33 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             };
 
             return attributes;
+        }
+
+        // Summation for aim and speed, reducing reward for mixed maps
+        public static double SumMechanicalDifficulty(double aim, double speed)
+        {
+            const double addition_portion = 0.15;
+
+            // We take this min to max ratio as a basepoint to be not changed when addition_portion is changed
+            const double balance_base_point = 0.2;
+            const double power = 1.1;
+
+            // This is automatically-computed multiplier to avoid manual multiplier balancing when addition_portion is changed
+            double multiplier = Math.Pow(1 + Math.Pow(balance_base_point, power), 1.0 / power) /
+                Math.Pow(
+                    Math.Pow(1 + addition_portion, power) +
+                    Math.Pow(balance_base_point + addition_portion, power), 1.0 / power
+                );
+
+            double max = Math.Max(aim, speed);
+
+            double difficulty =
+                Math.Pow(
+                    Math.Pow(aim + addition_portion * max, power) +
+                    Math.Pow(speed + addition_portion * max, power), 1.0 / power
+                );
+
+            return difficulty * multiplier;
         }
 
         private double calculateStarRating(double basePerformance)
