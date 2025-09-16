@@ -21,8 +21,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuDifficultyCalculator : DifficultyCalculator
     {
-        private const double performance_base_multiplier = 1.15; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
-        private const double difficulty_multiplier = 0.0675;
         private const double star_rating_multiplier = 0.0265;
 
         private const double relax_multiplier = 0.87;
@@ -37,40 +35,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         // Increasing this multiplier buffs versatile aim+flow maps
         public static double AimVersatilityBonus = 0.08;
-
-        public static double CalculateDifficultyMultiplier(Mod[] mods, int totalHits, int spinnerCount)
-        {
-            double multiplier = performance_base_multiplier;
-
-            if (mods.Any(m => m is OsuModSpunOut) && totalHits > 0)
-                multiplier *= 1.0 - Math.Pow((double)spinnerCount / totalHits, 0.85);
-
-            return multiplier;
-        }
-
-        /// <summary>
-        /// Calculates a visibility bonus that is applicable to Hidden and Traceable.
-        /// </summary>
-        public static double CalculateVisibilityBonus(Mod[] mods, double approachRate, double visibilityFactor = 1)
-        {
-            // NOTE: TC's effect is only noticeable in performance calculations until lazer mods are accounted for server-side.
-            bool isAlwaysPartiallyVisible = mods.OfType<OsuModHidden>().Any(m => !m.OnlyFadeApproachCircles.Value) || mods.OfType<OsuModTraceable>().Any();
-
-            // Start from normal curve, rewarding lower AR up to AR5
-            double readingBonus = 0.04 * (12.0 - Math.Max(approachRate, 5));
-
-            readingBonus *= visibilityFactor;
-
-            // For AR up to 0 - reduce reward for very low ARs when object is visible
-            if (approachRate < 5)
-                readingBonus += (isAlwaysPartiallyVisible ? 0.04 : 0.03) * (5.0 - Math.Max(approachRate, 0));
-
-            // Starting from AR0 - cap values so they won't grow to infinity
-            if (approachRate < 0)
-                readingBonus += (isAlwaysPartiallyVisible ? 0.1 : 0.075) * (1 - Math.Pow(1.5, approachRate));
-
-            return readingBonus;
-        }
 
         public static double CalculateRateAdjustedApproachRate(double approachRate, double clockRate)
         {
@@ -97,13 +61,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             var aimWithoutSliders = skills.OfType<TotalAim>().Single(a => !a.IncludeSliders);
             var speed = skills.OfType<Speed>().Single();
             var flashlight = skills.OfType<Flashlight>().SingleOrDefault();
-            var reading = skills.OfType<Reading>().SingleOrDefault();
+            var reading = skills.OfType<Reading>().Single();
 
             double speedNotes = speed.RelevantNoteCount();
 
             double aimDifficultStrainCount = aim.CountTopWeightedStrains();
             double speedDifficultStrainCount = speed.CountTopWeightedStrains();
-            double readingDifficultNoteCount = reading?.CountTopWeightedNotes() ?? 0.0;
+            double readingDifficultNoteCount = reading.CountTopWeightedNotes();
 
             double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
             double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains();
@@ -130,25 +94,26 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double snapAimDifficultyValue = skills.OfType<SnapAim>().Single().DifficultyValue();
             double flowAimDifficultyValue = skills.OfType<FlowAim>().Single().DifficultyValue();
             double speedDifficultyValue = speed.DifficultyValue();
+            double readingDifficultyValue = reading.DifficultyValue();
 
-            double readingRating = 0.0;
+            double sliderFactor = aimDifficultyValue > 0 ? OsuRatingCalculator.CalculateDifficultyRating(aimNoSlidersDifficultyValue) / OsuRatingCalculator.CalculateDifficultyRating(aimDifficultyValue) : 1;
 
-            double aimRating = computeTotalAimRating(aim.DifficultyValue(), snapAimDifficultyValue, flowAimDifficultyValue, mods, overallDifficulty);
-            double aimRatingNoSliders = computeTotalAimRating(aimWithoutSliders.DifficultyValue(), snapAimDifficultyValue, flowAimDifficultyValue, mods, overallDifficulty);
-            double speedRating = computeSpeedRating(speed.DifficultyValue(), mods, overallDifficulty);
+            var osuRatingCalculator = new OsuRatingCalculator(mods, totalHits, overallDifficulty);
 
-            double snapAimRating = computeSnapAimRating(snapAimDifficultyValue, mods, overallDifficulty);
-            double flowAimRating = computeFlowAimRating(flowAimDifficultyValue, mods, overallDifficulty);
-
-            if (reading is not null)
-                readingRating = computeReadingRating(reading.DifficultyValue(), mods, overallDifficulty);
+            double aimRating = osuRatingCalculator.ComputeAimRating(aimDifficultyValue);
+            double speedRating = osuRatingCalculator.ComputeSpeedRating(speedDifficultyValue);
+            double readingRating = osuRatingCalculator.ComputeReadingRating(readingDifficultyValue);
 
             double flashlightRating = 0.0;
 
             if (flashlight is not null)
-                flashlightRating = computeFlashlightRating(flashlight.DifficultyValue(), mods, totalHits, overallDifficulty);
+                flashlightRating = osuRatingCalculator.ComputeFlashlightRating(flashlight.DifficultyValue());
 
-            double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
+            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
+
+            var simulator = new OsuLegacyScoreSimulator();
+            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
 
             double baseAimPerformance = OsuStrainSkill.DifficultyToPerformance(aimRating);
             double baseSpeedPerformance = OsuStrainSkill.DifficultyToPerformance(speedRating);
@@ -161,9 +126,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                     Math.Pow(baseFlashlightPerformance, 1.1) +
                     Math.Pow(baseReadingPerformance, 1.1), 1.0 / 1.1
                 );
-
-            double multiplier = CalculateDifficultyMultiplier(mods, totalHits, spinnerCount);
-            double starRating = calculateStarRating(basePerformance, multiplier);
 
             double aimRelevantObjectCount = aim.CountRelevantObjects();
             double aimNoSlidersRelevantObjectCount = aimWithoutSliders.CountRelevantObjects();
@@ -221,203 +183,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return attributes;
         }
 
-        // Summation for aim and speed, reducing reward for mixed maps
-        public static double SumMechanicalDifficulty(double aim, double speed)
-        {
-            const double addition_portion = 0.15;
-
-            // We take this min to max ratio as a basepoint to be not changed when addition_portion is changed
-            const double balance_base_point = 0.2;
-            const double power = 1.1;
-
-            // This is automatically-computed multiplier to avoid manual multiplier balancing when addition_portion is changed
-            double multiplier = Math.Pow(1 + Math.Pow(balance_base_point, power), 1.0 / power) /
-                Math.Pow(
-                    Math.Pow(1 + addition_portion, power) +
-                    Math.Pow(balance_base_point + addition_portion, power), 1.0 / power
-                );
-
-            double max = Math.Max(aim, speed);
-
-            double difficulty =
-                Math.Pow(
-                    Math.Pow(aim + addition_portion * max, power) +
-                    Math.Pow(speed + addition_portion * max, power), 1.0 / power
-                );
-
-            return difficulty * multiplier;
-        }
-
-        private double computeTotalAimRating(double aimDifficultyValue, double snapAimDifficultyValue, double flowAimDifficultyValue, Mod[] mods, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModAutopilot))
-                return 0;
-
-            double aimRating = calculateDifficultyRating(aimDifficultyValue);
-            double snapAimRating = calculateDifficultyRating(snapAimDifficultyValue);
-            double flowAimRating = calculateDifficultyRating(flowAimDifficultyValue);
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-            {
-                aimRating = Math.Pow(aimRating, touch_device_multiplier);
-                snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
-                // no reduce on flow aim rating is intentional
-            }
-
-            if (mods.Any(m => m is OsuModRelax))
-            {
-                aimRating *= relax_multiplier;
-                snapAimRating *= relax_multiplier;
-                flowAimRating *= relax_multiplier;
-
-                // Remove big chunk of flow aim difficulty
-                aimRating = double.Lerp(snapAimRating, aimRating, 0.5);
-            }
-
-            aimRating = double.Lerp(aimRating, snapAimRating + flowAimRating, AimVersatilityBonus);
-
-            return computeRawAimRating(aimRating, mods, overallDifficulty);
-        }
-
-        private double computeSnapAimRating(double snapAimDifficultyValue, Mod[] mods, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModAutopilot))
-                return 0;
-
-            double snapAimRating = Math.Sqrt(snapAimDifficultyValue) * difficulty_multiplier;
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
-
-            // To ensure that result would not be bigger than normal aim difficulty rating
-            if (mods.Any(m => m is OsuModRelax))
-                snapAimRating *= relax_multiplier;
-
-            return computeRawAimRating(snapAimRating, mods, overallDifficulty);
-        }
-
-        private double computeFlowAimRating(double flowAimDifficultyValue, Mod[] mods, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModAutopilot) || mods.Any(m => m is OsuModRelax))
-                return 0;
-
-            double flowAimRating = Math.Sqrt(flowAimDifficultyValue) * difficulty_multiplier;
-
-            // To ensure that result would not be bigger than normal aim difficulty rating
-            if (mods.Any(m => m is OsuModTouchDevice))
-                flowAimRating = Math.Pow(flowAimRating, 0.83);
-
-            return computeRawAimRating(flowAimRating, mods, overallDifficulty);
-        }
-
-        private double computeRawAimRating(double aimRating, Mod[] mods, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                aimRating *= 1.0 - magnetisedStrength;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
-
-            return aimRating * Math.Cbrt(ratingMultiplier);
-        }
-
-        private double computeSpeedRating(double speedDifficultyValue, Mod[] mods, double overallDifficulty)
-        {
-            if (mods.Any(m => m is OsuModRelax))
-                return 0;
-
-            double speedRating = calculateDifficultyRating(speedDifficultyValue);
-
-            if (mods.Any(m => m is OsuModAutopilot))
-                speedRating *= 0.5;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                // reduce speed rating because of the speed distance scaling, with maximum reduction being 0.7x
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                speedRating *= 1.0 - magnetisedStrength * 0.3;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            ratingMultiplier *= 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
-
-            return speedRating * Math.Cbrt(ratingMultiplier);
-        }
-
-        private double computeReadingRating(double readingDifficultyValue, Mod[] mods, double overallDifficulty)
-        {
-            double readingRating = calculateDifficultyRating(readingDifficultyValue);
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                readingRating = Math.Pow(readingRating, 0.8);
-
-            if (mods.Any(m => m is OsuModRelax))
-                readingRating *= 0.7;
-            else if (mods.Any(m => m is OsuModAutopilot))
-                readingRating *= 0.4;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                readingRating *= 1.0 - magnetisedStrength;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            // It is important to also consider accuracy difficulty when doing that.
-            ratingMultiplier *= 0.75 + Math.Pow(Math.Max(0, overallDifficulty), 2.2) / 800;
-
-            return readingRating * Math.Sqrt(ratingMultiplier);
-        }
-
-        private double computeFlashlightRating(double flashlightDifficultyValue, Mod[] mods, int totalHits, double overallDifficulty)
-        {
-            if (!mods.Any(m => m is OsuModFlashlight))
-                return 0;
-
-            double flashlightRating = calculateDifficultyRating(flashlightDifficultyValue);
-
-            if (mods.Any(m => m is OsuModTouchDevice))
-                flashlightRating = Math.Pow(flashlightRating, 0.8);
-
-            if (mods.Any(m => m is OsuModRelax))
-                flashlightRating *= 0.7;
-            else if (mods.Any(m => m is OsuModAutopilot))
-                flashlightRating *= 0.4;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                flashlightRating *= 1.0 - magnetisedStrength;
-            }
-
-            double ratingMultiplier = 1.0;
-
-            // Account for shorter maps having a higher ratio of 0 combo/100 combo flashlight radius.
-            ratingMultiplier *= 0.7 + 0.1 * Math.Min(1.0, totalHits / 200.0) +
-                                (totalHits > 200 ? 0.2 * Math.Min(1.0, (totalHits - 200) / 200.0) : 0.0);
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
-
-            return flashlightRating * Math.Sqrt(ratingMultiplier);
-        }
-
-        private static double calculateStarRating(double basePerformance, double multiplier)
+        private double calculateStarRating(double basePerformance)
         {
             if (basePerformance <= 0.00001)
                 return 0;
 
-            return Math.Cbrt(multiplier) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
+            return Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
         }
-
-        private static double calculateDifficultyRating(double difficultyValue) => Math.Sqrt(difficultyValue) * difficulty_multiplier;
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
         {
@@ -460,7 +232,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             new OsuModHardRock(),
             new OsuModFlashlight(),
             new OsuModHidden(),
-            new OsuModSpunOut(),
         };
     }
 }

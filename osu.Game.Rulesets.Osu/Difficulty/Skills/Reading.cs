@@ -12,6 +12,7 @@ using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Mods;
+using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
@@ -23,20 +24,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private readonly double clockRate;
         private readonly bool hasHiddenMod;
         private readonly double preempt;
-        private double skillMultiplier => 5.0;
+        private double skillMultiplier => 2.0;
 
         public Reading(IBeatmap beatmap, Mod[] mods, double clockRate)
             : base(mods)
         {
             this.clockRate = clockRate;
-            hasHiddenMod = mods.Any(m => m is OsuModHidden);
-            preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
+            hasHiddenMod = mods.OfType<OsuModHidden>().Any(m => !m.OnlyFadeApproachCircles.Value);
+            preempt = IBeatmapDifficultyInfo.DifficultyRange(beatmap.Difficulty.ApproachRate, OsuHitObject.PREEMPT_MAX, OsuHitObject.PREEMPT_MID, OsuHitObject.PREEMPT_MIN) / clockRate;
             objectList = beatmap.HitObjects;
         }
 
         private double currentDifficulty;
         private double noteWeightSum;
-        private double strainDecayBase => 0.5;
+        private double strainDecayBase => 0.8;
 
         public static double DifficultyToPerformance(double difficulty) => 25 * Math.Pow(difficulty, 2);
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
@@ -52,6 +53,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         public override double DifficultyValue()
         {
+            if (objectList.Count == 0)
+                return 0;
+
             double difficulty = 0;
 
             // Notes with 0 difficulty are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
@@ -89,7 +93,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             {
                 // Use a harmonic sum for note which effectively buffs maps with more notes, especially if note difficulties are consistent.
                 // Constants are arbitrary and give good values.
-                // https://www.desmos.com/calculator/gquji01mlg
+                // https://www.desmos.com/calculator/5eb60faf4c
                 double weight = (1.0 + (1.0 / (1 + index))) / (Math.Pow(index, 0.8) + 1.0 + (1.0 / (1.0 + index)));
 
                 noteWeightSum += weight;
@@ -115,7 +119,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 return 0.0;
 
             if (consistentTopNote == 0)
-                return noteDifficulties.Count;
+                return 0;
 
             // Use a weighted sum of all notes. Constants are arbitrary and give nice values
             return noteDifficulties.Sum(s => 1.1 / (1 + Math.Exp(-5 * (s / consistentTopNote - 1.15))));
