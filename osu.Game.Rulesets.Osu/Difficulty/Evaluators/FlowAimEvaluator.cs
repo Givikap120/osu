@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class FlowAimEvaluator
     {
         // The reason why this exist in evaluator instead of FlowAim skill - it's because it's very important to keep flowaim in the same scaling as snapaim on evaluator level
-        private static double flowMultiplier => 1.11;
+        private static double flowMultiplier => 1.1;
 
         private const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
         private const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
@@ -49,12 +49,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double comfyness = IdentifyComfyFlow(current);
 
                 // Change those 2 power coeficients to control amount of buff high spaced flow aim has for comfy/uncomfy patterns
-                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 0.9 - 0.4 * comfyness);
+                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1 - 0.5 * comfyness);
             }
             else
             {
                 // Decrease power here if you want to buff low-spaced flow aim
-                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 0.8);
+                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1);
             }
 
             // Flow aim is harder on High BPM
