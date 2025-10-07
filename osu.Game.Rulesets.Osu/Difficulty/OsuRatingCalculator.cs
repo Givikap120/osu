@@ -17,7 +17,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private const double touch_device_multiplier = 0.83;
 
         // Increasing this multiplier buffs versatile aim+flow maps
-        public const double AIM_VERSATILITY_BONUS = 0.08;
+        public const double AIM_VERSATILITY_BONUS = 0.1;
 
         private readonly Mod[] mods;
         private readonly int totalHits;
@@ -69,7 +69,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 flowAimRating *= 1.0 - magnetisedStrength;
             }
 
-            aimRating = double.Lerp(aimRating, snapAimRating + flowAimRating, AIM_VERSATILITY_BONUS);
+            // We consider that average map has ratio of summed ratings to total to be equal to 1.7x
+            double baseVersatilityBonus = double.Lerp(1, 1.7, AIM_VERSATILITY_BONUS);
+
+            aimRating = double.Lerp(aimRating, snapAimRating + flowAimRating, AIM_VERSATILITY_BONUS) / baseVersatilityBonus;
 
             return computeRawAimRating(aimRating);
         }
