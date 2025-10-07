@@ -17,7 +17,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         {
         }
 
-        private List<double> objectWeights = [];
+        private List<double> objectSnapinness = [];
 
         protected override double StrainValueOf(DifficultyHitObject current)
         {
@@ -28,9 +28,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             // Rescale
             snappiness = (snappiness - 0.25) / (1 - 0.25);
-
-            double objectWeight = 0.5 + 0.5 * Math.Clamp(snappiness, 0, 1);
-            objectWeights.Add(objectWeight);
+            objectSnapinness.Add(Math.Clamp(snappiness, 0, 1));
 
             return Math.Min(snap, flow);
         }
@@ -46,8 +44,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double lengthFactor = 0.73 * Math.Pow(0.998759, totalStrains);
 
             // Use a weighted sum of all strains. Constants are arbitrary and give nice values
-            return ObjectStrains.Zip(objectWeights, (strain, weight) =>
-                weight * (1.0 - lengthFactor) / (1 + Math.Exp(-10 * (strain / consistentTopStrain - 0.87 - lengthFactor / 4.0)))
+            return ObjectStrains.Zip(objectSnapinness, (strain, snapinness) =>
+                (0.5 + 0.5 * snapinness) * (1.0 - lengthFactor) / (1 + Math.Exp(-10 * (strain / consistentTopStrain - 0.87 - lengthFactor / 4.0)))
             ).Sum();
         }
     }
