@@ -137,7 +137,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimRatingNoSliders *= Math.Cbrt(aimNoSlidersLengthBonus);
 
             double speedLengthBonus = 1.0 + 0.2 * Math.Min(1, speedRelevantObjectCount / 175.0) +
-                                      (speedRelevantObjectCount > 175 ? 0.345 * Math.Log10(speedRelevantObjectCount / 175.0) : 0.0);
+                                      (speedRelevantObjectCount > 175 ? 0.2 * Math.Log10(speedRelevantObjectCount / 175.0) : 0.0);
             speedRating *= Math.Cbrt(speedLengthBonus);
 
             OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
