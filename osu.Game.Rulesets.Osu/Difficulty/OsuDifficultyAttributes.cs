@@ -75,6 +75,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         [JsonProperty("speed_difficult_strain_count")]
         public double SpeedDifficultStrainCount { get; set; }
 
+        [JsonProperty("aim_length_object_count")]
+        public double AimLengthObjectCount { get; set; }
+
+        [JsonProperty("speed_length_object_count")]
+        public double SpeedLengthObjectCount { get; set; }
+
         [JsonProperty("snap_aim")]
         public double SnapAimDifficulty { get; set; }
 
