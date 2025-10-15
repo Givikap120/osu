@@ -75,6 +75,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double currAngle = osuCurrObj.Angle.Value;
                 double lastAngle = osuLastObj.Angle.Value;
 
+                double excessivelyRepetitiveAimNerf = CalculateExcessivelyRepetitiveAimNerf(current);
+
                 // Rewarding angles, take the smaller velocity as base.
                 double angleBonus = Math.Min(currVelocity, prevVelocity);
 
@@ -83,12 +85,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                     acuteAngleBonus = calcAcuteAngleBonus(currAngle);
 
                     // Penalize angle repetition.
-                    acuteAngleBonus *= 0.08 + 0.92 * (1 - Math.Min(acuteAngleBonus, Math.Pow(calcAcuteAngleBonus(lastAngle), 3)));
+                    acuteAngleBonus *= 0.085 + 0.905 * (1 - Math.Min(acuteAngleBonus, Math.Pow(calcAcuteAngleBonus(lastAngle), 3)));
 
                     // Apply acute angle bonus for BPM above 300 1/2 and distance more than one diameter
                     acuteAngleBonus *= angleBonus *
                                        DifficultyCalculationUtils.Smootherstep(DifficultyCalculationUtils.MillisecondsToBPM(osuCurrObj.AdjustedDeltaTime, 2), 300, 400) *
                                        DifficultyCalculationUtils.Smootherstep(osuCurrObj.LazyJumpDistance, diameter, diameter * 2);
+
+                    // Remove extra amount of angle bonus on extra repetitive jumps:
+                    acuteAngleBonus *= 1 - 0.1 * excessivelyRepetitiveAimNerf;
                 }
 
                 wideAngleBonus = calcWideAngleBonus(currAngle);
@@ -123,6 +128,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                         wideAngleBonus *= 1 - 0.35 * (1 - distance);
                     }
                 }
+
+                aimStrain *= 1 - 0.05 * excessivelyRepetitiveAimNerf;
             }
 
             if (Math.Max(prevVelocity, currVelocity) != 0)
@@ -168,6 +175,74 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             return aimStrain;
         }
+
+        public static double CalculateExcessivelyRepetitiveAimNerf(DifficultyHitObject current)
+        {
+            if (current.BaseObject is Spinner || current.Index <= 1 || current.Previous(0).BaseObject is Spinner)
+                return 0;
+
+            var osuCurrObj = (OsuDifficultyHitObject)current;
+            var osuLastObj = (OsuDifficultyHitObject)current.Previous(0);
+            var osuLastLastObj = (OsuDifficultyHitObject)current.Previous(1);
+            var osuLast2Obj = (OsuDifficultyHitObject)current.Previous(2);
+
+            const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
+            const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
+
+            double excessivelyRepetitiveAimNerf = 0;
+
+            if (osuCurrObj.Angle != null && osuLastObj.Angle != null)
+            {
+                if (Math.Max(osuCurrObj.AdjustedDeltaTime, osuLastObj.AdjustedDeltaTime) < 1.25 * Math.Min(osuCurrObj.AdjustedDeltaTime, osuLastObj.AdjustedDeltaTime)) // If rhythms are the same.
+                {
+                    if (osuLastLastObj.SignedAngle != null && osuLast2Obj.SignedAngle != null)
+                    {
+                        const double min_angle_delta = 0.04;
+                        const double max_angle_delta = 0.12;
+
+                        // X and || patterns
+                        double repetitiveAngleFactorX1 = DifficultyCalculationUtils.Smoothstep(Math.Abs(osuCurrObj.SignedAngle!.Value + osuLastObj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+                        repetitiveAngleFactorX1 *= DifficultyCalculationUtils.Smoothstep(Math.Abs(osuLastObj.SignedAngle!.Value - osuLastLastObj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+
+                        double repetitiveAngleFactorX2 = DifficultyCalculationUtils.Smoothstep(Math.Abs(osuCurrObj.SignedAngle!.Value - osuLastObj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+                        repetitiveAngleFactorX2 *= DifficultyCalculationUtils.Smoothstep(Math.Abs(osuLastObj.SignedAngle!.Value + osuLastLastObj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+
+                        double repetitiveAngleFactorX = Math.Max(repetitiveAngleFactorX1, repetitiveAngleFactorX2);
+
+                        // V pattern
+                        double repetitiveAngleFactorV1 = DifficultyCalculationUtils.Smoothstep(Math.Abs(osuCurrObj.SignedAngle!.Value + osuLastLastObj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+                        repetitiveAngleFactorV1 *= DifficultyCalculationUtils.Smoothstep(osuLastObj.Angle.Value, max_angle_delta, min_angle_delta);
+
+                        double repetitiveAngleFactorV2 = DifficultyCalculationUtils.Smoothstep(Math.Abs(osuLastObj.SignedAngle!.Value + osuLast2Obj.SignedAngle!.Value), max_angle_delta, min_angle_delta);
+                        repetitiveAngleFactorV2 *= DifficultyCalculationUtils.Smoothstep(osuCurrObj.Angle.Value, max_angle_delta, min_angle_delta);
+
+                        double repetitiveAngleFactorV = Math.Max(repetitiveAngleFactorV1, repetitiveAngleFactorV2);
+
+                        // Base on angles
+                        excessivelyRepetitiveAimNerf = Math.Max(repetitiveAngleFactorX, repetitiveAngleFactorV);
+
+                        // Don't target too wide angles
+                        excessivelyRepetitiveAimNerf *= DifficultyCalculationUtils.Smoothstep(Math.Max(osuCurrObj.Angle.Value, osuLastObj.Angle.Value), 1.2, 0.6);
+
+                        // Check also distance similarity
+                        double minDistance = Math.Min(Math.Min(osuCurrObj.LazyJumpDistance, osuLastObj.LazyJumpDistance), osuLastLastObj.LazyJumpDistance);
+                        double maxDistance = Math.Max(Math.Max(osuCurrObj.LazyJumpDistance, osuLastObj.LazyJumpDistance), osuLastLastObj.LazyJumpDistance);
+
+                        excessivelyRepetitiveAimNerf *= DifficultyCalculationUtils.ReverseLerp(maxDistance - minDistance, diameter * 2, radius);
+
+                        // Scale the nerf with BPM
+                        excessivelyRepetitiveAimNerf *= DifficultyCalculationUtils.Smoothstep(DifficultyCalculationUtils.MillisecondsToBPM(osuCurrObj.AdjustedDeltaTime, 2), 200, 300);
+
+                        // Don't target small jumps
+                        excessivelyRepetitiveAimNerf *= DifficultyCalculationUtils.ReverseLerp(osuCurrObj.LazyJumpDistance, diameter * 2, diameter * 4);
+                    }
+                }
+            }
+
+            return excessivelyRepetitiveAimNerf;
+        }
+
+
 
         private static double calcWideAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(40), double.DegreesToRadians(140));
 
