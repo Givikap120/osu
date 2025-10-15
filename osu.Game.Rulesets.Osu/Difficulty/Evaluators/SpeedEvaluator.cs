@@ -63,6 +63,46 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Apply reduced small circle bonus because flow aim difficulty on small circles doesn't scale as hard as jumps
             distanceBonus *= Math.Sqrt(osuCurrObj.SmallCircleBonus);
 
+            double adjustedDistanceScale = 1.0;
+
+            if (osuCurrObj.Angle != null && osuPrevObj?.Angle != null)
+            {
+                double angleDifference = Math.Abs(osuCurrObj.Angle.Value - osuPrevObj.Angle.Value);
+                double angleDifferenceAdjusted = Math.Sin(angleDifference / 2) * 180.0;
+                double angularVelocity = angleDifferenceAdjusted / (0.1 * strainTime);
+                double angularVelocityBonus = Math.Max(0.0, 0.65 * Math.Log10(angularVelocity));
+
+                // ensure that distance is consistent
+                double[] distances = new double[16];
+                int i;
+                OsuDifficultyHitObject? currObj = (OsuDifficultyHitObject)current.Previous(0);
+                OsuDifficultyHitObject? prevObj = (OsuDifficultyHitObject)current.Previous(1);
+
+                for (i = 0; i < 16; i++)
+                {
+                    if (currObj != null && prevObj != null)
+                    {
+                        if (Math.Abs(currObj.DeltaTime - prevObj.DeltaTime) > 25)
+                            break;
+
+                        distances[i] = Math.Abs(currObj.MinimumJumpDistance - prevObj.MinimumJumpDistance);
+                    }
+                    else break;
+
+                    currObj = prevObj;
+                    prevObj = (OsuDifficultyHitObject)prevObj.Previous(0);
+                }
+
+                double averageDistanceDifference = i > 0 ? distances.Sum() / i : 0;
+                double distanceDifferenceScaling = Math.Max(0, 1.0 - averageDistanceDifference / 30.0);
+                adjustedDistanceScale = Math.Min(1.0, 0.6 + averageDistanceDifference / 30.0) + angularVelocityBonus * distanceDifferenceScaling;
+
+                double sameRhythmCoef = DifficultyCalculationUtils.Smoothstep(Math.Abs(osuCurrObj.DeltaTime - osuPrevObj.DeltaTime), 15, 30);
+                adjustedDistanceScale = double.Lerp(adjustedDistanceScale, 1, sameRhythmCoef);
+            }
+
+            distanceBonus *= adjustedDistanceScale;
+
             if (mods.OfType<OsuModAutopilot>().Any())
                 distanceBonus = 0;
 
