@@ -110,6 +110,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double SmallCircleBonus { get; private set; }
 
+        public double Verticality { get; private set; } = 0.5;
         private readonly OsuDifficultyHitObject? lastLastDifficultyObject;
         private readonly OsuDifficultyHitObject? lastDifficultyObject;
 
@@ -202,10 +203,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             Vector2 lastCursorPosition = lastDifficultyObject != null ? getEndCursorPosition(lastDifficultyObject) : LastObject.StackedPosition;
 
-            LazyJumpDistance = (BaseObject.StackedPosition * scalingFactor - lastCursorPosition * scalingFactor).Length;
+            Vector2 movement = BaseObject.StackedPosition * scalingFactor - lastCursorPosition * scalingFactor;
+
+            LazyJumpDistance = movement.Length;
             MinimumJumpTime = AdjustedDeltaTime;
             MinimumJumpDistance = LazyJumpDistance;
 
+            Verticality = LazyJumpDistance > 0 ? Math.Pow(Math.Abs(movement.Y) / LazyJumpDistance, 2) : 0.5;
             if (LastObject is Slider lastSlider && lastDifficultyObject != null)
             {
                 double lastTravelTime = Math.Max(lastDifficultyObject.LazyTravelTime / clockRate, MIN_DELTA_TIME);
