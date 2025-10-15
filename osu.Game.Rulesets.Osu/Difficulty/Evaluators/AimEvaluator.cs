@@ -167,7 +167,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Nerf vertical jumps
             double verticality = Math.Min(osuCurrObj.Verticality, osuLastObj.Verticality);
-            aimStrain *= 1 - 0.15 * DifficultyCalculationUtils.Smoothstep(verticality, 0.75, 0.9);
+            aimStrain *= 1 - 0.1 * DifficultyCalculationUtils.Smoothstep(verticality, 0.75, 0.9);
 
             // Add in additional slider velocity bonus.
             if (withSliderTravelDistance)
