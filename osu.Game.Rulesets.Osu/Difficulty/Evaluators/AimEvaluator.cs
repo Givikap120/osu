@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     {
         private const double wide_angle_multiplier = 1.5;
         private const double acute_angle_multiplier = 2.55;
-        private const double slider_multiplier = 1.35;
+        private const double slider_multiplier = 1.3;
         private const double velocity_change_multiplier = 0.75;
         private const double wiggle_multiplier = 1.02;
 
@@ -157,6 +157,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Apply high circle size bonus
             aimStrain *= osuCurrObj.SmallCircleBonus;
+
+            // Nerf vertical jumps
+            double verticality = Math.Min(osuCurrObj.Verticality, osuLastObj.Verticality);
+            aimStrain *= 1 - 0.15 * DifficultyCalculationUtils.Smoothstep(verticality, 0.75, 0.9);
 
             // Add in additional slider velocity bonus.
             if (withSliderTravelDistance)
