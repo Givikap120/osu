@@ -24,6 +24,7 @@ using osu.Game.Graphics.Backgrounds;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
+using osu.Game.Localisation;
 using osu.Game.Online.API;
 using osu.Game.Online.Leaderboards;
 using osu.Game.Overlays;
@@ -391,9 +392,9 @@ namespace osu.Game.Screens.SelectV2
                                         Anchor = Anchor.Centre,
                                         Origin = Anchor.Centre,
                                         Spacing = new Vector2(-2),
-                                        Colour = DrawableRank.GetRankNameColour(Score.Rank),
+                                        Colour = DrawableRank.GetRankLetterColour(Score.Rank),
                                         Font = OsuFont.Numeric.With(size: 14),
-                                        Text = DrawableRank.GetRankName(Score.Rank),
+                                        Text = DrawableRank.GetRankLetter(Score.Rank),
                                         ShadowColour = Color4.Black.Opacity(0.3f),
                                         ShadowOffset = new Vector2(0, 0.08f),
                                         Shadow = true,
@@ -621,7 +622,7 @@ namespace osu.Game.Screens.SelectV2
                 var copyableMods = Score.Mods.Where(m => IsValidMod.Invoke(m) && m.Type != ModType.System).ToArray();
 
                 if (copyableMods.Length > 0)
-                    items.Add(new OsuMenuItem("Use these mods", MenuItemType.Highlighted, () => SelectedMods.Value = copyableMods));
+                    items.Add(new OsuMenuItem(SongSelectStrings.UseTheseMods, MenuItemType.Highlighted, () => SelectedMods.Value = copyableMods));
 
                 if (Score.OnlineID > 0)
                     items.Add(new OsuMenuItem(CommonStrings.CopyLink, MenuItemType.Standard, () => clipboard?.SetText($@"{api.Endpoints.WebsiteUrl}/scores/{Score.OnlineID}")));
@@ -651,7 +652,7 @@ namespace osu.Game.Screens.SelectV2
                 Font = OsuFont.Style.Caption1.With(weight: FontWeight.SemiBold);
             }
 
-            protected override string Format() => Date.ToShortRelativeTime(TimeSpan.FromSeconds(30));
+            protected override LocalisableString Format() => Date.ToShortRelativeTime(TimeSpan.FromSeconds(30));
         }
 
         private partial class ScoreComponentLabel : Container
