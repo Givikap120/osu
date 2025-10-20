@@ -79,11 +79,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
                 double effectiveRatio = windowPenalty * currRatio * fractionMultiplier;
 
-                if (double.IsNaN(effectiveRatio))
-                {
-                    Console.WriteLine("");
-                }
-
                 if (firstDeltaSwitch)
                 {
                     if (Math.Abs(prevDelta - currDelta) < deltaDifferenceEpsilon)
