@@ -21,17 +21,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         public double AimDifficulty { get; set; }
 
         /// <summary>
-        /// The number of <see cref="Slider"/>s weighted by difficulty.
-        /// </summary>
-        [JsonProperty("aim_difficult_slider_count")]
-        public double AimDifficultSliderCount { get; set; }
-
-        /// <summary>
         /// The difficulty corresponding to the speed skill.
         /// </summary>
         [JsonProperty("speed_difficulty")]
         public double SpeedDifficulty { get; set; }
-
 
         /// <summary>
         /// Describes how much of <see cref="AimDifficultStrainCount"/> is contributed to by hitcircles or sliders
