@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (attributes.MaxCombo == 0 || score.LegacyTotalScore == null)
                 return 0;
 
-            double scoreV1Multiplier = 1;//attributes.LegacyScoreBaseMultiplier * getLegacyScoreMultiplier();
+            double scoreV1Multiplier = attributes.LegacyScoreBaseMultiplier * getLegacyScoreMultiplier();
             double relevantComboPerObject = calculateRelevantScoreComboPerObject();
 
             double maximumMissCount = calculateMaximumComboBasedMissCount();
@@ -86,10 +86,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         /// </summary>
         private double calculateRelevantScoreComboPerObject()
         {
-            double comboScore = 0;//attributes.MaximumLegacyComboScore;
+            double comboScore = attributes.MaximumLegacyComboScore;
 
             // We then reverse apply the ScoreV1 multipliers to get the raw value.
-            comboScore /= 300.0 / 25.0;// * attributes.LegacyScoreBaseMultiplier;
+            comboScore /= 300.0 / 25.0 * attributes.LegacyScoreBaseMultiplier;
 
             // Reverse the arithmetic progression to work out the amount of combo per object based on the score.
             double result = (attributes.MaxCombo - 2) * attributes.MaxCombo;
