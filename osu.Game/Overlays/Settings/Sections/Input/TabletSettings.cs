@@ -46,8 +46,6 @@ namespace osu.Game.Overlays.Settings.Sections.Input
 
         private readonly BindableNumber<float> pressureThreshold = new BindableNumber<float> { MinValue = 0.0f, MaxValue = 1.0f, Precision = 0.005f };
 
-        private readonly BindableNumber<float> pressureThreshold = new BindableNumber<float> { MinValue = 0.0f, MaxValue = 1.0f, Precision = 0.005f };
-
         [Resolved]
         private GameHost host { get; set; }
 
