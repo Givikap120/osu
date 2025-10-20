@@ -10,7 +10,6 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
-using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
@@ -102,15 +101,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double drainRate = beatmap.Difficulty.DrainRate;
 
-            int maxCombo = beatmap.GetMaxCombo();
-
             double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
             double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
 
             var simulator = new OsuLegacyScoreSimulator();
             var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
 
-            OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
+            return new OsuDifficultyAttributes
             {
                 StarRating = starRating,
                 Mods = mods,
@@ -119,8 +116,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SpeedNoteCount = speedNotes,
                 FlashlightDifficulty = flashlightRating,
                 SliderFactor = sliderFactor,
+                AimDifficultStrainCount = aimDifficultStrainCount,
+                SpeedDifficultStrainCount = speedDifficultStrainCount,
+                AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
+                SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 DrainRate = drainRate,
-                MaxCombo = maxCombo,
+                MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
@@ -128,8 +129,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
                 MaximumLegacyComboScore = scoreAttributes.ComboScore
             };
-
-            return attributes;
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)

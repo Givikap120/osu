@@ -111,6 +111,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             yield return (ATTRIB_ID_SLIDER_FACTOR, SliderFactor);
             yield return (ATTRIB_ID_SPEED_NOTE_COUNT, SpeedNoteCount);
+
+            yield return (ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT, AimDifficultStrainCount);
+            yield return (ATTRIB_ID_SPEED_DIFFICULT_STRAIN_COUNT, SpeedDifficultStrainCount);
             yield return (ATTRIB_ID_AIM_TOP_WEIGHTED_SLIDER_FACTOR, AimTopWeightedSliderFactor);
             yield return (ATTRIB_ID_SPEED_TOP_WEIGHTED_SLIDER_FACTOR, SpeedTopWeightedSliderFactor);
             yield return (ATTRIB_ID_NESTED_SCORE_PER_OBJECT, NestedScorePerObject);
@@ -128,6 +131,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             FlashlightDifficulty = values.GetValueOrDefault(ATTRIB_ID_FLASHLIGHT);
             SliderFactor = values[ATTRIB_ID_SLIDER_FACTOR];
             SpeedNoteCount = values[ATTRIB_ID_SPEED_NOTE_COUNT];
+            AimDifficultStrainCount = values[ATTRIB_ID_AIM_DIFFICULT_STRAIN_COUNT];
+            SpeedDifficultStrainCount = values[ATTRIB_ID_SPEED_DIFFICULT_STRAIN_COUNT];
             AimTopWeightedSliderFactor = values[ATTRIB_ID_AIM_TOP_WEIGHTED_SLIDER_FACTOR];
             SpeedTopWeightedSliderFactor = values[ATTRIB_ID_SPEED_TOP_WEIGHTED_SLIDER_FACTOR];
             NestedScorePerObject = values[ATTRIB_ID_NESTED_SCORE_PER_OBJECT];

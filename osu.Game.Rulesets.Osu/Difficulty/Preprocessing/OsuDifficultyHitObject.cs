@@ -97,11 +97,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
             if (BaseObject is Slider sliderObject)
             {
-                HitWindowGreat = 2 * sliderObject.HeadCircle.HitWindows.WindowFor(HitResult.Great) / clockRate;
+                HitWindowGreat = 2 * (80 - 6 * sliderObject.HeadCircle.HitWindows.GetDifficulty()) / clockRate;
             }
             else
             {
-                HitWindowGreat = 2 * BaseObject.HitWindows.WindowFor(HitResult.Great) / clockRate;
+                HitWindowGreat = 2 * (80 - 6 * BaseObject.HitWindows.GetDifficulty()) / clockRate;
             }
 
             setDistances(clockRate);
@@ -329,6 +329,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         }
 
         // To avoid compile errors with osu-tools
+        public double AdjustedDeltaTime => StrainTime;
         public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
