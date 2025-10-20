@@ -32,7 +32,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentStrain *= strainDecay(current.DeltaTime);
             currentStrain += AimEvaluator.EvaluateDifficultyOf(current) * skillMultiplier;
 
+            if (current.BaseObject is Slider)
+                sliderStrains.Add(currentStrain);
+
             return currentStrain;
         }
+
+        public double CountTopWeightedSliders() => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, DifficultyValue());
     }
 }
