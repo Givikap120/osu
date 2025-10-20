@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
@@ -129,6 +128,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         }
 
         // To avoid compile errors with osu-tools
+        public double AdjustedDeltaTime => StrainTime;
         public double LazyJumpDistance => JumpDistance;
         public double MinimumJumpDistance => JumpDistance;
         public double MinimumJumpTime => DeltaTime;
