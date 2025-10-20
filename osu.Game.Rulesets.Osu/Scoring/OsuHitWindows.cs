@@ -36,7 +36,7 @@ namespace osu.Game.Rulesets.Osu.Scoring
             return false;
         }
 
-        private double difficulty = double.NaN;
+        private double difficulty = 0;
 
         public override void SetDifficulty(double difficulty)
         {
