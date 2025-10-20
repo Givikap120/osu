@@ -15,11 +15,14 @@ using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Scoring;
 using osu.Game.Scoring;
+using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
+        private bool useNewCSR => false;
+
         public const double PERFORMANCE_BASE_MULTIPLIER = 1.15; // This is being adjusted to keep the final pp value scaled around what it used to be when changing things.
 
         private bool usingClassicSliderAccuracy;
@@ -80,9 +83,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             score.Mods.OfType<IApplicableToDifficulty>().ForEach(m => m.ApplyToDifficulty(difficulty));
 
-            var track = new TrackVirtual(10000);
-            score.Mods.OfType<IApplicableToTrack>().ForEach(m => m.ApplyToTrack(track));
-            clockRate = track.Rate;
+            clockRate = ModUtils.CalculateRateWithMods(score.Mods);
 
             HitWindows hitWindows = new OsuHitWindows();
             hitWindows.SetDifficulty(difficulty.OverallDifficulty);
@@ -93,7 +94,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
 
-            overallDifficulty = (80 - greatHitWindow) / 6;
+            overallDifficulty = (79.5 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
 
             if (osuAttributes.SliderCount > 0)
@@ -124,6 +125,28 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             effectiveMissCount = Math.Max(countMiss, effectiveMissCount);
             effectiveMissCount = Math.Min(totalHits, effectiveMissCount);
+
+            if (useNewCSR)
+            {
+                double comboBasedEstimatedMissCount = calculateComboBasedEstimatedMissCount(osuAttributes);
+                double? scoreBasedEstimatedMissCount = null;
+
+                if (usingClassicSliderAccuracy && score.LegacyTotalScore != null)
+                {
+                    var legacyScoreMissCalculator = new OsuLegacyScoreMissCalculator(score, osuAttributes);
+                    scoreBasedEstimatedMissCount = legacyScoreMissCalculator.Calculate();
+
+                    effectiveMissCount = scoreBasedEstimatedMissCount.Value;
+                }
+                else
+                {
+                    // Use combo-based miss count if this isn't a legacy score
+                    effectiveMissCount = comboBasedEstimatedMissCount;
+                }
+
+                effectiveMissCount = Math.Max(countMiss, effectiveMissCount);
+                effectiveMissCount = Math.Min(totalHits, effectiveMissCount);
+            }
 
             double multiplier = PERFORMANCE_BASE_MULTIPLIER;
 
@@ -181,7 +204,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             aimValue *= lengthBonus;
 
             if (effectiveMissCount > 0)
-                aimValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+            {
+                if (useNewCSR)
+                    aimValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount, attributes.AimTopWeightedSliderFactor, attributes);
+                else
+                    aimValue *= calculateMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount);
+            }
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
@@ -245,7 +273,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             speedValue *= lengthBonus;
 
             if (effectiveMissCount > 0)
-                speedValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+            {
+                if (useNewCSR)
+                    speedValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount, attributes.SpeedTopWeightedSliderFactor, attributes);
+                else
+                    speedValue *= calculateMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount);
+            }
 
             double approachRateFactor = 0.0;
             if (approachRate > 10.33)
@@ -440,6 +473,76 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
 
             return adjustedSpeedValue / speedValue;
+        }
+
+        private double calculateComboBasedEstimatedMissCount(OsuDifficultyAttributes attributes)
+        {
+            if (attributes.SliderCount <= 0)
+                return countMiss;
+
+            double missCount = countMiss;
+
+            if (usingClassicSliderAccuracy)
+            {
+                // Consider that full combo is maximum combo minus dropped slider tails since they don't contribute to combo but also don't break it
+                // In classic scores we can't know the amount of dropped sliders so we estimate to 10% of all sliders on the map
+                double fullComboThreshold = attributes.MaxCombo - 0.1 * attributes.SliderCount;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // In classic scores there can't be more misses than a sum of all non-perfect judgements
+                missCount = Math.Min(missCount, totalImperfectHits);
+
+                // Every slider has *at least* 2 combo attributed in classic mechanics.
+                // If they broke on a slider with a tick, then this still works since they would have lost at least 2 combo (the tick and the end)
+                // Using this as a max means a score that loses 1 combo on a map can't possibly have been a slider break.
+                // It must have been a slider end.
+                int maxPossibleSliderBreaks = Math.Min(attributes.SliderCount, (attributes.MaxCombo - scoreMaxCombo) / 2);
+
+                double sliderBreaks = missCount - countMiss;
+
+                if (sliderBreaks > maxPossibleSliderBreaks)
+                    missCount = countMiss + maxPossibleSliderBreaks;
+            }
+            else
+            {
+                double fullComboThreshold = attributes.MaxCombo - countSliderEndsDropped;
+
+                if (scoreMaxCombo < fullComboThreshold)
+                    missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+
+                // Combine regular misses with tick misses since tick misses break combo as well
+                missCount = Math.Min(missCount, countSliderTickMiss + countMiss);
+            }
+
+            return missCount;
+        }
+
+        private double calculateEstimatedSliderBreaks(double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
+        {
+            if (!usingClassicSliderAccuracy || countOk == 0)
+                return 0;
+
+            double missedComboPercent = 1.0 - (double)scoreMaxCombo / attributes.MaxCombo;
+            double estimatedSliderBreaks = Math.Min(countOk, effectiveMissCount * topWeightedSliderFactor);
+
+            // Scores with more Oks are more likely to have slider breaks.
+            double okAdjustment = ((countOk - estimatedSliderBreaks) + 0.5) / countOk;
+
+            // There is a low probability of extra slider breaks on effective miss counts close to 1, as score based calculations are good at indicating if only a single break occurred.
+            estimatedSliderBreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
+
+            return estimatedSliderBreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
+        }
+
+        private double calculateCSRMissPenalty(double missCount, double difficultStrainCount, double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
+        {
+            double estimatedSliderBreaks = calculateEstimatedSliderBreaks(topWeightedSliderFactor, attributes);
+
+            double relevantMissCount = Math.Min(effectiveMissCount + estimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
+
+            return 0.96 / ((relevantMissCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
         }
 
         // Miss penalty assumes that a player will miss on the hardest parts of a map,

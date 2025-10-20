@@ -190,7 +190,7 @@ namespace osu.Game.Online.Leaderboards
                                                     RelativeSizeAxes = Axes.Y,
                                                     Direction = FillDirection.Horizontal,
                                                     Spacing = new Vector2(5f, 0f),
-                                                    Width = 114f,
+                                                    Width = 130f,
                                                     Masking = true,
                                                     Children = new Drawable[]
                                                     {
@@ -414,7 +414,7 @@ namespace osu.Game.Online.Leaderboards
                     Anchor = Anchor.Centre,
                     Origin = Anchor.Centre,
                     Font = OsuFont.GetFont(size: 20, italics: true),
-                    Text = rank == null ? "-" : rank.Value.FormatRank()
+                    Text = rank?.FormatRank() ?? "-"
                 };
             }
 
@@ -429,7 +429,7 @@ namespace osu.Game.Online.Leaderboards
                 Font = OsuFont.GetFont(size: 16, weight: FontWeight.Bold);
             }
 
-            protected override string Format() => Date.ToShortRelativeTime(TimeSpan.FromSeconds(30));
+            protected override LocalisableString Format() => Date.ToShortRelativeTime(TimeSpan.FromSeconds(30));
         }
 
         public class LeaderboardScoreStatistic
