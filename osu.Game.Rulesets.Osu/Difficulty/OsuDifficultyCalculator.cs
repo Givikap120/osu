@@ -13,6 +13,7 @@ using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -40,8 +41,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedRating = calculateDifficultyRating(speed.DifficultyValue());
             double starRating = aimRating + speedRating + Math.Abs(aimRating - speedRating) / 2;
 
-            double aimDifficultyStrainCount = aim.CountTopWeightedStrains();
-            double speedDifficultyStrainCount = speed.CountTopWeightedStrains();
+            double aimDifficultStrainCount = aim.CountTopWeightedStrains();
+            double speedDifficultStrainCount = speed.CountTopWeightedStrains();
+
+            double aimTopWeightedSliderCount = aim.CountTopWeightedSliders();
+            double aimTopWeightedSliderFactor = aimTopWeightedSliderCount / Math.Max(1, aimDifficultStrainCount - aimTopWeightedSliderCount);
+
+            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
+            double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
 
             double drainRate = beatmap.Difficulty.DrainRate;
 
@@ -49,19 +56,32 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
+            int totalHits = beatmap.HitObjects.Count;
+
+            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
+
+            var simulator = new OsuLegacyScoreSimulator();
+            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
+
             return new OsuDifficultyAttributes
             {
                 StarRating = starRating,
                 Mods = mods,
                 AimDifficulty = aimRating,
                 SpeedDifficulty = speedRating,
-                AimDifficultStrainCount = aimDifficultyStrainCount,
-                SpeedDifficultStrainCount = speedDifficultyStrainCount,
+                AimDifficultStrainCount = aimDifficultStrainCount,
+                SpeedDifficultStrainCount = speedDifficultStrainCount,
+                AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
+                SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 DrainRate = drainRate,
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCirclesCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
+                NestedScorePerObject = sliderNestedScorePerObject,
+                LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
+                MaximumLegacyComboScore = scoreAttributes.ComboScore
             };
         }
 
@@ -98,9 +118,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             new OsuModDoubleTime(),
             new OsuModHalfTime(),
             new OsuModEasy(),
-            new OsuModHardRock(),
-            new OsuModFlashlight(),
-            new MultiMod(new OsuModFlashlight(), new OsuModHidden())
+            new OsuModHardRock()
         };
     }
 }

@@ -82,7 +82,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         }
 
         // To avoid compile errors with osu-tools
-        public double StrainTime => DeltaTime;
+        public double AdjustedDeltaTime => DeltaTime;
         public double LazyJumpDistance => Distance;
         public double MinimumJumpDistance => Distance;
         public double MinimumJumpTime => DeltaTime;
