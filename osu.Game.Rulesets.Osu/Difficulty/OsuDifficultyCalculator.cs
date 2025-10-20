@@ -36,18 +36,20 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 return new OsuDifficultyAttributes { Mods = mods };
 
             var aim = skills.OfType<Aim>().First();
-            var aimNoSliders = skills.OfType<Aim>().Last();
+            var aimWithoutSliders = skills.OfType<Aim>().Last();
             var speed = skills.OfType<Speed>().Single();
 
             double aimRating = Math.Sqrt(aim.DifficultyValue()) * difficulty_multiplier;
-            double aimRatingNoSliders = Math.Sqrt(aimNoSliders.DifficultyValue()) * difficulty_multiplier;
+            double aimRatingNoSliders = Math.Sqrt(aimWithoutSliders.DifficultyValue()) * difficulty_multiplier;
             double speedRating = Math.Sqrt(speed.DifficultyValue()) * difficulty_multiplier;
 
             double aimDifficultStrainCount = aim.CountTopWeightedStrains();
             double speedDifficultStrainCount = speed.CountTopWeightedStrains();
 
-            double aimTopWeightedSliderCount = aim.CountTopWeightedSliders();
-            double aimTopWeightedSliderFactor = aimTopWeightedSliderCount / Math.Max(1, aimDifficultStrainCount - aimTopWeightedSliderCount);
+            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
+            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains();
+
+            double aimTopWeightedSliderFactor = aimNoSlidersTopWeightedSliderCount / Math.Max(1, aimNoSlidersDifficultStrainCount - aimNoSlidersTopWeightedSliderCount);
 
             double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
             double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
