@@ -306,10 +306,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         {
             // Guess the number of misses + slider breaks from combo
             double comboBasedMissCount = 0.0;
+
             if (attributes.SliderCount > 0)
             {
                 double fullComboThreshold = attributes.MaxCombo - 0.1 * attributes.SliderCount;
-                comboBasedMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
+                if (scoreMaxCombo < fullComboThreshold)
+                    comboBasedMissCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
             }
 
             // Clamp miss count to maximum amount of possible breaks
