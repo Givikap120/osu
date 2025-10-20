@@ -50,13 +50,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private double effectiveMissCount;
 
         private double clockRate;
-        private double greatHitWindow;
-        private double okHitWindow;
-        private double mehHitWindow;
         private double overallDifficulty;
         private double approachRate;
 
-        private double? speedDeviation;
 
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
@@ -85,16 +81,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             clockRate = ModUtils.CalculateRateWithMods(score.Mods);
 
-            HitWindows hitWindows = new OsuHitWindows();
-            hitWindows.SetDifficulty(difficulty.OverallDifficulty);
-
-            greatHitWindow = hitWindows.WindowFor(HitResult.Great) / clockRate;
-            okHitWindow = hitWindows.WindowFor(HitResult.Ok) / clockRate;
-            mehHitWindow = hitWindows.WindowFor(HitResult.Meh) / clockRate;
-
+            double greatHitWindow = (80 - 6 * difficulty.OverallDifficulty) / clockRate;
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
 
-            overallDifficulty = (79.5 - greatHitWindow) / 6;
+            overallDifficulty = (80 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
 
             if (osuAttributes.SliderCount > 0)
@@ -190,7 +180,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 Accuracy = accuracyValue,
                 Flashlight = flashlightValue,
                 EffectiveMissCount = effectiveMissCount,
-                SpeedDeviation = speedDeviation,
                 Total = totalValue
             };
         }
@@ -375,104 +364,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             flashlightValue *= 0.98 + Math.Pow(overallDifficulty, 2) / 2500;
 
             return flashlightValue;
-        }
-
-        /// <summary>
-        /// Estimates player's deviation on speed notes using <see cref="calculateDeviation"/>, assuming worst-case.
-        /// Treats all speed notes as hit circles.
-        /// </summary>
-        private double? calculateSpeedDeviation(OsuDifficultyAttributes attributes)
-        {
-            if (totalSuccessfulHits == 0)
-                return null;
-
-            // Calculate accuracy assuming the worst case scenario
-            double speedNoteCount = attributes.SpeedNoteCount;
-            speedNoteCount += (totalHits - attributes.SpeedNoteCount) * 0.1;
-
-            // Assume worst case: all mistakes were on speed notes
-            double relevantCountMiss = Math.Min(countMiss, speedNoteCount);
-            double relevantCountMeh = Math.Min(countMeh, speedNoteCount - relevantCountMiss);
-            double relevantCountOk = Math.Min(countOk, speedNoteCount - relevantCountMiss - relevantCountMeh);
-            double relevantCountGreat = Math.Max(0, speedNoteCount - relevantCountMiss - relevantCountMeh - relevantCountOk);
-
-            return calculateDeviation(attributes, relevantCountGreat, relevantCountOk, relevantCountMeh, relevantCountMiss);
-        }
-
-        /// <summary>
-        /// Estimates the player's tap deviation based on the OD, given number of greats, oks, mehs and misses,
-        /// assuming the player's mean hit error is 0. The estimation is consistent in that two SS scores on the same map with the same settings
-        /// will always return the same deviation. Misses are ignored because they are usually due to misaiming.
-        /// Greats and oks are assumed to follow a normal distribution, whereas mehs are assumed to follow a uniform distribution.
-        /// </summary>
-        private double? calculateDeviation(OsuDifficultyAttributes attributes, double relevantCountGreat, double relevantCountOk, double relevantCountMeh, double relevantCountMiss)
-        {
-            if (relevantCountGreat + relevantCountOk + relevantCountMeh <= 0)
-                return null;
-
-            double objectCount = relevantCountGreat + relevantCountOk + relevantCountMeh + relevantCountMiss;
-
-            // The probability that a player hits a circle is unknown, but we can estimate it to be
-            // the number of greats on circles divided by the number of circles, and then add one
-            // to the number of circles as a bias correction.
-            double n = Math.Max(1, objectCount - relevantCountMiss - relevantCountMeh);
-            const double z = 2.32634787404; // 99% critical value for the normal distribution (one-tailed).
-
-            // Proportion of greats hit on circles, ignoring misses and 50s.
-            double p = relevantCountGreat / n;
-
-            // We can be 99% confident that p is at least this value.
-            double pLowerBound = (n * p + z * z / 2) / (n + z * z) - z / (n + z * z) * Math.Sqrt(n * p * (1 - p) + z * z / 4);
-
-            // Compute the deviation assuming greats and oks are normally distributed, and mehs are uniformly distributed.
-            // Begin with greats and oks first. Ignoring mehs, we can be 99% confident that the deviation is not higher than:
-            double deviation = greatHitWindow / (Math.Sqrt(2) * DifficultyCalculationUtils.ErfInv(pLowerBound));
-
-            double randomValue = Math.Sqrt(2 / Math.PI) * okHitWindow * Math.Exp(-0.5 * Math.Pow(okHitWindow / deviation, 2))
-                                 / (deviation * DifficultyCalculationUtils.Erf(okHitWindow / (Math.Sqrt(2) * deviation)));
-
-            deviation *= Math.Sqrt(1 - randomValue);
-
-            // Value deviation approach as greatCount approaches 0
-            double limitValue = okHitWindow / Math.Sqrt(3);
-
-            // If precision is not enough to compute true deviation - use limit value
-            if (pLowerBound == 0 || randomValue >= 1 || deviation > limitValue)
-                deviation = limitValue;
-
-            // Then compute the variance for mehs.
-            double mehVariance = (mehHitWindow * mehHitWindow + okHitWindow * mehHitWindow + okHitWindow * okHitWindow) / 3;
-
-            // Find the total deviation.
-            deviation = Math.Sqrt(((relevantCountGreat + relevantCountOk) * Math.Pow(deviation, 2) + relevantCountMeh * mehVariance) / (relevantCountGreat + relevantCountOk + relevantCountMeh));
-
-            return deviation;
-        }
-
-        // Calculates multiplier for speed to account for improper tapping based on the deviation and speed difficulty
-        // https://www.desmos.com/calculator/dmogdhzofn
-        private double calculateSpeedHighDeviationNerf(OsuDifficultyAttributes attributes)
-        {
-            if (speedDeviation == null)
-                return 0;
-
-            double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
-
-            // Decides a point where the PP value achieved compared to the speed deviation is assumed to be tapped improperly. Any PP above this point is considered "excess" speed difficulty.
-            // This is used to cause PP above the cutoff to scale logarithmically towards the original speed value thus nerfing the value.
-            double excessSpeedDifficultyCutoff = 100 + 220 * Math.Pow(22 / speedDeviation.Value, 6.5);
-
-            if (speedValue <= excessSpeedDifficultyCutoff)
-                return 1.0;
-
-            const double scale = 50;
-            double adjustedSpeedValue = scale * (Math.Log((speedValue - excessSpeedDifficultyCutoff) / scale + 1) + excessSpeedDifficultyCutoff / scale);
-
-            // 220 UR and less are considered tapped correctly to ensure that normal scores will be punished as little as possible
-            double lerp = 1 - DifficultyCalculationUtils.ReverseLerp(speedDeviation.Value, 22.0, 27.0);
-            adjustedSpeedValue = double.Lerp(adjustedSpeedValue, speedValue, lerp);
-
-            return adjustedSpeedValue / speedValue;
         }
 
         private double calculateComboBasedEstimatedMissCount(OsuDifficultyAttributes attributes)
