@@ -102,7 +102,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
-            int totalHits = hitCirclesCount + sliderCount + spinnerCount;
+            int totalHits = beatmap.HitObjects.Count;
 
             double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
             double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);

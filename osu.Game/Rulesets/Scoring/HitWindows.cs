@@ -74,6 +74,8 @@ namespace osu.Game.Rulesets.Scoring
         /// <param name="difficulty">The parameter.</param>
         public abstract void SetDifficulty(double difficulty);
 
+        public virtual double GetDifficulty() => 0;
+
         /// <summary>
         /// Retrieves the <see cref="HitResult"/> for a time offset.
         /// </summary>
