@@ -13,6 +13,7 @@ using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -44,6 +45,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double aimDifficultStrainCount = aim.CountTopWeightedStrains();
             double speedDifficultStrainCount = speed.CountTopWeightedStrains();
+
+            double aimTopWeightedSliderCount = aim.CountTopWeightedSliders();
+            double aimTopWeightedSliderFactor = aimTopWeightedSliderCount / Math.Max(1, aimDifficultStrainCount - aimTopWeightedSliderCount);
+
+            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
+            double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
 
             double flashlightRating = 0.0;
 
@@ -86,7 +93,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
-            OsuDifficultyAttributes attributes = new OsuDifficultyAttributes
+            int totalHits = beatmap.HitObjects.Count;
+
+            double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
+
+            var simulator = new OsuLegacyScoreSimulator();
+            var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
+
+            return new OsuDifficultyAttributes
             {
                 StarRating = starRating,
                 Mods = mods,
@@ -94,16 +109,19 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 SpeedDifficulty = speedRating,
                 FlashlightDifficulty = flashlightRating,
                 SliderFactor = sliderFactor,
+                AimDifficultStrainCount = aimDifficultStrainCount,
+                SpeedDifficultStrainCount = speedDifficultStrainCount,
+                AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
+                SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 DrainRate = drainRate,
                 MaxCombo = maxCombo,
                 HitCircleCount = hitCirclesCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
-                AimDifficultStrainCount = aimDifficultStrainCount,
-                SpeedDifficultStrainCount = speedDifficultStrainCount
+                NestedScorePerObject = sliderNestedScorePerObject,
+                LegacyScoreBaseMultiplier = legacyScoreBaseMultiplier,
+                MaximumLegacyComboScore = scoreAttributes.ComboScore
             };
-
-            return attributes;
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)
