@@ -85,7 +85,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double MinimumJumpTime => DeltaTime;
         public double TravelTime => 0;
         public double TravelDistance => 0;
-        public double LazyEndPosition => 0;
+        public Vector2? LazyEndPosition => null;
         public double LazyTravelDistance => 0;
         public double LazyTravelTime => 0;
 
