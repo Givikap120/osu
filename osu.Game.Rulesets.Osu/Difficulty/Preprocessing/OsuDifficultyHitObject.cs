@@ -88,6 +88,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double MinimumJumpTime => DeltaTime;
         public double TravelTime => 0;
         public double TravelDistance => 0;
+        public double LazyEndPosition => 0;
+        public double LazyTravelDistance => 0;
+        public double LazyTravelTime => 0;
+
         public double? Angle => null;
         public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
