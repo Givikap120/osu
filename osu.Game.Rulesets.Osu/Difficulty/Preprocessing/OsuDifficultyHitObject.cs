@@ -351,5 +351,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 
         // To avoid compile errors with osu-tools
         public double AdjustedDeltaTime => StrainTime;
+        public Vector2? LazyEndPosition => null;
+        public double LazyTravelDistance => 0;
+        public double LazyTravelTime => 0;
     }
 }
