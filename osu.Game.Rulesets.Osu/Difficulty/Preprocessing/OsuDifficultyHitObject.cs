@@ -12,8 +12,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
 {
     public class OsuDifficultyHitObject : DifficultyHitObject
     {
-        private const int normalized_radius = 52;
-
+        public const int NORMALISED_RADIUS = 52;
         protected new OsuHitObject BaseObject => (OsuHitObject)base.BaseObject;
 
         /// <summary>
@@ -40,7 +39,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         private void setDistances()
         {
             // We will scale distances by this factor, so we can assume a uniform CircleSize among beatmaps.
-            double scalingFactor = normalized_radius / BaseObject.Radius;
+            double scalingFactor = NORMALISED_RADIUS / BaseObject.Radius;
             if (BaseObject.Radius < 30)
             {
                 double smallCircleBonus = Math.Min(30 - BaseObject.Radius, 5) / 50;
