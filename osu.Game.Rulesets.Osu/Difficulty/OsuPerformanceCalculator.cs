@@ -277,7 +277,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // (WARNING: potentially unstable, but no unstability detected in playable difficulty range).
             double arAdjust = calculateDeviationArAdjust(approachRate);
             double adjustedSpeedDeviation = speedDeviation.Value * Math.Max(Math.Pow(arAdjust, 0.7), arAdjust);
-            adjustedSpeedDeviation *= Math.Max(1, Math.Pow(attributes.SpeedDifficulty / 4, 0.7));
+            adjustedSpeedDeviation *= Math.Max(1, 0.4 * Math.Pow(attributes.SpeedDifficulty, 0.6));
 
             speedValue *= DifficultyCalculationUtils.Erf(21 / (Math.Sqrt(2) * adjustedSpeedDeviation));
             speedValue *= 0.95 + Math.Pow(100.0 / 9, 2) / 750; // OD 11 SS stays the same.
