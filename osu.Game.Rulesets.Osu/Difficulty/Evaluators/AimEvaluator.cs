@@ -172,15 +172,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             var osuLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(0);
             var osuLastLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(1);
 
-            // Calculate how much things are overlapping. Low overlapping circles are very hard in being doubletappable
-            double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
-            overlapnessCurr = Math.Pow(DifficultyCalculationUtils.Smoothstep(overlapnessCurr, 0, 1), 2);
+            // Only punish jump that is at least 1 diameter to avoid punishing streams
+            double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_DIAMETER, 0, 1);
+            overlapnessCurr = DifficultyCalculationUtils.ReverseLerp(overlapnessCurr, 0, 1);
 
-            double overlapnessLast = Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS / 2, 0, 1);
+            // Only punish if previous 2 circles are overlapping, we consider overlap possible starting from 1 radius distance
+            double overlapnessLast = Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS, 0.15, 1);
             overlapnessLast = Math.Pow(DifficultyCalculationUtils.Smoothstep(overlapnessLast, 1, 0), 2);
 
             // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
-            double doubletapHitWindow = (osuLastObj.HitWindowGreat + osuLastLastObj.HitWindowGreat) / 2 - osuLastObj.AdjustedDeltaTime;
+            double doubletapHitWindow = osuLastObj.HitWindowGreat / 2 - osuLastObj.AdjustedDeltaTime;
 
             // Extra time to aim when doubletapping
             double doubletapTime;
