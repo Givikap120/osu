@@ -170,35 +170,24 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         private static double calculateDoubletapMultiplier(OsuDifficultyHitObject osuCurrObj)
         {
             var osuLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(0);
-            var osuLastLastObj = (OsuDifficultyHitObject)osuCurrObj.Previous(1);
-
-            // Only punish jump that is at least 1 diameter to avoid punishing streams
-            double overlapnessCurr = Math.Clamp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_DIAMETER, 0, 1);
-            overlapnessCurr = DifficultyCalculationUtils.ReverseLerp(overlapnessCurr, 0, 1);
-
-            // Only punish if previous 2 circles are overlapping, we consider overlap possible starting from 1 radius distance
-            double overlapnessLast = Math.Clamp(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_RADIUS, 0.15, 1);
-            overlapnessLast = Math.Pow(DifficultyCalculationUtils.Smoothstep(overlapnessLast, 1, 0), 2);
-
-            // Doubletap hitwindow lands in range [0, 300 hitwindow], where 0 is impossible to doubletap 
-            double doubletapHitWindow = osuLastObj.HitWindowGreat / 2 - osuLastObj.AdjustedDeltaTime;
 
             // Extra time to aim when doubletapping
-            double doubletapTime;
+            double doubletapTime = Math.Min(osuLastObj.AdjustedDeltaTime, osuLastObj.HitWindowGreat);
 
-            if (doubletapHitWindow > 0)
-            {
-                // Always equal or bigger than doubletapTime from `else`
-                doubletapTime = osuLastObj.AdjustedDeltaTime * overlapnessCurr * overlapnessLast / 2;
-            }
-            else
-            {
-                doubletapTime = osuLastObj.HitWindowGreat * overlapnessCurr * overlapnessLast / 2;
+            // Only punish jump that is at least 1 diameter to avoid punishing streams
+            double overlapnessCurr = DifficultyCalculationUtils.ReverseLerp(osuCurrObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_DIAMETER, 1, 2);
 
-                // if the second note is delayed - decrease the penalty down to 0 on doubled time
-                double difference = osuCurrObj.DeltaTime - osuLastObj.DeltaTime;
-                doubletapTime *= 1 - DifficultyCalculationUtils.Smoothstep(difference, 0, Math.Min(osuCurrObj.DeltaTime, osuLastObj.DeltaTime));
-            }
+            // Only punish if previous 2 circles are overlapping
+            double overlapnessLast = DifficultyCalculationUtils.Smoothstep(osuLastObj.LazyJumpDistance / OsuDifficultyHitObject.NORMALISED_DIAMETER, 0.1, 1);
+
+            // Adjust according to doubletapness
+            doubletapTime *= overlapnessCurr * (1 - overlapnessLast);
+
+            // Don't penalize if hitwindow is too small
+            doubletapTime *= DifficultyCalculationUtils.ReverseLerp(osuLastObj.HitWindowGreat / osuLastObj.AdjustedDeltaTime, 0.5, 1);
+
+            // if the second note is delayed - decrease the penalty down to 0 on doubled time, so we don't nerf jump into stream
+            doubletapTime *= DifficultyCalculationUtils.ReverseLerp(osuCurrObj.AdjustedDeltaTime, osuLastObj.AdjustedDeltaTime * 1.95, osuLastObj.AdjustedDeltaTime * 1.05);
 
             return osuCurrObj.AdjustedDeltaTime / (osuCurrObj.AdjustedDeltaTime + doubletapTime);
         }
