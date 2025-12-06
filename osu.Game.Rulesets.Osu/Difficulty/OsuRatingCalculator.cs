@@ -16,6 +16,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         private const double relax_multiplier = 0.87;
         private const double touch_device_multiplier = 0.83;
 
+        // Increasing this multiplier buffs versatile aim+flow maps
+        public const double AIM_VERSATILITY_BONUS = 0.1;
+
         private readonly Mod[] mods;
         private readonly int totalHits;
         private readonly double approachRate;
