@@ -117,7 +117,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 wideAngleBonus *= 1 - wideAngleRepetitionNerf;
 
                 double acuteAngleRepetitionNerf = Math.Pow(CalcAcuteAngleBonus(lastAngle), 3);
-                acuteAngleBonus *= 0.08 + 0.65 * (1 - Math.Min(acuteAngleBonus, acuteAngleRepetitionNerf));
+                acuteAngleBonus *= 0.08 + 0.76 * (1 - Math.Min(acuteAngleBonus, acuteAngleRepetitionNerf));
 
                 // Apply full wide angle bonus for distance more than one diameter
                 wideAngleBonus *= wideVelocityBase * DifficultyCalculationUtils.Smootherstep(osuCurrObj.LazyJumpDistance, 0, diameter);
@@ -223,8 +223,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 angleSnapDifficultyBonus = diameter * bpmFactor;
 
                 // We want to start reward from 60 degrees to 90 degrees on lower spacing, and form 90 degrees to 120 degrees on higher spacing
-                double highSpacingAdjust = Math.PI / 6;
-                highSpacingAdjust *= DifficultyCalculationUtils.ReverseLerp(currDistance, diameter * 2, diameter * 4);
+                double highSpacingAdjust = Math.PI / 3;
+                highSpacingAdjust *= DifficultyCalculationUtils.ReverseLerp(currDistance, diameter * 1.5, diameter * 3);
 
                 angleSnapDifficultyBonus *= DifficultyCalculationUtils.Smoothstep(osuCurrObj.Angle ?? 0, Math.PI / 3 + highSpacingAdjust, Math.PI / 2 + highSpacingAdjust);
 
