@@ -163,7 +163,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
             const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
-            
+
             double currAngle = (double)osuCurrObj.Angle;
             double last1Angle = osuLast1Obj.Angle ?? 0;
             double last2Angle = osuLast2Obj?.Angle ?? 0;
@@ -285,7 +285,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double distanceFactor = 0.5 + 0.5 * DifficultyCalculationUtils.ReverseLerp(Math.Max(prev1Distance, prev2Distance), diameter * 1.5, diameter * 0.75);
             // There also should be something like angleFactor, because if it has aim-control difficulty - you can't really speed-up flow aim that easily
 
-            deltaVelocity *= 1 - 0.7 * distanceSimilarityFactor * distanceFactor;
+            deltaVelocity *= 1 - 0.5 * distanceSimilarityFactor * distanceFactor;
 
             // Decrease buff on doubles that go back and forth, because in this case angle change bonuses account for all added difficulty
             // Add radius to account for distance potenitally being very small
@@ -312,7 +312,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 directionFactor = DifficultyCalculationUtils.ReverseLerp(angle, 3 * Math.PI / 2, Math.PI / 2);
             }
 
-            deltaVelocity *= 1 - 0.5 * distanceSimilarity1 * distanceSimilarity2 * directionFactor;
+            deltaVelocity *= 1 - 0.6 * distanceSimilarity1 * distanceSimilarity2 * directionFactor;
 
             // Penalize rhythm change
             deltaVelocity *= DifficultyCalculationUtils.ReverseLerp(osuLast0Obj.AdjustedDeltaTime, osuCurrObj.AdjustedDeltaTime * 0.55, osuCurrObj.AdjustedDeltaTime * 0.75);
