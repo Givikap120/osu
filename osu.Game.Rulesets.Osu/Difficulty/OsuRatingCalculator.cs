@@ -29,7 +29,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             this.totalHits = totalHits;
             this.overallDifficulty = overallDifficulty;
         }
-        public double ComputeTotalAimRating(double aimDifficultyValue, double snapAimDifficultyValue, double flowAimDifficultyValue)
+
+        public static double SumTotalAimRating(double aimRating, double snapAimRating, double flowAimRating) => aimRating * 0.9 + snapAimRating * 0.1 + flowAimRating * 0.1;
+
+        public double ComputeCombinedAimRating(double aimDifficultyValue, double snapAimDifficultyValue, double flowAimDifficultyValue)
         {
             if (mods.Any(m => m is OsuModAutopilot))
                 return 0;
@@ -42,7 +45,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             {
                 aimRating = Math.Pow(aimRating, touch_device_multiplier);
                 snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
-                // no reduce on flow aim rating is intentional
+
+                // Flow aim doesn't gets easier with touchdevice, so we will use it as a baseline until proper calculation can be done
+                aimRating = Math.Max(aimRating, flowAimRating);
             }
 
             if (mods.Any(m => m is OsuModRelax))
@@ -55,18 +60,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 aimRating = double.Lerp(snapAimRating, aimRating, 0.5);
             }
 
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                aimRating *= 1.0 - magnetisedStrength;
-                snapAimRating *= 1.0 - magnetisedStrength;
-                flowAimRating *= 1.0 - magnetisedStrength;
-            }
-
-            // We consider that average map has ratio of summed ratings to total to be equal to 1.7x
-            double baseVersatilityBonus = double.Lerp(1, 1.7, AIM_VERSATILITY_BONUS);
-
-            aimRating = double.Lerp(aimRating, snapAimRating + flowAimRating, AIM_VERSATILITY_BONUS) / baseVersatilityBonus;
+            aimRating = SumTotalAimRating(aimRating, snapAimRating, flowAimRating);
 
             return computeRawAimRating(aimRating);
         }
@@ -76,20 +70,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (mods.Any(m => m is OsuModAutopilot))
                 return 0;
 
-            double snapAimRating = Math.Sqrt(snapAimDifficultyValue) * difficulty_multiplier;
+            double snapAimRating = CalculateDifficultyRating(snapAimDifficultyValue);
 
             if (mods.Any(m => m is OsuModTouchDevice))
                 snapAimRating = Math.Pow(snapAimRating, touch_device_multiplier);
 
-            // To ensure that result would not be bigger than normal aim difficulty rating
             if (mods.Any(m => m is OsuModRelax))
                 snapAimRating *= relax_multiplier;
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                snapAimRating *= 1.0 - magnetisedStrength;
-            }
 
             return computeRawAimRating(snapAimRating);
         }
@@ -99,33 +86,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (mods.Any(m => m is OsuModAutopilot) || mods.Any(m => m is OsuModRelax))
                 return 0;
 
-            double flowAimRating = Math.Sqrt(flowAimDifficultyValue) * difficulty_multiplier;
-
-            // To ensure that result would not be bigger than normal aim difficulty rating
-            if (mods.Any(m => m is OsuModTouchDevice))
-                flowAimRating = Math.Pow(flowAimRating, 0.83);
-
-            if (mods.Any(m => m is OsuModMagnetised))
-            {
-                float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
-                flowAimRating *= 1.0 - magnetisedStrength;
-            }
+            double flowAimRating = CalculateDifficultyRating(flowAimDifficultyValue);
 
             return computeRawAimRating(flowAimRating);
         }
 
         private double computeRawAimRating(double aimRating)
         {
+            double ratingMultiplier = 1.0;
+
+            // It is important to consider accuracy difficulty when scaling with accuracy.
+            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
+
             if (mods.Any(m => m is OsuModMagnetised))
             {
                 float magnetisedStrength = mods.OfType<OsuModMagnetised>().First().AttractionStrength.Value;
                 aimRating *= 1.0 - magnetisedStrength;
             }
-
-            double ratingMultiplier = 1.0;
-
-            // It is important to consider accuracy difficulty when scaling with accuracy.
-            ratingMultiplier *= 0.98 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 2500;
 
             return aimRating * Math.Cbrt(ratingMultiplier);
         }
@@ -215,7 +192,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         public static double CalculateVisibilityBonus(double approachRate, double visibilityFactor = 1, double sliderFactor = 1)
         {
             // Start from normal curve, rewarding lower AR up to AR7
-            double readingBonus = 0.04 * (12.0 - Math.Max(approachRate, 7));
+            // TC forcefully requires a lower reading bonus for now as it's post-applied in PP which makes it multiplicative with the regular AR bonuses
+            // This means it has an advantage over HD, so we decrease the multiplier to compensate
+            // This should be removed once we're able to apply TC bonuses in SR (depends on real-time difficulty calculations being possible)
+            double readingBonus = (isAlwaysPartiallyVisible ? 0.025 : 0.04) * (12.0 - Math.Max(approachRate, 7));
 
             readingBonus *= visibilityFactor;
 
@@ -224,11 +204,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // For AR up to 0 - reduce reward for very low ARs when object is visible
             if (approachRate < 7)
-                readingBonus += 0.03 * (7.0 - Math.Max(approachRate, 0)) * sliderVisibilityFactor;
+                readingBonus += (isAlwaysPartiallyVisible ? 0.02 : 0.045) * (7.0 - Math.Max(approachRate, 0)) * sliderVisibilityFactor;
 
             // Starting from AR0 - cap values so they won't grow to infinity
             if (approachRate < 0)
-                readingBonus += 0.075 * (1 - Math.Pow(1.5, approachRate)) * sliderVisibilityFactor;
+                readingBonus += (isAlwaysPartiallyVisible ? 0.01 : 0.1) * (1 - Math.Pow(1.5, approachRate)) * sliderVisibilityFactor;
 
             return readingBonus;
         }
