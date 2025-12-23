@@ -33,27 +33,32 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (beatmap.HitObjects.Count == 0)
                 return new OsuDifficultyAttributes { Mods = mods };
 
-            var aim = skills.OfType<Aim>().Single(a => a.IncludeSliders);
-            double aimRating = Math.Sqrt(aim.DifficultyValue()) * difficulty_multiplier;
-            double difficultSliders = aim.GetDifficultSliders();
+            var aim = skills.OfType<Aim>().First();
+            var aimWithoutSliders = skills.OfType<Aim>().Last();
+            var speed = skills.OfType<Speed>().Single();
 
-            var aimWithoutSliders = skills.OfType<Aim>().Single(a => !a.IncludeSliders);
-            double aimRatingNoSliders = Math.Sqrt(aimWithoutSliders.DifficultyValue()) * difficulty_multiplier;
+            double aimDifficultyValue = aim.DifficultyValue();
+            double aimNoSlidersDifficultyValue = aimWithoutSliders.DifficultyValue();
+            double speedDifficultyValue = speed.DifficultyValue();
+
+            double aimRating = Math.Sqrt(aimDifficultyValue) * difficulty_multiplier;
+            double aimRatingNoSliders = Math.Sqrt(aimNoSlidersDifficultyValue) * difficulty_multiplier;
+            double speedRating = Math.Sqrt(speedDifficultyValue) * difficulty_multiplier;
+
             double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
 
-            var speed = skills.OfType<Speed>().Single();
-            double speedRating = Math.Sqrt(speed.DifficultyValue()) * difficulty_multiplier;
+            double difficultSliders = aim.GetDifficultSliders();
             double speedNotes = speed.RelevantNoteCount();
 
-            double aimDifficultStrainCount = aim.CountTopWeightedStrains();
-            double speedDifficultStrainCount = speed.CountTopWeightedStrains();
+            double aimDifficultStrainCount = aim.CountTopWeightedStrains(aimDifficultyValue);
+            double speedDifficultStrainCount = speed.CountTopWeightedStrains(speedDifficultyValue);
 
-            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
-            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains();
+            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders(aimNoSlidersDifficultyValue);
+            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains(aimNoSlidersDifficultyValue);
 
             double aimTopWeightedSliderFactor = aimNoSlidersTopWeightedSliderCount / Math.Max(1, aimNoSlidersDifficultStrainCount - aimNoSlidersTopWeightedSliderCount);
 
-            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
+            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders(speedDifficultyValue);
             double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
 
             var flashlight = skills.OfType<Flashlight>().SingleOrDefault();
