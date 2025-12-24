@@ -98,6 +98,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             return ObjectStrains.Sum(s => (1.0 - lengthFactor) / (1 + Math.Exp(-10 * (s / consistentTopStrain - 0.87 - lengthFactor / 4.0))));
         }
 
-        public static double DifficultyToPerformance(double difficulty) => Math.Pow(5.0 * Math.Max(1.0, difficulty / 0.0675) - 4.0, 3.0) / 100000.0;
+        public static double DifficultyToPerformance(double difficulty) => 4.0 * Math.Pow(difficulty, 3.0);
     }
 }
