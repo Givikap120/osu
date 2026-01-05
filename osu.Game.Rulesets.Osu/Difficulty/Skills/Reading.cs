@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private readonly List<double> sliderStrains = new List<double>();
 
-        public override void Process(DifficultyHitObject current)
+        protected override double ProcessInternal(DifficultyHitObject current)
         {
             double densityReadingDifficulty = ReadingEvaluator.EvaluateDifficultyOf(current);
             double densityAimingFactor = ReadingEvaluator.EvaluateAimingDensityFactorOf(current);
@@ -45,8 +45,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             currentDensityAimStrain += densityAimingFactor * aimDifficulty * aimComponentMultiplier;
 
             double totalDensityDifficulty = (currentDensityAimStrain + densityReadingDifficulty) * skillMultiplier;
-
-            ObjectStrains.Add(totalDensityDifficulty);
 
             if (current.BaseObject is Slider)
                 sliderStrains.Add(totalDensityDifficulty);
@@ -63,6 +61,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             }
 
             CurrentSectionPeak = Math.Max(totalDensityDifficulty, CurrentSectionPeak);
+
+            return totalDensityDifficulty;
         }
 
         private double reducedNoteCount => 5;
@@ -71,7 +71,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         {
             // Sections with 0 difficulty are excluded to avoid worst-case time complexity of the following sort (e.g. /b/2351871).
             // These sections will not contribute to the difficulty.
-            var peaks = ObjectStrains.Where(p => p > 0);
+            var peaks = ObjectDifficulties.Where(p => p > 0);
 
             List<double> values = peaks.OrderByDescending(d => d).ToList();
 
@@ -95,7 +95,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             return difficulty;
         }
 
-        public double CountTopWeightedSliders() => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, DifficultyValue());
+        public double CountTopWeightedSliders(double difficultyValue) => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, difficultyValue);
 
         public static double DifficultyToPerformance(double difficulty) => Math.Max(
             Math.Max(Math.Pow(difficulty, 1.5) * 20, Math.Pow(difficulty, 2) * 17.0),
@@ -130,7 +130,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             hiddenDifficulty *= SkillMultiplier;
 
             CurrentStrain += hiddenDifficulty;
-            ObjectStrains.Add(CurrentStrain);
 
             return CurrentStrain;
         }
@@ -154,7 +153,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         private HighARAimComponent aimComponent;
         private HighARSpeedComponent speedComponent;
 
-        public override void Process(DifficultyHitObject current)
+        protected override double ProcessInternal(DifficultyHitObject current)
         {
             aimComponent.Process(current);
             speedComponent.Process(current);
@@ -171,6 +170,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             double visualDifficultyValue = scaleDifficulty(aimComponent.CurrentSectionPeak, speedComponent.CurrentSectionPeak);
             CurrentSectionPeak = Math.Max(visualDifficultyValue, CurrentSectionPeak);
+            return visualDifficultyValue;
         }
 
         // Coefs for curve similar to difficulty to performance curve
