@@ -8,6 +8,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
@@ -23,10 +24,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
     {
         public const double SUM_POWER = 1.1;
         public const double FL_SUM_POWER = 1.5;
-
-        private const double star_rating_multiplier = 0.0265;
-
-        public override int Version => 20250306;
 
         public OsuDifficultyCalculator(IRulesetInfo ruleset, IWorkingBeatmap beatmap)
             : base(ruleset, beatmap)
@@ -63,6 +60,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             var readingHighAr = skills.OfType<ReadingHighAR>().First();
             var hidden = skills.OfType<ReadingHidden>().FirstOrDefault();
 
+            double aimDifficultyValue = aim.DifficultyValue();
+            double aimNoSlidersDifficultyValue = aimWithoutSliders.DifficultyValue();
+            double speedDifficultyValue = speed.DifficultyValue();
+            double flashlightDifficultyValue = flashlight.DifficultyValue();
+            double readingLowArDifficultyValue = readingLowAr.DifficultyValue();
+            double readingHighArDifficultyValue = readingHighAr.DifficultyValue();
+            double hiddenDifficultyValue = hidden == null ? 0 : hidden.DifficultyValue();
+
             // Map data
             double overallDifficulty = CalculateRateAdjustedOverallDifficulty(beatmap.Difficulty.OverallDifficulty, clockRate);
 
@@ -72,47 +77,45 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             int totalHits = beatmap.HitObjects.Count;
 
-            double drainRate = beatmap.Difficulty.DrainRate;
-
             // Ratings
             var osuRatingCalculator = new OsuRatingCalculator(mods, totalHits, overallDifficulty);
 
-            double aimRating = osuRatingCalculator.ComputeAimRating(aim.DifficultyValue());
-            double aimRatingNoSliders = osuRatingCalculator.ComputeAimRating(aimWithoutSliders.DifficultyValue());
-            double speedRating = osuRatingCalculator.ComputeSpeedRating(speed.DifficultyValue());
-            double flashlightRating = osuRatingCalculator.ComputeFlashlightRating(flashlight.DifficultyValue());
-            double readingLowARRating = osuRatingCalculator.ComputeReadingLowArRating(readingLowAr.DifficultyValue());
-            double readingHighARRating = osuRatingCalculator.ComputeReadingHighArRating(readingHighAr.DifficultyValue(), aimRating, speedRating);
-            double hiddenRating = hidden == null ? 0 : osuRatingCalculator.ComputeReadingHiddenRating(hidden.DifficultyValue());
+            double aimRating = osuRatingCalculator.ComputeAimRating(aimDifficultyValue);
+            double aimRatingNoSliders = osuRatingCalculator.ComputeAimRating(aimNoSlidersDifficultyValue);
+            double speedRating = osuRatingCalculator.ComputeSpeedRating(speedDifficultyValue);
+            double flashlightRating = osuRatingCalculator.ComputeFlashlightRating(flashlightDifficultyValue);
+            double readingLowARRating = osuRatingCalculator.ComputeReadingLowArRating(readingLowArDifficultyValue);
+            double readingHighARRating = osuRatingCalculator.ComputeReadingHighArRating(readingHighArDifficultyValue, aimRating, speedRating);
+            double hiddenRating = hidden == null ? 0 : osuRatingCalculator.ComputeReadingHiddenRating(hiddenDifficultyValue);
+            double sliderFactor = aimDifficultyValue > 0 ? OsuRatingCalculator.CalculateDifficultyRating(aimNoSlidersDifficultyValue) / OsuRatingCalculator.CalculateDifficultyRating(aimDifficultyValue) : 1;
 
             // Top weighted strains
-            double aimDifficultStrainCount = aim.CountTopWeightedStrains();
-            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains();
-            double speedDifficultStrainCount = speed.CountTopWeightedStrains();
-            double lowArDifficultStrainCount = skills.OfType<ReadingLowAR>().First().CountTopWeightedStrains();
+            double aimDifficultStrainCount = aim.CountTopWeightedStrains(aimDifficultyValue);
+            double aimNoSlidersDifficultStrainCount = aimWithoutSliders.CountTopWeightedStrains(aimNoSlidersDifficultyValue);
+            double speedDifficultStrainCount = speed.CountTopWeightedStrains(speedDifficultyValue);
+            double lowArDifficultStrainCount = skills.OfType<ReadingLowAR>().First().CountTopWeightedStrains(readingLowArDifficultyValue);
             double hiddenDifficultStrainCount = 0;
 
             // Top weighted slider factors
-            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders();
+            double aimNoSlidersTopWeightedSliderCount = aimWithoutSliders.CountTopWeightedSliders(aimNoSlidersDifficultyValue);
             double aimTopWeightedSliderFactor = aimNoSlidersTopWeightedSliderCount / Math.Max(1, aimNoSlidersDifficultStrainCount - aimNoSlidersTopWeightedSliderCount);
 
-            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders();
+            double speedTopWeightedSliderCount = speed.CountTopWeightedSliders(speedDifficultyValue);
             double speedTopWeightedSliderFactor = speedTopWeightedSliderCount / Math.Max(1, speedDifficultStrainCount - speedTopWeightedSliderCount);
 
-            double lowArTopWeightedSliderCount = readingLowAr.CountTopWeightedSliders();
+            double lowArTopWeightedSliderCount = readingLowAr.CountTopWeightedSliders(readingLowArDifficultyValue);
             double lowArTopWeightedSliderFactor = lowArTopWeightedSliderCount / Math.Max(1, lowArDifficultStrainCount - lowArTopWeightedSliderCount);
 
             double hiddenTopWeightedSliderFactor = 0;
 
             // Other
-            double sliderFactor = aimRating > 0 ? aimRatingNoSliders / aimRating : 1;
             double difficultSliders = aim.GetDifficultSliders();
             double speedNotes = speed.RelevantNoteCount();
 
             if (hidden != null)
             {
-                hiddenDifficultStrainCount = hidden.CountTopWeightedStrains();
-                double hiddenTopWeightedSliderCount = hidden.CountTopWeightedSliders();
+                hiddenDifficultStrainCount = hidden.CountTopWeightedStrains(hiddenDifficultyValue);
+                double hiddenTopWeightedSliderCount = hidden.CountTopWeightedSliders(hiddenDifficultyValue);
                 hiddenTopWeightedSliderFactor = hiddenTopWeightedSliderCount / Math.Max(1, hiddenDifficultStrainCount - hiddenTopWeightedSliderCount);
             }
 
@@ -167,7 +170,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 HiddenDifficultStrainCount = hiddenDifficultStrainCount,
                 AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
                 SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
-                DrainRate = drainRate,
                 MaxCombo = beatmap.GetMaxCombo(),
                 HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
@@ -180,12 +182,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             return attributes;
         }
 
-        private static double calculateStarRating(double basePerformance)
+        private double calculateStarRating(double basePerformance)
         {
-            if (basePerformance <= 0.00001)
-                return 0;
-
-            return Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * star_rating_multiplier * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4);
+            return Math.Cbrt(basePerformance * OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER);
         }
 
         protected override IEnumerable<DifficultyHitObject> CreateDifficultyHitObjects(IBeatmap beatmap, double clockRate)

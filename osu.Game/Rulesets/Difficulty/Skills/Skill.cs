@@ -22,6 +22,11 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// </summary>
         protected IReadOnlyList<Mod> Mods => mods;
 
+        /// <summary>
+        /// List of calculated per-object difficulties, populated by Process
+        /// </summary>
+        protected readonly List<double> ObjectDifficulties = new List<double>();
+
         private readonly Mod[] mods;
 
         protected Skill(Mod[] mods)
@@ -29,13 +34,17 @@ namespace osu.Game.Rulesets.Difficulty.Skills
             this.mods = mods;
         }
 
-        protected List<double> ObjectStrains = new List<double>();
-
         /// <summary>
         /// Process a <see cref="DifficultyHitObject"/>.
         /// </summary>
         /// <param name="current">The <see cref="DifficultyHitObject"/> to process.</param>
-        public abstract void Process(DifficultyHitObject current);
+        public void Process(DifficultyHitObject current)
+        {
+            double difficultyValue = ProcessInternal(current);
+            ObjectDifficulties.Add(difficultyValue);
+        }
+
+        protected abstract double ProcessInternal(DifficultyHitObject current);
 
         /// <summary>
         /// Returns the calculated difficulty value representing all <see cref="DifficultyHitObject"/>s that have been processed up to this point.
@@ -46,18 +55,20 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// Calculates the number of strains weighted against the top strain.
         /// The result is scaled by clock rate as it affects the total number of strains.
         /// </summary>
-        public virtual double CountTopWeightedStrains()
+        public virtual double CountTopWeightedStrains(double difficultyValue)
         {
-            if (ObjectStrains.Count == 0)
+            if (ObjectDifficulties.Count == 0)
                 return 0.0;
 
-            double consistentTopStrain = DifficultyValue() / 10; // What would the top strain be if all strain values were identical
+            double consistentTopStrain = difficultyValue / 10; // What would the top strain be if all strain values were identical
 
             if (consistentTopStrain == 0)
-                return ObjectStrains.Count;
+                return ObjectDifficulties.Count;
 
             // Use a weighted sum of all strains. Constants are arbitrary and give nice values
-            return ObjectStrains.Sum(s => 1.1 / (1 + Math.Exp(-10 * (s / consistentTopStrain - 0.88))));
+            return ObjectDifficulties.Sum(s => 1.1 / (1 + Math.Exp(-10 * (s / consistentTopStrain - 0.88))));
         }
+
+        public IReadOnlyList<double> GetObjectDifficulties() => ObjectDifficulties;
     }
 }

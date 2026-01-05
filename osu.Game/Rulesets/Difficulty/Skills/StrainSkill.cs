@@ -44,7 +44,7 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// <summary>
         /// Process a <see cref="DifficultyHitObject"/> and update current strain values accordingly.
         /// </summary>
-        public override void Process(DifficultyHitObject current)
+        protected override double ProcessInternal(DifficultyHitObject current)
         {
             // The first object doesn't generate a strain, so we begin with an incremented section end
             if (current.Index == 0)
@@ -60,8 +60,7 @@ namespace osu.Game.Rulesets.Difficulty.Skills
             double strain = StrainValueAt(current);
             CurrentSectionPeak = Math.Max(strain, CurrentSectionPeak);
 
-            // Store the strain value for the object
-            ObjectStrains.Add(strain);
+            return strain;
         }
 
         /// <summary>
@@ -96,8 +95,6 @@ namespace osu.Game.Rulesets.Difficulty.Skills
         /// Returns a live enumerable of the difficulties
         /// </summary>
         public virtual IEnumerable<double> GetCurrentStrainPeaks() => StrainPeaks.Append(CurrentSectionPeak);
-
-        public IEnumerable<double> GetObjectStrains() => ObjectStrains;
 
         /// <summary>
         /// Returns the calculated difficulty value representing all <see cref="DifficultyHitObject"/>s that have been processed up to this point.
