@@ -86,9 +86,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 double acuteAngleBonus = CalculateFlowAcuteAngleBonus(current);
                 double angleChangeBonus = CalculateFlowAngleChangeBonus(current);
 
-                // Don't account for distance bonuse here
-                angleBonus = Math.Max(acuteAngleBonus, angleChangeBonus) / Math.Max(distanceInfluence, 0.01);
-
                 // If all three notes are overlapping - don't reward angle bonuses as you don't have to do additional movement
                 double overlappedNotesWeight = 1;
 
@@ -125,7 +122,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             }
 
             double velocityChangeBonus = CalculateFlowVelocityChangeBonus(current);
-            flowDifficulty += angleBonus + velocityChangeBonus;
+            flowDifficulty *= 1 + angleBonus / Math.Max(distanceInfluence, 0.01);
+            flowDifficulty += velocityChangeBonus + speedflowBonus;
 
             flowDifficulty *= flow_multiplier * Math.Sqrt(osuCurrObj.SmallCircleBonus);
 
