@@ -12,7 +12,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class AimEvaluator
     {
         private const double wide_angle_multiplier = 1.5;
-        private const double acute_angle_multiplier = 2.24;
+        private const double acute_angle_multiplier = 1.88;
+        private const double acute_angle_comfy_ratio = 0.095; // Portion of the acute angle that's rewarded to comfy angles
         private const double slider_multiplier = 1.27;
         private const double velocity_change_multiplier = 0.74;
         private const double wiggle_multiplier = 0.53; // WARNING: Increasing this multiplier beyond 1.02 reduces difficulty as distance increases. Refer to the desmos link above the wiggle bonus calculation
@@ -115,7 +116,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 wideAngleBonus *= 1 - wideAngleRepetitionNerf;
 
                 double acuteAngleRepetitionNerf = Math.Pow(CalcAcuteAngleBonus(lastAngle), 3);
-                acuteAngleBonus *= 0.08 + 0.76 * (1 - Math.Min(acuteAngleBonus, acuteAngleRepetitionNerf));
+                acuteAngleBonus *= acute_angle_comfy_ratio + (1.0 - acute_angle_comfy_ratio) * (1 - Math.Min(acuteAngleBonus, acuteAngleRepetitionNerf));
 
                 // Apply full wide angle bonus for distance more than one diameter
                 wideAngleBonus *= wideVelocityBase * DifficultyCalculationUtils.Smootherstep(osuCurrObj.LazyJumpDistance, 0, diameter);
