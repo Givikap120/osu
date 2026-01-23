@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     {
         private const double wide_angle_multiplier = 1.5;
         private const double acute_angle_multiplier = 1.8;
-        private const double acute_angle_comfy_ratio = 0.11; // Portion of the acute angle that's rewarded to comfy angles
+        private const double acute_angle_comfy_ratio = 0.105; // Portion of the acute angle that's rewarded to comfy angles
         private const double slider_multiplier = 1.27;
         private const double velocity_change_multiplier = 0.74;
         private const double wiggle_multiplier = 0.53; // WARNING: Increasing this multiplier beyond 1.02 reduces difficulty as distance increases. Refer to the desmos link above the wiggle bonus calculation
