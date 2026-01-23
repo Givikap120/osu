@@ -40,11 +40,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 return 0.0;
 
             // Being consistently difficult for 1000 notes should be worth more than being consistently difficult for 100.
-            double totalStrains = ObjectStrains.Count;
+            double totalStrains = ObjectDifficulties.Count;
             double lengthFactor = 0.73 * Math.Pow(0.998759, totalStrains);
 
             // Use a weighted sum of all strains. Constants are arbitrary and give nice values
-            return ObjectStrains.Zip(objectSnapinness, (strain, snapinness) =>
+            return ObjectDifficulties.Zip(objectSnapinness, (strain, snapinness) =>
                 (0.5 + 0.5 * snapinness) * (1.0 - lengthFactor) / (1 + Math.Exp(-10 * (strain / consistentTopStrain - 0.87 - lengthFactor / 4.0)))
             ).Sum();
         }
