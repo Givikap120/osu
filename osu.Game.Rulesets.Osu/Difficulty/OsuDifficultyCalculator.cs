@@ -104,7 +104,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 flashlightRating = osuRatingCalculator.ComputeFlashlightRating(flashlight.DifficultyValue());
 
             double sliderNestedScorePerObject = LegacyScoreUtils.CalculateNestedScorePerObject(beatmap, totalHits);
-            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(beatmap);
+            double legacyScoreBaseMultiplier = LegacyScoreUtils.CalculateDifficultyPeppyStars(WorkingBeatmap.Beatmap);
 
             var simulator = new OsuLegacyScoreSimulator();
             var scoreAttributes = simulator.Simulate(WorkingBeatmap, beatmap);
@@ -166,7 +166,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
         public static double SumMechanicalDifficulty(double aim, double speed)
         {
             // Decrease this to nerf maps that mix aim and speed
-            const double addition_portion = 0.56;
+            const double addition_portion = 0.54;
 
             // We take this min to max ratio as a basepoint to be not changed when addition_portion is changed
             const double balance_base_point = 0.2;

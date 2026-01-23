@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class FlowAimEvaluator
     {
         // The reason why this exist in evaluator instead of FlowAim skill - it's because it's very important to keep flowaim in the same scaling as snapaim on evaluator level
-        private const double flow_multiplier = 1.1;
+        private const double flow_multiplier = 6.24;
 
         private const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
         private const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
@@ -40,26 +40,27 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 velocity = Math.Max(velocity, movementVelocity + travelVelocity); // take the larger total combined velocity.
             }
 
-            double flowDifficulty = velocity;
+            double distancePowerAddition;
 
-            // Rescale the distance to make it closer d/t
             if (osuCurrObj.LazyJumpDistance > diameter)
             {
                 // Decrease spacing if patterns are comfy
                 double comfyness = IdentifyComfyFlow(current);
 
                 // Change those 2 power coeficients to control amount of buff high spaced flow aim has for comfy/uncomfy patterns
-                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1 - 0.5 * comfyness);
+                distancePowerAddition = Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1 - 0.5 * comfyness);
             }
             else
             {
                 // Decrease power here if you want to buff low-spaced flow aim
-                flowDifficulty *= Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1);
+                distancePowerAddition = Math.Pow(osuCurrObj.LazyJumpDistance / diameter, 1);
             }
 
+            double flowDifficulty = velocity * (distancePowerAddition * diameter) / osuCurrObj.AdjustedDeltaTime;
+
             // Flow aim is harder on High BPM
-            const double base_speedflow_multiplier = 0.07; // Base multiplier for speedflow bonus
-            const double bpm_factor = 12; // How steep the bonus is, higher values means more bonus for high BPM
+            const double base_speedflow_multiplier = 0.08; // Base multiplier for speedflow bonus
+            const double bpm_factor = 20; // How steep the bonus is, higher values means more bonus for high BPM
 
             // Autobalance, it's expected for bonus multiplier to be 1 for the bpm base
             double bpmBase = DifficultyCalculationUtils.BPMToMilliseconds(220, 4);
@@ -76,8 +77,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Bpm factor
             speedflowBonus *= (osuCurrObj.AdjustedDeltaTime / (osuCurrObj.AdjustedDeltaTime - bpm_factor) - 1);
-
-            flowDifficulty += speedflowBonus;
 
             double angleBonus = 0;
 
@@ -120,15 +119,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             }
 
             double velocityChangeBonus = CalculateFlowVelocityChangeBonus(current);
-            flowDifficulty += angleBonus + velocityChangeBonus;
+
+            flowDifficulty *= 1 + angleBonus / Math.Max(distancePowerAddition, 0.01);
+            flowDifficulty += speedflowBonus + velocityChangeBonus;
 
             flowDifficulty *= flow_multiplier * Math.Sqrt(osuCurrObj.SmallCircleBonus);
 
-            if (osuLast0Obj.BaseObject is Slider && withSliderTravelDistance)
-            {
-                double sliderBonus = osuLast0Obj.TravelDistance / osuLast0Obj.TravelTime;
-                flowDifficulty += sliderBonus * AimEvaluator.SLIDER_MULTIPLIER;
-            }
+            // Add in additional slider velocity bonus.
+            if (withSliderTravelDistance)
+                flowDifficulty += AimEvaluator.CalculateSliderBonus(osuCurrObj, osuLast0Obj);
 
             return flowDifficulty;
         }
@@ -169,8 +168,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double currAngleBonus = AimEvaluator.CalcAcuteAngleBonus(currAngle);
             double prevAngleBonus = AimEvaluator.CalcAcuteAngleBonus(last2Angle);
 
-            double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.AdjustedDeltaTime;
-            double acuteAngleBonus = currVelocity * currAngleBonus;
+            double acuteAngleBonus = currAngleBonus;
 
             // Nerf acute angle if previous notes were slower
             // IMPORTANT INFORMATION: removing this limitation buffs many alt maps
@@ -211,14 +209,16 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
 
-            double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.AdjustedDeltaTime;
-            double prevVelocity = osuLast0Obj.LazyJumpDistance / osuLast0Obj.AdjustedDeltaTime;
-
             double currAngle = osuCurrObj.AngleSigned.Value;
             double lastAngle = osuLast0Obj.AngleSigned.Value;
 
-            double baseVelocity = Math.Min(currVelocity, prevVelocity);
-            double angleChangeBonus = Math.Pow(Math.Sin((currAngle - lastAngle) / 2), 2) * baseVelocity;
+            // Take min velocity to avoid abuse with very small spacing
+            double currVelocity = osuCurrObj.LazyJumpDistance / osuCurrObj.AdjustedDeltaTime;
+            double prevVelocity = osuLast0Obj.LazyJumpDistance / osuLast0Obj.AdjustedDeltaTime;
+            double minVelocity = Math.Min(currVelocity, prevVelocity);
+            double bonusBase = minVelocity / Math.Max(currVelocity, 0.01);
+
+            double angleChangeBonus = Math.Pow(Math.Sin((currAngle - lastAngle) / 2), 2) * bonusBase;
 
             // Remove angle change if previous 2 notes were slower
             angleChangeBonus *= DifficultyCalculationUtils.ReverseLerp(osuCurrObj.AdjustedDeltaTime, osuLast0Obj.AdjustedDeltaTime * 0.55, osuLast0Obj.AdjustedDeltaTime * 0.75);
@@ -245,6 +245,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         // This bonus accounts for the fact that changing velocity makes flow aim harder.
         public static double CalculateFlowVelocityChangeBonus(DifficultyHitObject current)
         {
+            const double velocity_change_bonus_multiplier = 100;
+
             if (current.BaseObject is Spinner || current.Index <= 2 || current.Previous(0).BaseObject is Spinner)
                 return 0;
 
@@ -319,10 +321,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (deltaVelocity > minVelocity * 2)
             {
                 double rescaledBonus = deltaVelocity - minVelocity * 2;
-                return minVelocity * 2 + Math.Sqrt(2 * rescaledBonus + 1) - 1;
+                deltaVelocity = minVelocity * 2 + Math.Sqrt(2 * rescaledBonus + 1) - 1;
             }
 
-            return deltaVelocity;
+            return deltaVelocity * velocity_change_bonus_multiplier / osuCurrObj.AdjustedDeltaTime;
         }
 
         // This function is used to reward high spacing on uncomfy flow outside of direct bonuses.
