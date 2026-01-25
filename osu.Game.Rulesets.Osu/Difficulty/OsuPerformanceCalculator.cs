@@ -9,6 +9,7 @@ using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Scoring;
 using osu.Game.Rulesets.Difficulty;
+using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Difficulty.Skills;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Scoring;
@@ -299,10 +300,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (score.Mods.Any(h => h is OsuModRelax) || speedDeviation == null)
                 return 0.0;
 
-            double speedValue = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
-
-            double lengthBonus = CalculateDefaultLengthBonus(totalHits);
-            speedValue *= lengthBonus;
+            double speedValue = HarmonicSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             if (effectiveMissCount > 0)
             {
@@ -434,8 +432,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double highARValue = OsuStrainSkill.DifficultyToPerformance(attributes.ReadingDifficultyHighAR);
 
             // Approximate how much of high AR difficulty is aim
-            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(adjustAimDifficultyFromMissedSliders(attributes.AimDifficulty, score, attributes));
-            double speedPerformance = OsuStrainSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
+            double lengthBonus = CalculateDefaultLengthBonus(totalHits);
+            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(adjustAimDifficultyFromMissedSliders(attributes.AimDifficulty, score, attributes)) * lengthBonus;
+            double speedPerformance = HarmonicSkill.DifficultyToPerformance(attributes.SpeedDifficulty);
 
             double aimRatio = aimPerformance / (aimPerformance + speedPerformance);
 
@@ -449,6 +448,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 }
 
                 aimPartValue *= accuracy;
+                aimPartValue *= Math.Pow(lengthBonus, 0.5);
             }
 
             // Speed part calculation
@@ -470,8 +470,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 // Scale the speed value with accuracy and OD.
                 speedPartValue *= Math.Pow((accuracy + relevantAccuracy) / 2.0, (14.5 - overallDifficulty) / 2);
             }
-
-            double lengthBonus = Math.Pow(CalculateDefaultLengthBonus(totalHits), 0.5);
 
             return (aimPartValue + speedPartValue) * lengthBonus;
         }
@@ -534,9 +532,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (usingClassicSliderAccuracy)
             {
+                // If sliders in the map are hard - it's likely for player to drop sliderends
+                // If map has easy sliders - it's more likely for player to sliderbreak
+                double likelyMissedSliderendPortion = 0.04 + 0.06 * Math.Pow(Math.Min(attributes.AimTopWeightedSliderFactor, 1), 2);
+
                 // Consider that full combo is maximum combo minus dropped slider tails since they don't contribute to combo but also don't break it
-                // In classic scores we can't know the amount of dropped sliders so we estimate to 10% of all sliders on the map
-                double fullComboThreshold = attributes.MaxCombo - 0.1 * attributes.SliderCount;
+                // In classic scores we can't know the amount of dropped sliders so we estimate it
+                double fullComboThreshold = attributes.MaxCombo - Math.Min(4 + likelyMissedSliderendPortion * attributes.SliderCount, attributes.SliderCount);
 
                 if (scoreMaxCombo < fullComboThreshold)
                     missCount = fullComboThreshold / Math.Max(1.0, scoreMaxCombo);
