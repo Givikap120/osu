@@ -35,13 +35,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         protected override double ProcessInternal(DifficultyHitObject current)
         {
+            double decay = strainDecay(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
+
             double densityReadingDifficulty = ReadingEvaluator.EvaluateDifficultyOf(current);
             double densityAimingFactor = ReadingEvaluator.EvaluateAimingDensityFactorOf(current);
 
             double aimDifficulty = AimEvaluator.EvaluateDifficultyOf(current, true);
-            aimDifficulty = Math.Min(aimDifficulty, 2 * AimEvaluator.EvaluateDifficultyOf(current, false)); // Reward sliders, but cap at 2x
+            aimDifficulty = Math.Min(aimDifficulty, 2 * AimEvaluator.EvaluateDifficultyOf(current, false)) * (1 - decay); // Reward sliders, but cap at 2x
 
-            currentDensityAimStrain *= strainDecay(current.DeltaTime);
+            currentDensityAimStrain *= decay;
             currentDensityAimStrain += densityAimingFactor * aimDifficulty * aimComponentMultiplier;
 
             double totalDensityDifficulty = (currentDensityAimStrain + densityReadingDifficulty) * skillMultiplier;
@@ -122,10 +124,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         protected override double StrainValueAt(DifficultyHitObject current)
         {
-            CurrentStrain *= StrainDecay(current.DeltaTime);
+            double decay = StrainDecay(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
+            CurrentStrain *= decay;
 
             // We're not using slider aim because we assuming that HD doesn't makes sliders harder (what is not true, but we will ignore this for now)
-            double hiddenDifficulty = AimEvaluator.EvaluateDifficultyOf(current, false);
+            double hiddenDifficulty = AimEvaluator.EvaluateDifficultyOf(current, false) * (1 - decay);
             hiddenDifficulty *= ReadingHiddenEvaluator.EvaluateDifficultyOf(current);
             hiddenDifficulty *= SkillMultiplier;
 
@@ -168,17 +171,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 CurrentSectionEnd += SectionLength;
             }
 
-            double visualDifficultyValue = scaleDifficulty(aimComponent.CurrentSectionPeak, speedComponent.CurrentSectionPeak);
+           // double visualDifficultyValue = scaleDifficulty(aimComponent.CurrentSectionPeak, speedComponent.CurrentSectionPeak);
+            double visualDifficultyValue = aimComponent.CurrentSectionPeak;
+
             CurrentSectionPeak = Math.Max(visualDifficultyValue, CurrentSectionPeak);
             return visualDifficultyValue;
         }
 
-        // Coefs for curve similar to difficulty to performance curve
-        private static double power => 3;
-        private static double multiplier => 3.7;
-
-        public static double DifficultyToPerformance(double difficulty) => Math.Pow(difficulty, power) * multiplier;
-        private static double performanceToDifficulty(double performance) => Math.Pow(performance / multiplier, 1.0 / power);
+        private static double performanceToDifficulty(double performance) => Math.Pow(performance / 4, 1.0 / 3);
 
         private static double scaleDifficulty(double aimPart, double speedPart)
         {
@@ -186,8 +186,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double aimValue = Math.Sqrt(aimPart * skill_multiplier) * OsuRatingCalculator.DIFFICULTY_MULTIPLIER;
             double speedValue = Math.Sqrt(speedPart * skill_multiplier) * OsuRatingCalculator.DIFFICULTY_MULTIPLIER;
 
-            double aimPerformance = DifficultyToPerformance(aimValue);
-            double speedPerformance = DifficultyToPerformance(speedValue);
+            double aimPerformance = OsuStrainSkill.DifficultyToPerformance(aimValue);
+            double speedPerformance = HarmonicSkill.DifficultyToPerformance(speedValue);
 
             double sumPower = OsuDifficultyCalculator.SUM_POWER;
             double totalPerformance = Math.Pow(Math.Pow(aimPerformance, sumPower) + Math.Pow(speedPerformance, sumPower), 1.0 / sumPower);
@@ -221,10 +221,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
             protected override double StrainValueAt(DifficultyHitObject current)
             {
-                CurrentStrain *= StrainDecay(current.DeltaTime);
+                double decay = StrainDecay(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
+                CurrentStrain *= decay;
 
                 double highARDifficulty = Math.Pow(ReadingHighAREvaluator.EvaluateDifficultyOf(current, true), 1.0 / MECHANICAL_PP_POWER);
-                double aimDifficulty = AimEvaluator.EvaluateDifficultyOf(current, true) * SkillMultiplier;
+                double aimDifficulty = AimEvaluator.EvaluateDifficultyOf(current, true) * (1 - decay) * SkillMultiplier;
 
                 aimDifficulty *= highARDifficulty;
                 CurrentStrain += aimDifficulty;
@@ -240,20 +241,21 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             {
             }
 
-            protected override double StrainValueAt(DifficultyHitObject current)
+            protected override double ObjectDifficultyOf(DifficultyHitObject current)
             {
                 OsuDifficultyHitObject currObj = (OsuDifficultyHitObject)current;
 
-                CurrentStrain *= StrainDecay(currObj.AdjustedDeltaTime);
+                double decay = StrainDecay(currObj.AdjustedDeltaTime);
+                CurrentDifficulty *= decay;
 
                 double highARDifficulty = Math.Pow(ReadingHighAREvaluator.EvaluateDifficultyOf(current, false), 1.0 / MECHANICAL_PP_POWER);
-                double speedDifficulty = SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * SkillMultiplier;
+                double speedDifficulty = SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * (1 - decay) * SkillMultiplier;
 
                 speedDifficulty *= highARDifficulty;
-                CurrentStrain += speedDifficulty;
+                CurrentDifficulty += speedDifficulty;
 
-                CurrentRhythm = currObj.RhythmDifficulty;
-                double totalStrain = CurrentStrain * CurrentRhythm;
+                double currentRhythm = currObj.RhythmDifficulty;
+                double totalStrain = speedDifficulty * currentRhythm;
                 return totalStrain + component_default_value_multiplier * highARDifficulty * DifficultyCalculationUtils.ReverseLerp(current.Index, 0, 200);
             }
         }
