@@ -52,7 +52,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             if (DifficultyCalculationUtils.MillisecondsToBPM(strainTime) > min_speed_bonus)
                 speedBonus = 0.75 * Math.Pow((DifficultyCalculationUtils.BPMToMilliseconds(min_speed_bonus) - strainTime) / speed_balancing_factor, 2);
 
-            double travelDistance = osuPrevObj?.TravelDistance ?? 0;
+            double travelDistance = osuPrevObj?.LazyTravelDistance ?? 0;
             double distance = travelDistance + osuCurrObj.LazyJumpFromEndDistance;
 
             // Cap distance at single_spacing_threshold
@@ -71,6 +71,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             // Base difficulty with all bonuses
             double difficulty = (1 + speedBonus + distanceBonus) * (1 + sliderStreamBonus) * 1000 / strainTime;
+
+            difficulty *= highBpmBonus(osuCurrObj.AdjustedDeltaTime);
 
             // Apply penalty if there's doubletappable doubles
             return difficulty * doubletapness;
@@ -97,5 +99,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             return sliderStreamBonus;
         }
+        
+        private static double highBpmBonus(double ms) => 1 / (1 - Math.Pow(0.3, ms / 1000));
     }
 }

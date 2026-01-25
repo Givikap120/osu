@@ -13,11 +13,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class AimEvaluator
     {
         private const double wide_angle_multiplier = 1.5;
-        private const double acute_angle_multiplier = 2.55;
+        private const double acute_angle_multiplier = 2.3;
         private const double velocity_change_multiplier = 0.75;
-        private const double wiggle_multiplier = 1.02;
+        private const double wiggle_multiplier = 1.02; // WARNING: Increasing this multiplier beyond 1.02 reduces difficulty as distance increases. Refer to the desmos link above the wiggle bonus calculation
 
-        private const double slider_body_multiplier = 1.35;
+        private const double slider_body_multiplier = 1.5;
         private const double slider_jump_multiplier = 0.1;
 
         /// <summary>
@@ -164,13 +164,15 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             // Add in additional slider velocity bonus.
             double sliderBodyBonus = 0;
 
-            if (withSliderTravelDistance && osuLastObj.BaseObject is Slider)
+            if (withSliderTravelDistance && osuCurrObj.BaseObject is Slider)
             {
                 // Reward sliders based on velocity.
-                sliderBodyBonus = osuLastObj.TravelDistance / osuLastObj.TravelTime;
+                sliderBodyBonus = osuCurrObj.TravelDistance / osuCurrObj.TravelTime;
             }
 
             aimStrain += sliderBodyBonus * slider_body_multiplier;
+
+            aimStrain *= highBpmBonus(osuCurrObj.AdjustedDeltaTime);
 
             return aimStrain;
         }
@@ -203,6 +205,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
             return sliderJumpBonus;
         }
+
+        private static double highBpmBonus(double ms) => 1 / (1 - Math.Pow(0.15, ms / 1000));
 
         private static double calcWideAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(40), double.DegreesToRadians(140));
         private static double calcAcuteAngleBonus(double angle) => DifficultyCalculationUtils.Smoothstep(angle, double.DegreesToRadians(140), double.DegreesToRadians(40));
