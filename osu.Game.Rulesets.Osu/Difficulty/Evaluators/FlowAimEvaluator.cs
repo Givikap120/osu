@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double uncomfyness = 1 - IdentifyComfyFlow(current);
 
             // We want to have different distance exponent for spacing above and below diameter
-            double distanceExponent = normalizedDistance > 1 ? 1.5 + 0.5 * uncomfyness : 1.7;
+            double distanceExponent = normalizedDistance > 1 ? 1.55 + 0.45 * uncomfyness : 1.7;
 
             // Denormalize the distance 
             double distance = Math.Pow(normalizedDistance, distanceExponent) * Math.Pow(diameter, 2);
@@ -87,7 +87,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double speedflowBonus = CalculateSpeedflowBonus(current);
 
             flowDifficulty += angleBonus + velocityChangeBonus + speedflowBonus;
-            flowDifficulty *= 5.9 * Math.Sqrt(osuCurrObj.SmallCircleBonus);
+            flowDifficulty *= 5.72 * Math.Sqrt(osuCurrObj.SmallCircleBonus);
 
             // Add in additional slider velocity bonus
             // In order for compensate for lack of slider velocity in base difficulty - increase this bonus
@@ -109,7 +109,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         public static double CalculateSpeedflowBonus(DifficultyHitObject current)
         {
-            const double base_speedflow_multiplier = 0.17; // Base multiplier for speedflow bonus
+            const double base_speedflow_multiplier = 0.21; // Base multiplier for speedflow bonus
             const double bpm_factor = 18; // How steep the bonus is, higher values means more bonus for high BPM
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
