@@ -208,7 +208,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 CurrentDifficulty += speedDifficulty;
 
                 double currentRhythm = currObj.RhythmDifficulty;
-                double totalStrain = speedDifficulty * currentRhythm;
+                double totalStrain = CurrentDifficulty * currentRhythm;
                 return totalStrain + component_default_value_multiplier * highARDifficulty * DifficultyCalculationUtils.ReverseLerp(current.Index, 0, 200);
             }
         }
