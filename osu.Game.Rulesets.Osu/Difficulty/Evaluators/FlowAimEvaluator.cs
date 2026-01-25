@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
     public static class FlowAimEvaluator
     {
         // The reason why this exist in evaluator instead of FlowAim skill - it's because it's very important to keep flowaim in the same scaling as snapaim on evaluator level
-        private const double flow_multiplier = 6.01;
+        private const double flow_multiplier = 5.7;
 
         private const int radius = OsuDifficultyHitObject.NORMALISED_RADIUS;
         private const int diameter = OsuDifficultyHitObject.NORMALISED_DIAMETER;
@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double uncomfyness = 1 - IdentifyComfyFlow(current);
 
             // We want to have different distance exponent for spacing above and below diameter
-            double distanceExponent = normalizedDistance > 1 ? 1.55 + 0.45 * uncomfyness : 1.7;
+            double distanceExponent = 1.55 + (normalizedDistance > 1 ? 0.45 * uncomfyness : 0);
 
             // Denormalize the distance 
             double distance = Math.Pow(normalizedDistance, distanceExponent) * Math.Pow(diameter, 2);
@@ -87,7 +87,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double speedflowBonus = CalculateSpeedflowBonus(current);
 
             flowDifficulty += angleBonus + velocityChangeBonus + speedflowBonus;
-            flowDifficulty *= 5.72 * Math.Sqrt(osuCurrObj.SmallCircleBonus);
+            flowDifficulty *= flow_multiplier * Math.Sqrt(osuCurrObj.SmallCircleBonus);
 
             // Add in additional slider velocity bonus
             // In order for compensate for lack of slider velocity in base difficulty - increase this bonus
