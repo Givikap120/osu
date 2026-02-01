@@ -18,7 +18,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
         public static double EvaluateDifficultyOf(DifficultyHitObject current, bool withSliderTravelDistance)
         {
             // The reason why this exist in evaluator instead of FlowAim skill - it's because it's very important to keep flowaim in the same scaling as snapaim on evaluator level
-            const double flow_multiplier = 5.7;
+            const double flow_multiplier = 5.55;
 
             if (current.BaseObject is Spinner || current.Index <= 1 || current.Previous(0).BaseObject is Spinner)
                 return 0;
@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
             double uncomfyness = 1 - IdentifyComfyFlow(current);
 
             // We want to have different distance exponent for spacing above and below diameter
-            double distanceExponent = 1.55 + (normalizedDistance > 1 ? 0.45 * uncomfyness : 0);
+            double distanceExponent = 1.6 + (normalizedDistance > 1 ? 0.4 * uncomfyness : 0);
 
             // Denormalize the distance 
             double distance = Math.Pow(normalizedDistance, distanceExponent) * Math.Pow(diameter, 2);
@@ -109,7 +109,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
 
         public static double CalculateSpeedflowBonus(DifficultyHitObject current)
         {
-            const double base_speedflow_multiplier = 0.09; // Base multiplier for speedflow bonus
+            const double base_speedflow_multiplier = 0.2; // Base multiplier for speedflow bonus
             const double bpm_factor = 18; // How steep the bonus is, higher values means more bonus for high BPM
 
             var osuCurrObj = (OsuDifficultyHitObject)current;
