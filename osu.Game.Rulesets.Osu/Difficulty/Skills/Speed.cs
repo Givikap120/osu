@@ -19,11 +19,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
     /// </summary>
     public class Speed : HarmonicSkill
     {
-        private double skillMultiplier => 1.02;
+        private double skillMultiplier => 1.165;
         private double strainDecayBase => 0.3;
-
-        private double currentStrain;
-        private double currentRhythm;
 
         private readonly List<double> sliderStrains = new List<double>();
 
