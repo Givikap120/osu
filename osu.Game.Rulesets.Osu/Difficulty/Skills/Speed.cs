@@ -6,29 +6,27 @@ using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
+using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 using System.Linq;
-using osu.Game.Rulesets.Difficulty.Skills;
-using osu.Game.Rulesets.Difficulty.Utils;
-using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Osu.Difficulty.Utils;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 {
     /// <summary>
     /// Represents the skill required to press keys with regards to keeping up with the speed at which objects need to be hit.
     /// </summary>
-    public class Speed : HarmonicSkill
+    public class Speed : OsuStrainSkill
     {
-        private double skillMultiplier => 0.93;
+        private double skillMultiplier => 1.47;
+        private double strainDecayBase => 0.3;
+
+        private double currentStrain;
+        private double currentRhythm;
 
         private readonly List<double> sliderStrains = new List<double>();
 
-        private double currentDifficulty;
-
-        private double strainDecayBase => 0.3;
-
-        protected override double HarmonicScale => 20;
-        protected override double DecayExponent => 0.85;
+        protected override int ReducedSectionCount => 5;
 
         public Speed(Mod[] mods)
             : base(mods)
@@ -37,21 +35,23 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
 
         private double strainDecay(double ms) => Math.Pow(strainDecayBase, ms / 1000);
 
-        protected override double ObjectDifficultyOf(DifficultyHitObject current)
+        protected override double CalculateInitialStrain(double time, DifficultyHitObject current) => (currentStrain * currentRhythm) * strainDecay(time - current.Previous(0).StartTime);
+
+        protected override double StrainValueAt(DifficultyHitObject current)
         {
             double decay = strainDecay(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
 
-            currentDifficulty *= decay;
-            currentDifficulty += SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * (1 - decay) * skillMultiplier;
+            currentStrain *= decay;
+            currentStrain += SpeedEvaluator.EvaluateDifficultyOf(current, Mods) * (1 - decay) * skillMultiplier;
 
-            double currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
+            currentRhythm = RhythmEvaluator.EvaluateDifficultyOf(current);
 
-            double totalDifficulty = currentDifficulty * currentRhythm;
+            double totalStrain = currentStrain * currentRhythm;
 
             if (current.BaseObject is Slider)
-                sliderStrains.Add(totalDifficulty);
+                sliderStrains.Add(totalStrain);
 
-            return totalDifficulty;
+            return totalStrain;
         }
 
         public double RelevantNoteCount()
@@ -60,7 +60,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
                 return 0;
 
             double maxStrain = ObjectDifficulties.Max();
-
             if (maxStrain == 0)
                 return 0;
 
@@ -68,20 +67,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
         }
 
         public double CountTopWeightedSliders(double difficultyValue)
-        {
-            if (sliderStrains.Count == 0)
-                return 0;
-
-            if (NoteWeightSum == 0)
-                return 0.0;
-
-            double consistentTopNote = difficultyValue / NoteWeightSum; // What would the top note be if all note values were identical
-
-            if (consistentTopNote == 0)
-                return 0;
-
-            // Use a weighted sum of all notes. Constants are arbitrary and give nice values
-            return sliderStrains.Sum(s => DifficultyCalculationUtils.Logistic(s / consistentTopNote, 0.88, 10, 1.1));
-        }
+            => OsuStrainUtils.CountTopWeightedSliders(sliderStrains, difficultyValue);
     }
 }
