@@ -65,7 +65,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 speedRating *= 1.0 - magnetisedStrength * 0.3;
             }
 
-            return speedRating;
+            double ratingMultiplier = 1.0;
+
+            ratingMultiplier *= 0.95 + Math.Pow(Math.Max(0, overallDifficulty), 2) / 750;
+
+            return speedRating * Math.Cbrt(ratingMultiplier);
         }
 
         public double ComputeReadingRating(double readingDifficultyValue)
