@@ -10,7 +10,6 @@ using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Evaluators;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Utils;
-using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Skills
@@ -51,20 +50,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Skills
             double decayAim = strainDecayAim(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
             double decaySpeed = strainDecaySpeed(((OsuDifficultyHitObject)current).AdjustedDeltaTime);
 
-            double aimDifficulty = AimEvaluator.EvaluateDifficultyOf(current, IncludeSliders);
-            double speedDifficulty = SpeedAimEvaluator.EvaluateDifficultyOf(current);
-
-            if (Mods.Any(m => m is OsuModTouchDevice))
-            {
-                aimDifficulty = Math.Pow(aimDifficulty, 0.8);
-                speedDifficulty = Math.Pow(speedDifficulty, 0.95);
-            }
-
             currentAimStrain *= decayAim;
-            currentAimStrain += aimDifficulty * (1 - decayAim) * skillMultiplierAim;
+            currentAimStrain += AimEvaluator.EvaluateDifficultyOf(current, IncludeSliders) * (1 - decayAim) * skillMultiplierAim;
 
             currentSpeedStrain *= decaySpeed;
-            currentSpeedStrain += speedDifficulty * (1 - decaySpeed) * skillMultiplierSpeed;
+            currentSpeedStrain += SpeedAimEvaluator.EvaluateDifficultyOf(current) * (1 - decaySpeed) * skillMultiplierSpeed;
 
             double totalStrain = DifficultyCalculationUtils.Norm(meanExponent, currentAimStrain, currentSpeedStrain);
 
