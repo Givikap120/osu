@@ -18,16 +18,25 @@ using osu.Game.Online.API;
 using osu.Game.Online.API.Requests;
 using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Online.Matchmaking;
+using osu.Game.Online.Matchmaking.Requests;
+using osu.Game.Online.Matchmaking.Responses;
 using osu.Game.Online.Multiplayer.Countdown;
+using osu.Game.Online.Multiplayer.MatchTypes.RankedPlay;
+using osu.Game.Online.RankedPlay;
 using osu.Game.Online.Rooms;
 using osu.Game.Overlays.Notifications;
 using osu.Game.Rulesets;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Screens.OnlinePlay.Matchmaking.RankedPlay;
 using osu.Game.Utils;
 
 namespace osu.Game.Online.Multiplayer
 {
-    public abstract partial class MultiplayerClient : Component, IMultiplayerClient, IMultiplayerRoomServer, IMatchmakingServer, IMatchmakingClient
+    public abstract partial class MultiplayerClient :
+        Component,
+        IMultiplayerClient, IMultiplayerRoomServer,
+        IMatchmakingServer, IMatchmakingClient,
+        IRankedPlayClient, IRankedPlayServer
     {
         public Action<Notification>? PostNotification { protected get; set; }
 
@@ -123,13 +132,22 @@ namespace osu.Game.Online.Multiplayer
 
         public event Action? MatchmakingQueueJoined;
         public event Action? MatchmakingQueueLeft;
-        public event Action? MatchmakingRoomInvited;
+        public event Action<MatchmakingRoomInvitationParams>? MatchmakingRoomInvited;
         public event Action<long, string>? MatchmakingRoomReady;
         public event Action<MatchmakingLobbyStatus>? MatchmakingLobbyStatusChanged;
         public event Action<MatchmakingQueueStatus>? MatchmakingQueueStatusChanged;
         public event Action<int, long>? MatchmakingItemSelected;
         public event Action<int, long>? MatchmakingItemDeselected;
         public event Action<MatchRoomState>? MatchRoomStateChanged;
+
+        public event Action<int, RankedPlayCardWithPlaylistItem>? RankedPlayCardAdded;
+        public event Action<int, RankedPlayCardWithPlaylistItem>? RankedPlayCardRemoved;
+        public event Action<RankedPlayCardWithPlaylistItem>? RankedPlayCardPlayed;
+
+        public event Action<int, bool>? UserVotedToSkipIntro;
+        public event Action? VoteToSkipIntroPassed;
+
+        public event Action<MultiplayerRoomUser, BeatmapAvailability>? BeatmapAvailabilityChanged;
 
         /// <summary>
         /// Whether the <see cref="MultiplayerClient"/> is currently connected.
@@ -180,6 +198,11 @@ namespace osu.Game.Online.Multiplayer
             }
         }
 
+        /// <summary>
+        /// Whether the <see cref="LocalUser"/> is a referee in the <see cref="Room"/>.
+        /// </summary>
+        public virtual bool IsReferee => LocalUser?.Role == MultiplayerRoomUserRole.Referee;
+
         [Resolved]
         protected IAPIProvider API { get; private set; } = null!;
 
@@ -192,6 +215,7 @@ namespace osu.Game.Online.Multiplayer
         protected Room? APIRoom { get; private set; }
 
         private readonly Queue<Action> pendingRequests = new Queue<Action>();
+        private readonly Dictionary<RankedPlayCardItem, RankedPlayCardWithPlaylistItem> cardsWithPlaylistItems = [];
 
         [BackgroundDependencyLoader]
         private void load()
@@ -201,7 +225,7 @@ namespace osu.Game.Online.Multiplayer
                 if (!connected.NewValue)
                 {
                     if (Room != null)
-                        LeaveRoom();
+                        LeaveRoom().FireAndForget();
 
                     MatchmakingQueueLeft?.Invoke();
                 }
@@ -314,9 +338,6 @@ namespace osu.Game.Online.Multiplayer
 
         public Task LeaveRoom()
         {
-            if (Room == null)
-                return Task.CompletedTask;
-
             // The join may have not completed yet, so certain tasks that either update the room or reference the room should be cancelled.
             // This includes the setting of Room itself along with the initial update of the room settings on join.
             joinCancellationSource?.Cancel();
@@ -329,6 +350,7 @@ namespace osu.Game.Online.Multiplayer
                 APIRoom = null;
                 Room = null;
                 PlayingUserIds.Clear();
+                cardsWithPlaylistItems.Clear();
 
                 RoomUpdated?.Invoke();
             });
@@ -493,6 +515,8 @@ namespace osu.Game.Online.Multiplayer
 
         public abstract Task RemovePlaylistItem(long playlistItemId);
 
+        public abstract Task VoteToSkipIntro();
+
         Task IMultiplayerClient.RoomStateChanged(MultiplayerRoomState state)
         {
             handleRoomRequest(() =>
@@ -560,7 +584,7 @@ namespace osu.Game.Online.Multiplayer
                     return;
 
                 if (user.Equals(LocalUser))
-                    LeaveRoom();
+                    LeaveRoom().FireAndForget();
 
                 handleUserLeft(user, UserKicked);
             });
@@ -770,6 +794,7 @@ namespace osu.Game.Online.Multiplayer
 
                 user.BeatmapAvailability = beatmapAvailability;
 
+                BeatmapAvailabilityChanged?.Invoke(user, beatmapAvailability);
                 RoomUpdated?.Invoke();
             });
 
@@ -916,6 +941,36 @@ namespace osu.Game.Online.Multiplayer
             return Task.CompletedTask;
         }
 
+        Task IMultiplayerClient.UserVotedToSkipIntro(int userId, bool voted)
+        {
+            handleRoomRequest(() =>
+            {
+                Debug.Assert(Room != null);
+
+                var user = Room.Users.SingleOrDefault(u => u.UserID == userId);
+
+                // TODO: user should NEVER be null here, see https://github.com/ppy/osu/issues/17713.
+                if (user == null)
+                    return;
+
+                user.VotedToSkipIntro = voted;
+                UserVotedToSkipIntro?.Invoke(userId, voted);
+            });
+
+            return Task.CompletedTask;
+        }
+
+        Task IMultiplayerClient.VoteToSkipIntroPassed()
+        {
+            handleRoomRequest(() =>
+            {
+                Debug.Assert(Room != null);
+                VoteToSkipIntroPassed?.Invoke();
+            });
+
+            return Task.CompletedTask;
+        }
+
         /// <summary>
         /// Populates the <see cref="APIUser"/> for a given collection of <see cref="MultiplayerRoomUser"/>s.
         /// </summary>
@@ -1050,7 +1105,13 @@ namespace osu.Game.Online.Multiplayer
 
         Task IMatchmakingClient.MatchmakingRoomInvited()
         {
-            Scheduler.Add(() => MatchmakingRoomInvited?.Invoke());
+            // Not implemented (used by older clients).
+            return Task.CompletedTask;
+        }
+
+        Task IMatchmakingClient.MatchmakingRoomInvitedWithParams(MatchmakingRoomInvitationParams invitation)
+        {
+            Scheduler.Add(() => MatchmakingRoomInvited?.Invoke(invitation));
             return Task.CompletedTask;
         }
 
@@ -1074,7 +1135,7 @@ namespace osu.Game.Online.Multiplayer
 
         Task IMatchmakingClient.MatchmakingItemSelected(int userId, long playlistItemId)
         {
-            Scheduler.Add(() =>
+            handleRoomRequest(() =>
             {
                 MatchmakingItemSelected?.Invoke(userId, playlistItemId);
                 RoomUpdated?.Invoke();
@@ -1085,7 +1146,7 @@ namespace osu.Game.Online.Multiplayer
 
         Task IMatchmakingClient.MatchmakingItemDeselected(int userId, long playlistItemId)
         {
-            Scheduler.Add(() =>
+            handleRoomRequest(() =>
             {
                 MatchmakingItemDeselected?.Invoke(userId, playlistItemId);
                 RoomUpdated?.Invoke();
@@ -1094,9 +1155,65 @@ namespace osu.Game.Online.Multiplayer
             return Task.CompletedTask;
         }
 
-        public abstract Task<MatchmakingPool[]> GetMatchmakingPools();
+        public abstract Task DiscardCards(RankedPlayCardItem[] cards);
 
-        public abstract Task MatchmakingJoinLobby();
+        public abstract Task PlayCard(RankedPlayCardItem card);
+
+        Task IRankedPlayClient.RankedPlayCardAdded(int userId, RankedPlayCardItem card)
+        {
+            handleRoomRequest(() =>
+            {
+                RankedPlayCardAdded?.Invoke(userId, GetCardWithPlaylistItem(card));
+                RoomUpdated?.Invoke();
+            });
+
+            return Task.CompletedTask;
+        }
+
+        Task IRankedPlayClient.RankedPlayCardRemoved(int userId, RankedPlayCardItem card)
+        {
+            handleRoomRequest(() =>
+            {
+                RankedPlayCardRemoved?.Invoke(userId, GetCardWithPlaylistItem(card));
+                RoomUpdated?.Invoke();
+            });
+
+            return Task.CompletedTask;
+        }
+
+        Task IRankedPlayClient.RankedPlayCardRevealed(RankedPlayCardItem card, MultiplayerPlaylistItem item)
+        {
+            handleRoomRequest(() =>
+            {
+                GetCardWithPlaylistItem(card).PlaylistItem.Value = item;
+                RoomUpdated?.Invoke();
+            });
+
+            return Task.CompletedTask;
+        }
+
+        Task IRankedPlayClient.RankedPlayCardPlayed(RankedPlayCardItem card)
+        {
+            handleRoomRequest(() =>
+            {
+                RankedPlayCardPlayed?.Invoke(GetCardWithPlaylistItem(card));
+                RoomUpdated?.Invoke();
+            });
+
+            return Task.CompletedTask;
+        }
+
+        public RankedPlayCardWithPlaylistItem GetCardWithPlaylistItem(RankedPlayCardItem card)
+        {
+            if (cardsWithPlaylistItems.TryGetValue(card, out var existing))
+                return existing;
+
+            return cardsWithPlaylistItems[card] = new RankedPlayCardWithPlaylistItem(card);
+        }
+
+        public abstract Task<MatchmakingPool[]> GetMatchmakingPoolsOfType(MatchmakingPoolType type);
+
+        public abstract Task<MatchmakingJoinLobbyResponse> MatchmakingJoinLobbyWithParams(MatchmakingJoinLobbyRequest request);
 
         public abstract Task MatchmakingLeaveLobby();
 
