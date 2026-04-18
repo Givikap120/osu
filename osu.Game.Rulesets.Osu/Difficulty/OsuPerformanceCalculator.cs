@@ -18,9 +18,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 {
     public class OsuPerformanceCalculator : PerformanceCalculator
     {
-        private bool removeRelaxAutopilotPp => true;
-        private bool enableLazerAcc => false;
-        private bool enableCSR => false;
+        private static bool removeRelaxAutopilotPp => true;
+        private static bool enableLazerAcc => false;
+        private static bool enableCSR => false;
+        public static bool UseCurrentBpmCap => false;
 
         private bool usingClassicSliderAccuracy;
 

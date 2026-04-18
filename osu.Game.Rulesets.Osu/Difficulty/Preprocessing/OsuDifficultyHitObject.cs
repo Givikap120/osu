@@ -23,11 +23,13 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double Distance { get; private set; }
 
+        private double minDeltaTime => OsuPerformanceCalculator.UseCurrentBpmCap ? 25 : 40;
+
         public OsuDifficultyHitObject(HitObject hitObject, HitObject lastObject, double clockRate, List<DifficultyHitObject> objects, int index)
             : base(hitObject, lastObject, clockRate, objects, index)
         {
             setDistances();
-            DeltaTime = Math.Max(40, DeltaTime);
+            DeltaTime = Math.Max(minDeltaTime, DeltaTime);
         }
 
         private void setDistances()
