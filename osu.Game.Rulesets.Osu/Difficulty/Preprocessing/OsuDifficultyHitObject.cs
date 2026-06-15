@@ -335,6 +335,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public Vector2? LazyEndPosition => null;
         public double LazyTravelDistance => 0;
         public double LazyTravelTime => 0;
+        public double JumpDistance => LazyJumpDistance;
+        public double LastObjectEndDeltaTime => 0;
+        
         public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
