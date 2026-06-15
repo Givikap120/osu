@@ -48,6 +48,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double overallDifficulty;
         private double approachRate;
+        private double drainRate;
 
         public OsuPerformanceCalculator()
             : base(new OsuRuleset())
@@ -83,6 +84,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             overallDifficulty = (80 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
+            drainRate = difficulty.DrainRate;
 
             // Return 0 if Relax or Autopilot is used and the setting of ignoring them is enabled
             if (removeRelaxAutopilotPp && score.Mods.Any(m => m is OsuModRelax || m is OsuModAutopilot))
