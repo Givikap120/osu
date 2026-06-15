@@ -20,6 +20,11 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
         private const double speed_balancing_factor = 40;
         private const double distance_multiplier = 0.9;
 
+        public static double EvaluateDifficultyOf(DifficultyHitObject current)
+        {
+            return EvaluateDifficultyOf(current, Array.Empty<Mod>());
+        }
+
         /// <summary>
         /// Evaluates the difficulty of tapping the current object, based on:
         /// <list type="bullet">
