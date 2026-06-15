@@ -5,7 +5,7 @@ using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 
-namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
+namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Aim
 {
     public static class AimEvaluator
     {

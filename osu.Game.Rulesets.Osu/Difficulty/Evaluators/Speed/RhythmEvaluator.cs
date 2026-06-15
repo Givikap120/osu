@@ -3,7 +3,7 @@
 
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 
-namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
+namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
 {
     public static class RhythmEvaluator
     {
