@@ -10,13 +10,11 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Difficulty.Skills;
 using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Mods;
-using osu.Game.Rulesets.Scoring;
 using osu.Game.Rulesets.Taiko.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Taiko.Difficulty.Preprocessing.Colour;
 using osu.Game.Rulesets.Taiko.Difficulty.Preprocessing.Rhythm;
 using osu.Game.Rulesets.Taiko.Difficulty.Skills;
 using osu.Game.Rulesets.Taiko.Mods;
-using osu.Game.Rulesets.Taiko.Scoring;
 using osu.Game.Utils;
 
 namespace osu.Game.Rulesets.Taiko.Difficulty
@@ -24,7 +22,7 @@ namespace osu.Game.Rulesets.Taiko.Difficulty
     public class TaikoDifficultyCalculator : DifficultyCalculator
     {
         private const double difficulty_multiplier = 0.084375;
-        private const double rhythm_skill_multiplier = 0.750 * difficulty_multiplier;
+        private const double rhythm_skill_multiplier = 0.770 * difficulty_multiplier;
         private const double reading_skill_multiplier = 0.100 * difficulty_multiplier;
         private const double colour_skill_multiplier = 0.375 * difficulty_multiplier;
         private const double stamina_skill_multiplier = 0.445 * difficulty_multiplier;
@@ -44,15 +42,12 @@ namespace osu.Game.Rulesets.Taiko.Difficulty
 
         protected override Skill[] CreateSkills(IBeatmap beatmap, Mod[] mods)
         {
-            HitWindows hitWindows = new TaikoHitWindows();
-            hitWindows.SetDifficulty(beatmap.Difficulty.OverallDifficulty);
-
             isConvert = beatmap.BeatmapInfo.Ruleset.OnlineID == 0;
             isRelax = mods.Any(h => h is TaikoModRelax);
 
             return new Skill[]
             {
-                new Rhythm(mods, hitWindows.WindowFor(HitResult.Great) / clockRate),
+                new Rhythm(mods),
                 new Reading(mods),
                 new Colour(mods),
                 new Stamina(mods, false, isConvert),
