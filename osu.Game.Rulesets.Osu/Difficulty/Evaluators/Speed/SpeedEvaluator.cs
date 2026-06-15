@@ -6,7 +6,7 @@ using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 
-namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
+namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
 {
     public static class SpeedEvaluator
     {
