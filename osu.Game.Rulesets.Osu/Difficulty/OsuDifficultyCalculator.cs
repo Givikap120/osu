@@ -101,7 +101,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
-            int hitCirclesCount = beatmap.HitObjects.Count(h => h is HitCircle);
+            int hitCircleCount = beatmap.HitObjects.Count(h => h is HitCircle);
             int sliderCount = beatmap.HitObjects.Count(h => h is Slider);
             int spinnerCount = beatmap.HitObjects.Count(h => h is Spinner);
 
@@ -127,7 +127,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 AimTopWeightedSliderFactor = aimTopWeightedSliderFactor,
                 SpeedTopWeightedSliderFactor = speedTopWeightedSliderFactor,
                 MaxCombo = beatmap.GetMaxCombo(),
-                HitCircleCount = hitCirclesCount,
+                HitCircleCount = hitCircleCount,
                 SliderCount = sliderCount,
                 SpinnerCount = spinnerCount,
                 NestedScorePerObject = sliderNestedScorePerObject,
