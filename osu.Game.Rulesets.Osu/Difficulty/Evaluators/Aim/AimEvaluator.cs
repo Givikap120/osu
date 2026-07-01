@@ -110,7 +110,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Aim
                 // Reward for % distance slowed down compared to previous, paying attention to not award overlap
                 double nonOverlapVelocityBuff = Math.Abs(prevVelocity - currVelocity)
                                                 // do not award overlap
-                                                * Math.Pow(Math.Sin(Math.PI / 2 * Math.Min(1, Math.Min(osuCurrObj.LazyJumpDistance, osuLastObj.LazyJumpDistance) / 100)), 2);
+                                                * DiffUtils.Pow(Math.Sin(Math.PI / 2 * Math.Min(1, Math.Min(osuCurrObj.LazyJumpDistance, osuLastObj.LazyJumpDistance) / 100)), 2);
 
                 // Choose the largest bonus, multiplied by ratio.
                 velocityChangeBonus = Math.Max(overlapVelocityBuff, nonOverlapVelocityBuff) * distRatio;
