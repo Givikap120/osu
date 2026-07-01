@@ -5,10 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Mods;
 using osu.Game.Rulesets.Osu.Objects;
-using osu.Game.Rulesets.Scoring;
 using osuTK;
 
 namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
@@ -78,11 +78,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         /// </summary>
         public double? Angle { get; private set; }
 
-        /// <summary>
-        /// Retrieves the full hit window for a Great <see cref="HitResult"/>.
-        /// </summary>
-        public double HitWindowGreat { get; private set; }
-
         private readonly OsuHitObject? lastLastObject;
         private readonly OsuHitObject lastObject;
 
@@ -141,7 +136,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
             if (BaseObject is Slider currentSlider)
             {
                 computeSliderCursorPosition(currentSlider);
-                // Bonus for repeat sliders until a better per nested object strain system can be achieved.
                 TravelDistance = currentSlider.LazyTravelDistance;
                 TravelTime = Math.Max(currentSlider.LazyTravelTime / clockRate, min_delta_time);
             }
@@ -337,7 +331,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double LazyTravelTime => 0;
         public double JumpDistance => LazyJumpDistance;
         public double LastObjectEndDeltaTime => 0;
-        
-        public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
+        public double CalculateDoubleTapFeasibility(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
