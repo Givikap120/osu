@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Osu.Objects;
 using osuTK;
@@ -97,7 +98,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
         public double? Angle => null;
         public double JumpDistance => Distance;
         public double LastObjectEndDeltaTime => 0;
-
-        public double GetDoubletapness(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
+        public double CalculateDoubleTapFeasibility(OsuDifficultyHitObject osuDifficultyHitObject) => 0;
     }
 }
