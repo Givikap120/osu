@@ -20,7 +20,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Utils
                 return 0;
 
             // Use a weighted sum of all strains. Constants are arbitrary and give nice values
-            return sliderStrains.Sum(s => DifficultyCalculationUtils.Logistic(s / consistentTopStrain, 0.88, 10, 1.1));
+            return sliderStrains.Sum(s => DiffUtils.Logistic(s / consistentTopStrain, 0.88, 10, 1.1));
         }
     }
 }
