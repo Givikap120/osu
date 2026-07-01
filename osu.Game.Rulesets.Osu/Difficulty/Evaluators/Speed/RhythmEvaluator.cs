@@ -69,7 +69,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
                 // calculate how much current delta difference deserves a rhythm bonus
                 // this function is meant to reduce rhythm bonus for deltas that are multiples of each other (i.e 100 and 200)
                 double deltaDifferenceRatio = Math.Min(prevDelta, currDelta) / Math.Max(prevDelta, currDelta);
-                double currRatio = 1.0 + rhythm_ratio_multiplier * Math.Min(0.5, Math.Pow(Math.Sin(Math.PI / deltaDifferenceRatio), 2));
+                double currRatio = 1.0 + rhythm_ratio_multiplier * Math.Min(0.5, DiffUtils.Pow(Math.Sin(Math.PI / deltaDifferenceRatio), 2));
 
                 // reduce ratio bonus if delta difference is too big
                 double fraction = Math.Max(prevDelta / currDelta, currDelta / prevDelta);
@@ -121,8 +121,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
                                 islandCount.Count++;
 
                             // repeated island (ex: triplet -> triplet)
-                            double power = DifficultyCalculationUtils.Logistic(island.Delta, maxValue: 2.75, multiplier: 0.24, midpointOffset: 58.33);
-                            effectiveRatio *= Math.Min(3.0 / islandCount.Count, Math.Pow(1.0 / islandCount.Count, power));
+                            double power = DiffUtils.Logistic(island.Delta, maxValue: 2.75, multiplier: 0.24, midpointOffset: 58.33);
+                            effectiveRatio *= Math.Min(3.0 / islandCount.Count, DiffUtils.Pow(1.0 / islandCount.Count, power));
 
                             islandCounts[countIndex] = (islandCount.Island, islandCount.Count);
                         }
