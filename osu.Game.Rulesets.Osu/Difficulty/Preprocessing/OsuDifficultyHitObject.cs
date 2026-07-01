@@ -145,8 +145,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Preprocessing
                 double nextDeltaTime = Math.Max(1, osuNextObj.DeltaTime);
                 double deltaDifference = Math.Abs(nextDeltaTime - currDeltaTime);
                 double speedRatio = currDeltaTime / Math.Max(currDeltaTime, deltaDifference);
-                double windowRatio = Math.Pow(Math.Min(1, currDeltaTime / HitWindowGreat), 2);
-                return 1.0 - Math.Pow(speedRatio, 1 - windowRatio);
+                double windowRatio = DiffUtils.Pow(Math.Min(1, currDeltaTime / HitWindowGreat), 2);
+                return 1.0 - DiffUtils.Pow(speedRatio, 1 - windowRatio);
             }
 
             return 0;

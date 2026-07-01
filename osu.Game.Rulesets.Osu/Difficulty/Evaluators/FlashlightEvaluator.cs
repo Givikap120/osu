@@ -91,7 +91,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators
                 lastObj = currentObj;
             }
 
-            result = Math.Pow(smallDistNerf * result, 2.0);
+            result = DiffUtils.Pow(smallDistNerf * result, 2.0);
 
             // Additional bonus for Hidden due to there being no approach circles.
             if (hidden)
