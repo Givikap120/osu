@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -60,7 +61,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
                 }
             }
 
-            return 1000 * (1 + (speedBonus - 1) * 0.75) * angleBonus * (0.95 + speedBonus * Math.Pow(distance / single_spacing_threshold, 3.5)) / osuCurrent.StrainTime;
+            return 1000 * (1 + (speedBonus - 1) * 0.75) * angleBonus * (0.95 + speedBonus * DiffUtils.Pow(distance / single_spacing_threshold, 3.5)) / osuCurrent.StrainTime;
         }
     }
 }

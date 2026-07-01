@@ -3,6 +3,7 @@
 
 using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -41,7 +42,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Aim
 
                     double angleBonus = Math.Sqrt(
                         Math.Max(osuPrevious.JumpDistance - scale, 0)
-                        * Math.Pow(Math.Sin(osuCurrent.Angle.Value - angle_bonus_begin), 2)
+                        * DiffUtils.Pow(Math.Sin(osuCurrent.Angle.Value - angle_bonus_begin), 2)
                         * Math.Max(osuCurrent.JumpDistance - scale, 0));
                     result = 1.4 * applyDiminishingExp(Math.Max(0, angleBonus)) / Math.Max(timing_threshold, osuPrevious.StrainTime);
                 }
@@ -56,6 +57,6 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Aim
             );
         }
 
-        private static double applyDiminishingExp(double val) => Math.Pow(val, 0.99);
+        private static double applyDiminishingExp(double val) => DiffUtils.Pow(val, 0.99);
     }
 }
