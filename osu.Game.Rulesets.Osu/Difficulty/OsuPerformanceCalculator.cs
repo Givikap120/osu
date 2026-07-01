@@ -83,8 +83,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double greatHitWindow = (80 - 6 * difficulty.OverallDifficulty) / clockRate;
             double preempt = IBeatmapDifficultyInfo.DifficultyRange(difficulty.ApproachRate, 1800, 1200, 450) / clockRate;
 
-            overallDifficulty = (80 - greatHitWindow) / 6;
             approachRate = preempt > 1200 ? (1800 - preempt) / 120 : (1200 - preempt) / 150 + 5;
+            overallDifficulty = (80 - greatHitWindow) / 6;
             drainRate = difficulty.DrainRate;
 
             // Return 0 if Relax or Autopilot is used and the setting of ignoring them is enabled
@@ -132,10 +132,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double speedValue = computeSpeedValue();
             double accuracyValue = computeAccuracyValue();
             double totalValue =
-                Math.Pow(
-                    Math.Pow(aimValue, 1.1) +
-                    Math.Pow(speedValue, 1.1) +
-                    Math.Pow(accuracyValue, 1.1), 1.0 / 1.1
+                DiffUtils.Pow(
+                    DiffUtils.Pow(aimValue, 1.1) +
+                    DiffUtils.Pow(speedValue, 1.1) +
+                    DiffUtils.Pow(accuracyValue, 1.1), 1.0 / 1.1
                 ) * multiplier;
 
             return new OsuPerformanceAttributes
@@ -150,7 +150,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
         private double computeAimValue()
         {
-            double aimValue = Math.Pow(5.0f * Math.Max(1.0f, attributes.AimDifficulty / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
+            double aimValue = DiffUtils.Pow(5.0f * Math.Max(1.0f, attributes.AimDifficulty / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
 
             // Longer maps are worth more
             double lengthBonus = 0.95f + 0.4f * Math.Min(1.0f, totalHits / 2000.0f) +
@@ -164,12 +164,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 if (enableCSR)
                     aimValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.AimDifficultStrainCount, attributes.AimTopWeightedSliderFactor, attributes);
                 else
-                    aimValue *= Math.Pow(0.97f, effectiveMissCount);
+                    aimValue *= DiffUtils.Pow(0.97f, effectiveMissCount);
             }
 
             // Combo scaling
             if (!enableCSR && attributes.MaxCombo > 0)
-                aimValue *= Math.Min(Math.Pow(scoreMaxCombo, 0.8f) / Math.Pow(attributes.MaxCombo, 0.8f), 1.0f);
+                aimValue *= Math.Min(DiffUtils.Pow(scoreMaxCombo, 0.8f) / DiffUtils.Pow(attributes.MaxCombo, 0.8f), 1.0f);
 
             double approachRateFactor = 1.0f;
             if (approachRate > 10f)
@@ -191,7 +191,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             if (mods.Any(h => h is OsuModFlashlight))
             {
                 // Add combo scaling for FL if CSR is enabled
-                double comboScale = attributes.MaxCombo > 0 ? Math.Min(Math.Pow(scoreMaxCombo, 0.8) / Math.Pow(attributes.MaxCombo, 0.8), 1.0) : 0;
+                double comboScale = attributes.MaxCombo > 0 ? Math.Min(DiffUtils.Pow(scoreMaxCombo, 0.8) / DiffUtils.Pow(attributes.MaxCombo, 0.8), 1.0) : 0;
                 double csrAdjust = enableCSR ? comboScale : 1.0;
 
                 // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
@@ -201,14 +201,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             // Scale the aim value with accuracy _slightly_
             aimValue *= 0.5f + accuracy / 2.0f;
             // It is important to also consider accuracy difficulty when doing that
-            aimValue *= 0.98f + Math.Pow(overallDifficulty, 2) / 2500;
+            aimValue *= 0.98f + DiffUtils.Pow(overallDifficulty, 2) / 2500;
 
             return aimValue;
         }
 
         private double computeSpeedValue()
         {
-            double speedValue = Math.Pow(5.0f * Math.Max(1.0f, attributes.SpeedDifficulty / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
+            double speedValue = DiffUtils.Pow(5.0f * Math.Max(1.0f, attributes.SpeedDifficulty / 0.0675f) - 4.0f, 3.0f) / 100000.0f;
 
             // Longer maps are worth more
             speedValue *= 0.95f + 0.4f * Math.Min(1.0f, totalHits / 2000.0f) +
@@ -220,17 +220,17 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 if (enableCSR)
                     speedValue *= calculateCSRMissPenalty(effectiveMissCount, attributes.SpeedDifficultStrainCount, attributes.AimTopWeightedSliderFactor, attributes);
                 else
-                    speedValue *= Math.Pow(0.97f, effectiveMissCount);
+                    speedValue *= DiffUtils.Pow(0.97f, effectiveMissCount);
             }
 
             // Combo scaling
             if (!enableCSR && attributes.MaxCombo > 0)
-                speedValue *= Math.Min(Math.Pow(scoreMaxCombo, 0.8f) / Math.Pow(attributes.MaxCombo, 0.8f), 1.0f);
+                speedValue *= Math.Min(DiffUtils.Pow(scoreMaxCombo, 0.8f) / DiffUtils.Pow(attributes.MaxCombo, 0.8f), 1.0f);
 
             // Scale the speed value with accuracy _slightly_
             speedValue *= 0.5f + accuracy / 2.0f;
             // It is important to also consider accuracy difficulty when doing that
-            speedValue *= 0.98f + Math.Pow(overallDifficulty, 2) / 2500;
+            speedValue *= 0.98f + DiffUtils.Pow(overallDifficulty, 2) / 2500;
 
             return speedValue;
         }
@@ -254,10 +254,10 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             // Lots of arbitrary values from testing.
             // Considering to use derivation from perfect accuracy in a probabilistic manner - assume normal distribution
-            double accuracyValue = Math.Pow(1.52163f, overallDifficulty) * Math.Pow(betterAccuracyPercentage, 24) * 2.83f;
+            double accuracyValue = DiffUtils.Pow(1.52163f, overallDifficulty) * DiffUtils.Pow(betterAccuracyPercentage, 24) * 2.83f;
 
             // Bonus for many hitcircles - it's harder to keep good accuracy up for longer
-            accuracyValue *= Math.Min(1.15f, Math.Pow(amountHitObjectsWithAccuracy / 1000.0f, 0.3f));
+            accuracyValue *= Math.Min(1.15f, DiffUtils.Pow(amountHitObjectsWithAccuracy / 1000.0f, 0.3f));
 
             if (mods.Any(m => m is OsuModHidden))
                 accuracyValue *= 1.02f;
@@ -323,9 +323,9 @@ namespace osu.Game.Rulesets.Osu.Difficulty
             double okAdjustment = ((countOk - estimatedSliderBreaks) + 0.5) / countOk;
 
             // There is a low probability of extra slider breaks on effective miss counts close to 1, as score based calculations are good at indicating if only a single break occurred.
-            estimatedSliderBreaks *= DifficultyCalculationUtils.Smoothstep(effectiveMissCount, 1, 2);
+            estimatedSliderBreaks *= DiffUtils.Smoothstep(effectiveMissCount, 1, 2);
 
-            return estimatedSliderBreaks * okAdjustment * DifficultyCalculationUtils.Logistic(missedComboPercent, 0.33, 15);
+            return estimatedSliderBreaks * okAdjustment * DiffUtils.Logistic(missedComboPercent, 0.33, 15);
         }
 
         private double calculateCSRMissPenalty(double missCount, double difficultStrainCount, double topWeightedSliderFactor, OsuDifficultyAttributes attributes)
@@ -334,7 +334,7 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             double relevantMissCount = Math.Min(effectiveMissCount + estimatedSliderBreaks, totalImperfectHits + countSliderTickMiss);
 
-            return 0.96 / ((relevantMissCount / (4 * Math.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
+            return 0.96 / ((relevantMissCount / (4 * DiffUtils.Pow(Math.Log(difficultStrainCount), 0.94))) + 1);
         }
 
         private int totalHits => countGreat + countOk + countMeh + countMiss;
