@@ -3,6 +3,7 @@
 
 using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
@@ -42,8 +43,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
                 double nextDeltaTime = Math.Max(1, osuNextObj.DeltaTime);
                 double deltaDifference = Math.Abs(nextDeltaTime - currDeltaTime);
                 double speedRatio = currDeltaTime / Math.Max(currDeltaTime, deltaDifference);
-                double windowRatio = Math.Pow(Math.Min(1, currDeltaTime / osuCurrObj.HitWindowGreat), 2);
-                doubletapness = Math.Pow(speedRatio, 1 - windowRatio);
+                double windowRatio = DiffUtils.Pow(Math.Min(1, currDeltaTime / osuCurrObj.HitWindowGreat), 2);
+                doubletapness = DiffUtils.Pow(speedRatio, 1 - windowRatio);
             }
 
             // Cap deltatime to the OD 300 hitwindow.
@@ -54,12 +55,12 @@ namespace osu.Game.Rulesets.Osu.Difficulty.Evaluators.Speed
             double speedBonus = 1.0;
 
             if (strainTime < min_speed_bonus)
-                speedBonus = 1 + 0.75 * Math.Pow((min_speed_bonus - strainTime) / speed_balancing_factor, 2);
+                speedBonus = 1 + 0.75 * DiffUtils.Pow((min_speed_bonus - strainTime) / speed_balancing_factor, 2);
 
             double travelDistance = osuPrevObj?.TravelDistance ?? 0;
             double distance = Math.Min(single_spacing_threshold, travelDistance + osuCurrObj.MinimumJumpDistance);
 
-            return 1000 * (speedBonus + speedBonus * Math.Pow(distance / single_spacing_threshold, 3.5)) * doubletapness / strainTime;
+            return 1000 * (speedBonus + speedBonus * DiffUtils.Pow(distance / single_spacing_threshold, 3.5)) * doubletapness / strainTime;
         }
     }
 }
