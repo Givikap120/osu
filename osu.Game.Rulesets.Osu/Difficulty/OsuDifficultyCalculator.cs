@@ -71,8 +71,8 @@ namespace osu.Game.Rulesets.Osu.Difficulty
 
             if (mods.Any(m => m is OsuModTouchDevice))
             {
-                aimRating = Math.Pow(aimRating, 0.8);
-                flashlightRating = Math.Pow(flashlightRating, 0.8);
+                aimRating = DiffUtils.Pow(aimRating, 0.8);
+                flashlightRating = DiffUtils.Pow(flashlightRating, 0.8);
             }
 
             if (mods.Any(h => h is OsuModRelax))
@@ -90,14 +90,14 @@ namespace osu.Game.Rulesets.Osu.Difficulty
                 baseFlashlightPerformance = Flashlight.DifficultyToPerformance(flashlightRating);
 
             double basePerformance =
-                Math.Pow(
-                    Math.Pow(baseAimPerformance, 1.1) +
-                    Math.Pow(baseSpeedPerformance, 1.1) +
-                    Math.Pow(baseFlashlightPerformance, 1.1), 1.0 / 1.1
+                DiffUtils.Pow(
+                    DiffUtils.Pow(baseAimPerformance, 1.1) +
+                    DiffUtils.Pow(baseSpeedPerformance, 1.1) +
+                    DiffUtils.Pow(baseFlashlightPerformance, 1.1), 1.0 / 1.1
                 );
 
             double starRating = basePerformance > 0.00001
-                ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / Math.Pow(2, 1 / 1.1) * basePerformance) + 4)
+                ? Math.Cbrt(OsuPerformanceCalculator.PERFORMANCE_BASE_MULTIPLIER) * 0.027 * (Math.Cbrt(100000 / DiffUtils.Pow(2, 1 / 1.1) * basePerformance) + 4)
                 : 0;
 
             int hitCircleCount = beatmap.HitObjects.Count(h => h is HitCircle);
