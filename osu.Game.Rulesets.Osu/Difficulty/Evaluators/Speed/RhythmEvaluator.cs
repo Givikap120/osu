@@ -3,6 +3,7 @@
 
 using System;
 using osu.Game.Rulesets.Difficulty.Preprocessing;
+using osu.Game.Rulesets.Difficulty.Utils;
 using osu.Game.Rulesets.Osu.Difficulty.Preprocessing;
 using osu.Game.Rulesets.Osu.Objects;
 
